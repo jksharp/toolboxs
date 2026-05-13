@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>批销直转 · 新华书店工具箱</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; font-size: 13px; }
+        .module { display: flex; flex-direction: column; height: 100vh; background: white; }
+        .module-header { background: linear-gradient(135deg, #1e3c72, #2a4b7a); padding: 8px 20px; color: white; flex-shrink: 0; }
+        .module-header h2 { font-size: 1.1rem; font-weight: 500; }
+        .module-header p { font-size: 0.7rem; opacity: 0.85; margin-top: 2px; }
+        .toolbar { background: #fefefe; padding: 6px 16px; border-bottom: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex-shrink: 0; }
+        button { border: none; background: #eef2f7; padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: 0.1s; }
+        button.primary { background: #2b4c7c; color: white; }
+        button.success { background: #e3f7ec; color: #2b6e3c; }
+        button.danger { background: #fee2e2; color: #b91c1c; }
+        input, select { padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 0.75rem; font-family: inherit; }
+        .table-wrap { flex: 2; overflow: auto; padding: 0 12px 6px 12px; min-height: 0; }
+        .transfer-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .transfer-table th, .transfer-table td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: center; vertical-align: middle; white-space: nowrap; }
+        .transfer-table th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; }
+        .mapping-panel { background: #f9fafb; padding: 8px 16px; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; flex-shrink: 0; }
+        .mapping-item { display: flex; flex-direction: column; gap: 3px; min-width: 100px; }
+        .mapping-item label { font-size: 0.65rem; font-weight: 600; color: #2c3e66; }
+        .footer-note { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; background: #fefefe; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
+        .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; font-size: 1rem; z-index: 2000; pointer-events: none; border-left: 4px solid #f5a623; font-weight: 500; white-space: nowrap; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="module">
+    <div class="module-header">
+        <h2>🔄 批销直转</h2>
+        <p>导入供货商Excel → 列映射 → 按包号分组导出标准格式（输出 .xls 文件，包号可选）</p>
+    </div>
+    <div class="toolbar">
+        <button id="importSourceBtn" class="primary">📂 导入供货商Excel</button>
+        <button id="clearTransferBtn" class="danger">🗑 清空数据</button>
+        <div style="margin-left:auto; display:flex; gap:6px; align-items:center;">
+            <span>客户名称：</span>
+            <input type="text" id="customerName" placeholder="例如：新华书店" style="width:180px;">
+        </div>
+        <button id="generateSplitBtn" class="success">📦 按包号生成ZIP文件</button>
+    </div>
+    <div class="table-wrap">
+        <table class="transfer-table">
+            <thead id="sourceThead"><tr><th>暂无数据</th></tr></thead>
+            <tbody id="sourceTbody"><tr><td colspan="20">请先导入Excel文件</td></tr></tbody>
+        </table>
+    </div>
+    <div class="mapping-panel">
+        <div class="mapping-item"><label>📦 包号列（可选）</label><select id="mapPackage"></select></div>
+        <div class="mapping-item"><label>📖 书号列（必选）</label><select id="mapIsbn"></select></div>
+        <div class="mapping-item"><label>📚 书名列（必选）</label><select id="mapTitle"></select></div>
+        <div class="mapping-item"><label>💰 定价列（必选）</label><select id="mapPrice"></select></div>
+        <div class="mapping-item"><label>🔢 数量列（必选）</label><select id="mapQty"></select></div>
+    </div>
+    <div class="footer-note">💡 自动智能匹配列名，可手动调整。若不选择包号列，则所有数据合并为一个包（包号=1）。导出文件为 .xls 格式。</div>
+</div>
+
+<script>
+(function(){
+    const TRANSFER_CUSTOMER_KEY = 'TransferCustomerName';
+    let sourceHeaders = [], sourceData = [], currentMapping = { isbn: '', title: '', price: '', qty: '', packageNo: '' };
+    let toastTimer = null;
+
+    function showTip(message, isError = true, duration = 2000) {
+        let tip = document.getElementById('globalTip');
+        if(!tip){ tip = document.createElement('div'); tip.id = 'globalTip'; tip.className = 'toast-tip'; document.body.appendChild(tip); }
+        tip.style.opacity = '1';
+        tip.innerText = message;
+        if(toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { tip.style.opacity = '0'; }, duration);
+    }
+    function escapeHtml(str){ return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    function escapeAttr(str){ return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    function autoMapColumn(headers) {
+        const map = { isbn: '', title: '', price: '', qty: '', packageNo: '' };
+        const lowerHeaders = headers.map(h=>h.toLowerCase());
+        const isbnKw = ['isbn','isbn号','书号','编号'];
+        const titleKw = ['书名','名称','标题'];
+        const priceKw = ['定价','价格','单价'];
+        const qtyKw = ['数量','订数','册数','本数'];
+        const pkgKw = ['包号','批次','件号'];
+
+        for(let kw of isbnKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.isbn=headers[idx]; break; } }
+        for(let kw of titleKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.title=headers[idx]; break; } }
+        for(let kw of priceKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.price=headers[idx]; break; } }
+        for(let kw of qtyKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.qty=headers[idx]; break; } }
+        for(let kw of pkgKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.packageNo=headers[idx]; break; } }
+        return map;
+    }
+
+    function renderSourceTable() {
+        const thead = document.getElementById('sourceThead');
+        const tbody = document.getElementById('sourceTbody');
+        if(!thead || !tbody) return;
+        if(!sourceHeaders.length || !sourceData.length){
+            thead.innerHTML = '<tr><th>暂无数据</th></tr>';
+            tbody.innerHTML = '<tr><td colspan="20">请先导入Excel文件</td></tr>';
+            return;
+        }
+        thead.innerHTML = '<tr>' + sourceHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
+        let html = '';
+        for(let i = 0; i < Math.min(sourceData.length, 200); i++) {
+            html += '<tr>';
+            for(let h of sourceHeaders) {
+                let val = sourceData[i][h] !== undefined ? sourceData[i][h] : '';
+                html += `<td style="text-align:center">${escapeHtml(String(val))}</td>`;
+            }
+            html += '</tr>';
+        }
+        if(sourceData.length > 200) html += `<tr><td colspan="${sourceHeaders.length}">... 仅显示前200行，共${sourceData.length}行</td></tr>`;
+        tbody.innerHTML = html;
+    }
+
+    function updateMappingSelects() {
+        const selects = ['mapIsbn','mapTitle','mapPrice','mapQty','mapPackage'];
+        for(let id of selects){
+            const sel = document.getElementById(id);
+            if(!sel) continue;
+            sel.innerHTML = '<option value="">-- 请选择列 --</option>' + sourceHeaders.map(h => `<option value="${escapeAttr(h)}">${escapeHtml(h)}</option>`).join('');
+        }
+        const auto = autoMapColumn(sourceHeaders);
+        if(auto.isbn) document.getElementById('mapIsbn').value = auto.isbn;
+        if(auto.title) document.getElementById('mapTitle').value = auto.title;
+        if(auto.price) document.getElementById('mapPrice').value = auto.price;
+        if(auto.qty) document.getElementById('mapQty').value = auto.qty;
+        if(auto.packageNo) document.getElementById('mapPackage').value = auto.packageNo;
+
+        currentMapping = {
+            isbn: document.getElementById('mapIsbn').value,
+            title: document.getElementById('mapTitle').value,
+            price: document.getElementById('mapPrice').value,
+            qty: document.getElementById('mapQty').value,
+            packageNo: document.getElementById('mapPackage').value
+        };
+    }
+
+    function handleMappingChange(){
+        currentMapping = {
+            isbn: document.getElementById('mapIsbn').value,
+            title: document.getElementById('mapTitle').value,
+            price: document.getElementById('mapPrice').value,
+            qty: document.getElementById('mapQty').value,
+            packageNo: document.getElementById('mapPackage').value
+        };
+    }
+
+    function importSourceExcel(){
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.xlsx, .xls, .csv';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    if(!json || json.length < 2) throw new Error("文件至少需要表头+数据行");
+
+                    let rawHeaders = json[0].map(cell => (cell === undefined || cell === null) ? "" : String(cell).trim());
+                    const validIndices = [];
+                    const finalHeaders = [];
+                    for(let i = 0; i < rawHeaders.length; i++) {
+                        if(rawHeaders[i] !== "") {
+                            validIndices.push(i);
+                            finalHeaders.push(rawHeaders[i]);
+                        }
+                    }
+                    if(finalHeaders.length === 0) throw new Error("表头为空，请确保第一行包含列名");
+
+                    const dataRows = [];
+                    for(let i = 1; i < json.length; i++) {
+                        const row = json[i];
+                        let hasValue = false;
+                        for(let idx of validIndices) {
+                            if(row[idx] !== undefined && row[idx] !== null && String(row[idx]).trim() !== "") {
+                                hasValue = true;
+                                break;
+                            }
+                        }
+                        if(!hasValue) continue;
+                        const newRow = {};
+                        for(let j = 0; j < validIndices.length; j++) {
+                            const colIdx = validIndices[j];
+                            let val = (colIdx < row.length) ? row[colIdx] : "";
+                            newRow[finalHeaders[j]] = (val !== undefined && val !== null) ? String(val) : "";
+                        }
+                        dataRows.push(newRow);
+                    }
+                    if(dataRows.length === 0) throw new Error("没有有效数据行");
+
+                    sourceHeaders = finalHeaders;
+                    sourceData = dataRows;
+                    renderSourceTable();
+                    updateMappingSelects();
+
+                    let fileName = file.name.replace(/\.(xlsx|xls|csv)$/i, '');
+                    const customerInput = document.getElementById('customerName');
+                    if(customerInput && fileName) {
+                        customerInput.value = fileName;
+                        localStorage.setItem(TRANSFER_CUSTOMER_KEY, fileName);
+                    } else if(customerInput) {
+                        customerInput.value = localStorage.getItem(TRANSFER_CUSTOMER_KEY) || '';
+                    }
+                    showTip(`导入成功: ${sourceData.length} 行, ${sourceHeaders.length} 列`, false, 3000);
+                } catch(err) {
+                    alert("导入失败: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+        input.click();
+    }
+
+    function clearTransferData() {
+        if(sourceData.length === 0 && sourceHeaders.length === 0) {
+            showTip("当前没有数据可清空", false, 1500);
+            return;
+        }
+        if(confirm("确定清空当前导入的批销数据吗？")) {
+            sourceData = [];
+            sourceHeaders = [];
+            renderSourceTable();
+            updateMappingSelects();
+            showTip("已清空所有批销数据", false, 1500);
+        }
+    }
+
+    function generateSplitByPackage(){
+        if(!sourceData.length || !sourceHeaders.length){
+            alert("请先导入供货商Excel数据");
+            return;
+        }
+        const isbnCol = currentMapping.isbn, titleCol = currentMapping.title, priceCol = currentMapping.price, qtyCol = currentMapping.qty, pkgCol = currentMapping.packageNo;
+        if(!isbnCol || !titleCol || !priceCol || !qtyCol){
+            alert("请完整映射书号、书名、定价、数量四列（包号可选）");
+            return;
+        }
+        const customerName = document.getElementById('customerName').value.trim();
+        if(!customerName){
+            alert("请输入客户名称");
+            return;
+        }
+        localStorage.setItem(TRANSFER_CUSTOMER_KEY, customerName);
+
+        const groups = new Map();
+        const useDefaultPackage = (!pkgCol || pkgCol === "");
+        if(useDefaultPackage) showTip("未映射包号列，所有数据将归入包号 1", false, 2000);
+
+        for(let row of sourceData){
+            let isbn = row[isbnCol] || "", title = row[titleCol] || "";
+            let priceRaw = row[priceCol] || "", qtyRaw = row[qtyCol] || "";
+            let price = parseFloat(priceRaw);
+            if(isNaN(price)) price = 0;
+            let qty = parseInt(qtyRaw);
+            if(isNaN(qty)) qty = 0;
+            if(!isbn || !title || price <= 0 || qty <= 0) continue;
+
+            let pkg = "1";
+            if(!useDefaultPackage) {
+                let rawPkg = row[pkgCol] || "";
+                pkg = (rawPkg && rawPkg.trim() !== "") ? rawPkg.trim() : "1";
+            }
+            if(!groups.has(pkg)) groups.set(pkg, []);
+            groups.get(pkg).push({ isbn, title, price, qty });
+        }
+
+        if(groups.size === 0){
+            alert("没有有效数据可导出（请检查映射列或数据是否完整）");
+            return;
+        }
+
+        const dateStr = new Date().toISOString().slice(0,19).replace(/:/g,'-');
+        const zip = new JSZip();
+        let fileCount = 0;
+        for(let [pkg, items] of groups.entries()){
+            const sheetData = [["品种","书号","书名","定价","数量"]];
+            for(let item of items) sheetData.push(["", item.isbn, item.title, item.price, item.qty]);
+            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "批销转换结果");
+            const excelData = XLSX.write(wb, { bookType: 'xls', type: 'array' });
+            zip.file(`${customerName}_${pkg}_${dateStr}.xls`, excelData);
+            fileCount++;
+        }
+        zip.generateAsync({ type: "blob" }).then(function(content) {
+            saveAs(content, `${customerName}_批销打包_${dateStr}.zip`);
+            showTip(`成功生成 ${fileCount} 个文件，已打包为ZIP下载`, false, 3000);
+        }).catch(function(err) {
+            alert("打包失败：" + err);
+        });
+    }
+
+    function init(){
+        const customerInput = document.getElementById('customerName');
+        customerInput.value = localStorage.getItem(TRANSFER_CUSTOMER_KEY) || '新华书店';
+        customerInput.onchange = () => localStorage.setItem(TRANSFER_CUSTOMER_KEY, customerInput.value);
+
+        document.getElementById('importSourceBtn').onclick = importSourceExcel;
+        document.getElementById('clearTransferBtn').onclick = clearTransferData;
+        document.getElementById('generateSplitBtn').onclick = generateSplitByPackage;
+        document.getElementById('mapIsbn').onchange = handleMappingChange;
+        document.getElementById('mapTitle').onchange = handleMappingChange;
+        document.getElementById('mapPrice').onchange = handleMappingChange;
+        document.getElementById('mapQty').onchange = handleMappingChange;
+        document.getElementById('mapPackage').onchange = handleMappingChange;
+
+        renderSourceTable();
+        updateMappingSelects();
+    }
+
+    window.handleMappingChange = handleMappingChange;
+    init();
+})();
+</script>
+</body>
+</html>

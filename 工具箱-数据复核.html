@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>数据复核 · 新华书店工具箱</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; font-size: 13px; }
+        .module { display: flex; flex-direction: column; height: 100vh; background: white; }
+        .module-header { background: linear-gradient(135deg, #1e3c72, #2a4b7a); padding: 8px 20px; color: white; flex-shrink: 0; }
+        .module-header h2 { font-size: 1.1rem; font-weight: 500; }
+        .module-header p { font-size: 0.7rem; opacity: 0.85; margin-top: 2px; }
+        .toolbar { background: #fefefe; padding: 6px 16px; border-bottom: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex-shrink: 0; }
+        button { border: none; background: #eef2f7; padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: 0.1s; }
+        button.primary { background: #2b4c7c; color: white; }
+        button.success { background: #e3f7ec; color: #2b6e3c; }
+        button.danger { background: #fee2e2; color: #b91c1c; }
+        .table-wrap { flex: 1; overflow: auto; padding: 0 12px 6px 12px; }
+        .review-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .review-table th, .review-table td { padding: 6px 10px; border-bottom: 1px solid #ecf3f9; white-space: normal; word-break: break-word; max-width: 250px; }
+        .review-table th { background: #f1f5f9; position: sticky; top: 0; }
+        .result-panel { background: white; border-top: 1px solid #e2e8f0; flex-shrink: 0; max-height: 200px; overflow-y: auto; }
+        .result-header { background: #f1f5f9; padding: 5px 12px; font-weight: bold; position: sticky; top: 0; }
+        .result-item { padding: 4px 12px; cursor: pointer; border-bottom: 1px solid #ecf3f9; }
+        .result-item.active { background: #fff3bf; font-weight: bold; }
+        .highlight-row { background-color: #fff3bf !important; }
+        .search-group { display: flex; gap: 6px; align-items: center; background: #f1f5f9; padding: 2px 16px; border-radius: 32px; margin-left: auto; }
+        .search-group input { width: 260px; }
+        .footer-note { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; background: #fefefe; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
+        .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; font-size: 1rem; z-index: 2000; pointer-events: none; border-left: 4px solid #f5a623; font-weight: 500; white-space: nowrap; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="module">
+    <div class="module-header">
+        <h2>✅ 数据复核</h2>
+        <p>导入Excel | 自动识别ISBN列 | 按回车查找 | 双击编辑</p>
+    </div>
+    <div class="toolbar">
+        <button id="importExcelBtn" class="primary">📂 导入Excel</button>
+        <button id="exportReviewBtn" class="success">📎 导出Excel</button>
+        <button id="clearReviewBtn" class="danger">🗑 清空数据</button>
+        <div class="search-group">
+            <span>🔍 ISBN/书号</span>
+            <input type="text" id="searchKeywordInput" placeholder="输入ISBN或书号" style="width:260px">
+            <button id="searchBtn">查找</button>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table class="review-table">
+            <thead id="reviewThead"></thead>
+            <tbody id="reviewTbody"></tbody>
+        </table>
+    </div>
+    <div class="result-panel" id="resultPanel">
+        <div class="result-header">🔍 查找结果 (按ISBN列)</div>
+        <div style="color:#8ba0bc; padding:4px 8px;">输入ISBN后按回车或点击查找</div>
+    </div>
+    <div class="footer-note">💡 双击单元格编辑 | 点击表头三角排序 | 查找基于ISBN列 | 导入时自动过滤空列和空行 | 无删除按钮，仅供复核</div>
+</div>
+
+<script>
+(function(){
+    const REVIEW_KEY = 'ReviewData_Final';
+    let reviewCols = [], reviewRows = [], currentSort = { col: null, dir: null };
+    let lastSearchKeyword = '', searchResults = [], currentHighlightIdx = -1, isbnColumn = null;
+    let toastTimer = null;
+
+    function showTip(message, isError = true, duration = 2000) {
+        let tip = document.getElementById('globalTip');
+        if(!tip){ tip = document.createElement('div'); tip.id = 'globalTip'; tip.className = 'toast-tip'; document.body.appendChild(tip); }
+        tip.style.opacity = '1';
+        tip.innerText = message;
+        if(toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { tip.style.opacity = '0'; }, duration);
+    }
+    function escapeHtml(str){ return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    function escapeAttr(str){ return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    function autoDetectIsbnColumn(cols) {
+        const keys=['isbn','isbn号','书号','bookid'];
+        for(let k of keys){
+            let f=cols.find(c=>c.toLowerCase().includes(k));
+            if(f) return f;
+        }
+        return cols[0];
+    }
+
+    function renderReviewTable(){
+        const thead = document.getElementById('reviewThead'), tbody = document.getElementById('reviewTbody');
+        if(!thead || !tbody) return;
+        if(!reviewCols.length){
+            thead.innerHTML = '</table><th>暂无数据，请导入Excel</th><\/tr>';
+            tbody.innerHTML = '';
+            return;
+        }
+        let headerHtml = '<tr>';
+        reviewCols.forEach(col => {
+            let sortClass = (currentSort.col===col) ? (currentSort.dir==='asc'?' ▲':' ▼') : ' ↕️';
+            let isbnBadge = (col===isbnColumn) ? ' <span style="background:#2b4c7c20; padding:2px 6px; border-radius:12px;">ISBN</span>' : '';
+            headerHtml += `<th>${escapeHtml(col)}${isbnBadge}<span class="sort-btn" data-col="${escapeAttr(col)}">${sortClass}</span><\/th>`;
+        });
+        headerHtml += '<\/tr>';
+        thead.innerHTML = headerHtml;
+
+        document.querySelectorAll('#reviewThead .sort-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const colName = btn.getAttribute('data-col');
+                let newDir = 'asc';
+                if(currentSort.col === colName && currentSort.dir === 'asc') newDir = 'desc';
+                sortReview(colName, newDir);
+            };
+        });
+
+        let bodyHtml = '';
+        for(let idx=0; idx<reviewRows.length; idx++){
+            const row = reviewRows[idx];
+            bodyHtml += '<tr data-row-idx="'+idx+'">';
+            for(let ci=0; ci<reviewCols.length; ci++){
+                const col = reviewCols[ci];
+                const val = row[col] !== undefined ? row[col] : '';
+                bodyHtml += `<td ondblclick="window.editCell(${idx}, '${escapeAttr(col)}')">${escapeHtml(val)}<\/td>`;
+            }
+            bodyHtml += '<\/tr>';
+        }
+        tbody.innerHTML = bodyHtml;
+        if(lastSearchKeyword) applyHighlight();
+    }
+
+    function applyHighlight(){
+        const tbody = document.getElementById('reviewTbody');
+        if(!tbody) return;
+        for(let i=0;i<tbody.rows.length;i++){
+            const row = tbody.rows[i];
+            const rowIdx = parseInt(row.getAttribute('data-row-idx'));
+            if(searchResults.includes(rowIdx)) row.classList.add('highlight-row');
+            else row.classList.remove('highlight-row');
+        }
+        if(currentHighlightIdx !== -1 && tbody.rows[currentHighlightIdx]) tbody.rows[currentHighlightIdx].classList.add('highlight-row');
+    }
+
+    function sortReview(colName, dir){
+        const multiplier = dir === 'asc' ? 1 : -1;
+        reviewRows.sort((a,b) => {
+            let av = String(a[colName]||''), bv = String(b[colName]||'');
+            let aNum = parseFloat(av), bNum = parseFloat(bv);
+            if(!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * multiplier;
+            return av.localeCompare(bv,'zh') * multiplier;
+        });
+        currentSort = { col: colName, dir: dir };
+        lastSearchKeyword = '';
+        searchResults = [];
+        currentHighlightIdx = -1;
+        const searchInput = document.getElementById('searchKeywordInput');
+        if(searchInput) searchInput.value = '';
+        renderReviewTable();
+        updateResultPanel();
+    }
+
+    function searchByIsbn(keyword){
+        const searchInputDom = document.getElementById('searchKeywordInput');
+        if(!keyword || !keyword.trim()){
+            const tbody = document.getElementById('reviewTbody');
+            if(tbody){ for(let i=0;i<tbody.rows.length;i++) tbody.rows[i].classList.remove('highlight-row'); }
+            searchResults = [];
+            currentHighlightIdx = -1;
+            lastSearchKeyword = '';
+            updateResultPanel();
+            if(searchInputDom){ searchInputDom.focus(); searchInputDom.select(); }
+            return;
+        }
+        const lowerKw = keyword.trim().toLowerCase();
+        const results = [];
+        if(!isbnColumn || !reviewCols.includes(isbnColumn)){
+            showTip('未识别到 ISBN/书号列，请检查表头');
+            return;
+        }
+        for(let i=0;i<reviewRows.length;i++){
+            let val = reviewRows[i][isbnColumn];
+            if(val && String(val).toLowerCase().includes(lowerKw)) results.push(i);
+        }
+        searchResults = results;
+        lastSearchKeyword = lowerKw;
+        if(results.length === 0){
+            showTip('❌ 未找到包含「'+keyword+'」的记录');
+            currentHighlightIdx = -1;
+            const tbody = document.getElementById('reviewTbody');
+            if(tbody){ for(let i=0;i<tbody.rows.length;i++) tbody.rows[i].classList.remove('highlight-row'); }
+            updateResultPanel();
+            if(searchInputDom){ searchInputDom.focus(); searchInputDom.select(); }
+            return;
+        }
+        currentHighlightIdx = results[0];
+        applyHighlight();
+        const tbody = document.getElementById('reviewTbody');
+        if(tbody && tbody.rows[currentHighlightIdx]) tbody.rows[currentHighlightIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        updateResultPanel();
+        if(searchInputDom){ searchInputDom.focus(); searchInputDom.select(); }
+    }
+
+    function jumpToRow(rowIdx){
+        if(rowIdx === undefined || rowIdx<0 || rowIdx>=reviewRows.length) return;
+        currentHighlightIdx = rowIdx;
+        applyHighlight();
+        const tbody = document.getElementById('reviewTbody');
+        if(tbody && tbody.rows[rowIdx]) tbody.rows[rowIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        updateResultPanel();
+    }
+
+    function updateResultPanel(){
+        const panel = document.getElementById('resultPanel');
+        if(!panel) return;
+        if(!lastSearchKeyword || searchResults.length===0){
+            panel.innerHTML = '<div class="result-header">🔍 查找结果 (按ISBN列)</div><div style="color:#8ba0bc; padding:4px 8px;">输入ISBN后按回车或点击查找</div>';
+            return;
+        }
+        let html = `<div class="result-header">🔍 找到 ${searchResults.length} 条记录 (点击定位, 共${reviewRows.length}行)</div>`;
+        for(let i=0;i<Math.min(searchResults.length,50);i++){
+            const rowIdx = searchResults[i];
+            let preview = `第${rowIdx+1}行: `;
+            if(isbnColumn && reviewRows[rowIdx][isbnColumn]){
+                let isbnVal = String(reviewRows[rowIdx][isbnColumn]);
+                preview += isbnVal.length>40 ? isbnVal.slice(0,40)+'...' : isbnVal;
+            } else {
+                for(let j=0;j<Math.min(reviewCols.length,2);j++){
+                    if(j>0) preview += ' | ';
+                    let val = reviewRows[rowIdx][reviewCols[j]]||'';
+                    preview += val.length>30 ? val.slice(0,30)+'...' : val;
+                }
+            }
+            const activeClass = (currentHighlightIdx === rowIdx) ? 'active' : '';
+            html += `<div class="result-item ${activeClass}" data-idx="${rowIdx}">📍 ${escapeHtml(preview)}</div>`;
+        }
+        if(searchResults.length>50) html += `<div class="result-item">... 还有 ${searchResults.length-50} 条记录</div>`;
+        panel.innerHTML = html;
+        document.querySelectorAll('.result-item').forEach(el => {
+            el.onclick = () => { const idx = parseInt(el.dataset.idx); if(!isNaN(idx)) jumpToRow(idx); };
+        });
+    }
+
+    function importExcelReview(){
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.xlsx,.xls,.csv';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    const raw = XLSX.utils.sheet_to_json(sheet, { header:1, defval:"" });
+                    if(!raw || raw.length<2) throw new Error("文件至少需要表头+数据");
+                    let rawHeaders = raw[0].map(cell => (cell===undefined||cell===null||cell==="")?"":String(cell).trim());
+                    let dataRows = raw.slice(1).filter(row => row.some(cell => cell!==undefined && cell!==null && cell!==""));
+                    if(dataRows.length===0) throw new Error("没有有效数据行");
+
+                    // 过滤空列
+                    const nonEmptyColIndices = [];
+                    for(let colIdx=0; colIdx<rawHeaders.length; colIdx++){
+                        let hasValue = false;
+                        for(let row of dataRows){
+                            let val = (colIdx < row.length) ? row[colIdx] : "";
+                            if(val !== undefined && val !== null && String(val).trim() !== ""){
+                                hasValue = true;
+                                break;
+                            }
+                        }
+                        if(hasValue) nonEmptyColIndices.push(colIdx);
+                    }
+                    if(nonEmptyColIndices.length === 0) throw new Error("没有非空列");
+                    const finalHeaders = nonEmptyColIndices.map(i => rawHeaders[i] || `列${i+1}`);
+                    const normalizedRows = dataRows.map(row => {
+                        const obj = {};
+                        for(let j=0; j<nonEmptyColIndices.length; j++){
+                            const colIdx = nonEmptyColIndices[j];
+                            let val = (colIdx < row.length) ? row[colIdx] : "";
+                            obj[finalHeaders[j]] = (val !== undefined && val !== null) ? String(val) : "";
+                        }
+                        return obj;
+                    });
+                    reviewCols = finalHeaders;
+                    reviewRows = normalizedRows;
+                    isbnColumn = autoDetectIsbnColumn(reviewCols);
+                    currentSort = { col: null, dir: null };
+                    lastSearchKeyword = '';
+                    searchResults = [];
+                    currentHighlightIdx = -1;
+                    const searchInput = document.getElementById('searchKeywordInput');
+                    if(searchInput) searchInput.value = '';
+                    renderReviewTable();
+                    updateResultPanel();
+                    saveReview();
+                    showTip(`导入成功: ${reviewRows.length}行, ${reviewCols.length}列, 已过滤空列`, false, 3000);
+                } catch(err) {
+                    alert("导入失败: "+err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+        input.click();
+    }
+
+    function exportReviewExcel(){
+        if(!reviewRows.length || !reviewCols.length){
+            alert("无数据可导出");
+            return;
+        }
+        const sheetData = [reviewCols];
+        reviewRows.forEach(row => {
+            const rowData = reviewCols.map(col => row[col] !== undefined ? row[col] : "");
+            sheetData.push(rowData);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "复核数据");
+        XLSX.writeFile(wb, `复核数据_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.xlsx`);
+        showTip("导出成功");
+    }
+
+    function clearReviewAll(){
+        if(reviewRows.length && confirm("清空所有复核数据？不可恢复")){
+            reviewCols = [];
+            reviewRows = [];
+            lastSearchKeyword = '';
+            searchResults = [];
+            currentHighlightIdx = -1;
+            localStorage.removeItem(REVIEW_KEY);
+            renderReviewTable();
+            updateResultPanel();
+            showTip("复核数据已全部清空（包括缓存）", false);
+        }
+    }
+
+    function saveReview() {
+        localStorage.setItem(REVIEW_KEY, JSON.stringify({ cols: reviewCols, rows: reviewRows }));
+    }
+
+    function loadReview() {
+        try {
+            const raw = localStorage.getItem(REVIEW_KEY);
+            if(raw){
+                const data = JSON.parse(raw);
+                reviewCols = data.cols || [];
+                reviewRows = data.rows || [];
+            } else {
+                reviewCols = [];
+                reviewRows = [];
+            }
+            isbnColumn = autoDetectIsbnColumn(reviewCols);
+        } catch(e) {
+            reviewCols = [];
+            reviewRows = [];
+            isbnColumn = null;
+        }
+    }
+
+    // 全局编辑函数
+    window.editCell = function(rowIdx, colName){
+        const td = event.target;
+        const oldVal = reviewRows[rowIdx][colName] || '';
+        const input = document.createElement('input');
+        input.value = oldVal;
+        input.style.width = (td.clientWidth - 10) + 'px';
+        input.style.fontSize = '0.75rem';
+        td.innerText = '';
+        td.appendChild(input);
+        input.focus();
+        input.onblur = () => {
+            const newVal = input.value;
+            reviewRows[rowIdx][colName] = newVal;
+            saveReview();
+            renderReviewTable();
+            if(lastSearchKeyword) searchByIsbn(lastSearchKeyword);
+        };
+        input.onkeypress = (e) => { if(e.key === 'Enter') input.blur(); };
+    };
+
+    function init(){
+        loadReview();
+        renderReviewTable();
+        document.getElementById('importExcelBtn').onclick = importExcelReview;
+        document.getElementById('exportReviewBtn').onclick = exportReviewExcel;
+        document.getElementById('clearReviewBtn').onclick = clearReviewAll;
+        const searchInput = document.getElementById('searchKeywordInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const doSearch = () => { const kw = searchInput.value; searchByIsbn(kw); };
+        searchBtn.onclick = doSearch;
+        searchInput.onkeypress = (e) => { if(e.key === 'Enter') doSearch(); };
+        updateResultPanel();
+    }
+
+    init();
+})();
+</script>
+</body>
+</html>

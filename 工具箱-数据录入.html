@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>数据录入模块 · 新华书店工具箱（永久存储版）</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; font-size: 13px; }
+        .module { display: flex; flex-direction: column; height: 100vh; background: white; }
+        .module-header { background: linear-gradient(135deg, #1e3c72, #2a4b7a); padding: 8px 20px; color: white; flex-shrink: 0; }
+        .module-header h2 { font-size: 1.1rem; font-weight: 500; }
+        .module-header p { font-size: 0.7rem; opacity: 0.85; margin-top: 2px; }
+        .toolbar { background: #fefefe; padding: 6px 16px; border-bottom: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex-shrink: 0; }
+        button { border: none; background: #eef2f7; padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; cursor: pointer; font-family: inherit; }
+        button.primary { background: #2b4c7c; color: white; }
+        button.success { background: #e3f7ec; color: #2b6e3c; }
+        button.danger { background: #fee2e2; color: #b91c1c; }
+        button.warning { background: #fff3e0; color: #b85c00; }
+        button.next-pack { background: #2d6a4f; color: white; }
+        input, select { padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 0.75rem; font-family: inherit; }
+        .table-wrap { flex: 1; overflow: auto; padding: 0 12px 6px 12px; }
+        .entry-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; min-width: 800px; }
+        .entry-table th, .entry-table td { padding: 6px 10px; border-bottom: 1px solid #ecf3f9; white-space: nowrap; }
+        .entry-table th { background: #f1f5f9; position: sticky; top: 0; }
+        .inline-copies { width: 65px; padding: 3px 4px; border-radius: 12px; border: 1px solid #cbd5e1; text-align: center; }
+        .delete-btn { background: none; border: none; color: #b91c1c; cursor: pointer; font-size: 0.7rem; }
+        .entry-input-panel { background: #fefefe; border-top: 1px solid #e2e8f0; padding: 10px 20px; flex-shrink: 0; }
+        .entry-form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 8px; }
+        .entry-field-group { flex: 1; min-width: 100px; }
+        .entry-field-group label { font-size: 0.7rem; font-weight: 600; color: #2c3e66; margin-bottom: 3px; display: block; }
+        .entry-field-group input, .entry-field-group textarea { width: 100%; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 16px; font-size: 0.75rem; font-family: inherit; }
+        .match-info { background: #fef9e6; border-left: 3px solid #f5a623; padding: 4px 12px; font-size: 0.7rem; margin: 4px 0 0; display: flex; flex-direction: column; gap: 4px; }
+        .match-info-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .pack-stats { font-size: 0.85rem; font-weight: 600; background: #e9f0f9; padding: 2px 10px; border-radius: 30px; display: inline-block; margin-left: 12px; }
+        .footer-note { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; background: #fefefe; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
+        .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; font-size: 1rem; z-index: 2000; pointer-events: none; border-left: 4px solid #f5a623; font-weight: 500; white-space: nowrap; transition: opacity 0.2s; }
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); z-index: 3000; display: flex; align-items: center; justify-content: center; }
+        .modal-container { background: white; border-radius: 20px; width: 80%; max-width: 1100px; max-height: 80%; display: flex; flex-direction: column; box-shadow: 0 20px 35px -10px rgba(0,0,0,0.3); }
+        .modal-header { padding: 12px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-weight: bold; background: #f1f5f9; border-radius: 20px 20px 0 0; }
+        .modal-body { overflow: auto; padding: 10px; flex:1; }
+        .modal-body table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .modal-body th, .modal-body td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        .close-modal { background: none; border: none; font-size: 1.4rem; cursor: pointer; }
+        .duplicate-row-highlight { background-color: #fff3cd !important; box-shadow: inset 0 0 0 2px #ffc107; }
+    </style>
+</head>
+<body>
+<div class="module">
+    <div class="module-header"><h2>📖 图书快捷录入</h2><p>永久存储 | 重复高亮滚动 | 匹配+重复双提示 | 合计左对齐</p></div>
+    <div class="toolbar">
+        <span id="entryStats">0种/0册</span>
+        <span id="currentPackStats" class="pack-stats">当前包：0种/0册</span>
+        <div style="margin-left:12px;">
+            <label><input type="radio" name="modeRadio" value="quick" checked>快速</label>
+            <label><input type="radio" name="modeRadio" value="full">完整</label>
+            <label><input type="radio" name="modeRadio" value="match">匹配</label>
+        </div>
+        <button id="loadMatchSourceBtn" class="warning" style="display:none;">📂 导入订单表(匹配库)</button>
+        <button id="viewMatchTableBtn" class="success" style="display:none;">🔍 查看订单表</button>
+        <div style="flex:1"></div>
+        <button id="importExcelBtn" class="primary">📥 导入Excel</button>
+        <button id="importCsvBtn" class="warning">📄 导入CSV</button>
+        <button id="exportExcelBtn" class="success">📎 导出Excel</button>
+        <button id="exportCsvBtn" class="warning">📎 导出CSV</button>
+        <button id="clearEntryBtn" class="danger">🗑 清空全部</button>
+    </div>
+    <div class="toolbar" style="border-top:none; flex-wrap: wrap; gap: 8px;">
+        <label>收货单位：<input id="customerName" style="width:140px;"></label>
+        <label>馆配单号：<input id="consignmentNo" style="width:140px;"></label>
+        <label>操作员：<input id="operatorName" style="width:100px;"></label>
+        <label>制单日期：<input id="printDate" style="width:100px;"></label>
+        <label>单据编号：<input id="invoiceNo" style="width:120px;" placeholder="留空则只显示单据编号："></label>
+        <label>备　注：<input id="packageNote" style="width:160px;" placeholder="用于当前包打印"></label>
+        <button id="printSummaryBtn" class="success">📊 打印汇总单</button>
+        <button id="exportSummaryBtn" class="warning">📎 导出汇总单Excel</button>
+    </div>
+    <div class="table-wrap">
+        <table class="entry-table"><thead><tr><th>#</th><th>包号</th><th>书号</th><th>书名</th><th>定价</th><th>本数</th><th>码洋</th><th>操作</th></tr></thead><tbody id="entryTbody"></tbody></table>
+    </div>
+    <div class="entry-input-panel">
+        <div class="entry-form-row">
+            <div class="entry-field-group" style="flex:0.8"><label>包号</label><input id="packageNoInput" value="1"></div>
+            <div class="entry-field-group" style="flex:1.5"><label>书号</label><input id="bookIdInput" autocomplete="off"></div>
+            <div id="fullTitleGroup" style="display:none; flex:2"><label>书名</label><input id="titleInput"></div>
+            <div id="fullPriceGroup" style="display:none; flex:0.8"><label>定价</label><input id="priceInput" type="number" step="0.01"></div>
+            <div class="entry-field-group" style="flex:0.8"><label>本数</label><input id="copiesInput" value="1" min="1"></div>
+            <div><button id="addEntryBtn" class="primary">➕添加</button></div>
+            <button id="printCurrentPackBtn" class="success">🖨️ 打印当前包</button>
+            <button id="nextPackBtn" class="next-pack">📦 下一包</button>
+        </div>
+        <div id="matchInfo" class="match-info" style="display:none"></div>
+    </div>
+    <div class="footer-note">💡 输入书号后按回车：自动检测当前包重复并高亮，匹配模式同时显示订单匹配结果。添加时若有重复则确认叠加。存储键已永久固定，不再丢失数据。</div>
+</div>
+
+<script>
+(function(){
+    // ==================== 永久存储键（永不改变）====================
+    const STORAGE_KEY = 'BookEntrySystem_Permanent';
+    const LAST_PACK_KEY = 'LastPackageNo_Permanent';
+    const NOTE_PREFIX = 'PackageNote_Permanent_';
+    
+    // 迁移旧数据的函数（兼容之前所有版本）
+    function migrateOldData() {
+        const oldKeys = [
+            'BookEntrySystem_V10', 'BookEntrySystem_V11', 'BookEntrySystem_V12', 'BookEntrySystem_V13', 'BookEntrySystem_V14',
+            'LastPackageNo', 'LastPackageNo_Final',
+            'CurrentPackageNote_', 'CurrentPackageNote_Final_'
+        ];
+        let migrated = false;
+        // 迁移书籍数据
+        for (let oldKey of oldKeys) {
+            if (oldKey.startsWith('BookEntrySystem')) {
+                const oldRaw = localStorage.getItem(oldKey);
+                if (oldRaw) {
+                    try {
+                        const oldData = JSON.parse(oldRaw);
+                        if (oldData.books && oldData.books.length) {
+                            if (!localStorage.getItem(STORAGE_KEY)) {
+                                localStorage.setItem(STORAGE_KEY, oldRaw);
+                                migrated = true;
+                            }
+                            break;
+                        }
+                    } catch(e) {}
+                }
+            }
+        }
+        // 迁移包号
+        const oldLastPack = localStorage.getItem('LastPackageNo') || localStorage.getItem('LastPackageNo_Final');
+        if (oldLastPack && !localStorage.getItem(LAST_PACK_KEY)) {
+            localStorage.setItem(LAST_PACK_KEY, oldLastPack);
+            migrated = true;
+        }
+        // 迁移备注 (遍历)
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('CurrentPackageNote_') || key.startsWith('CurrentPackageNote_Final_'))) {
+                const pack = key.replace('CurrentPackageNote_', '').replace('CurrentPackageNote_Final_', '');
+                const value = localStorage.getItem(key);
+                if (pack && value && !localStorage.getItem(NOTE_PREFIX+pack)) {
+                    localStorage.setItem(NOTE

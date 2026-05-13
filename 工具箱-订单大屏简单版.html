@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>订单双率看板 · 含册数价格分布</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', 'Poppins', monospace; }
+        body { background: radial-gradient(circle at 20% 30%, #020617, #000000); height: 100vh; overflow: hidden; color: #e2e8f0; }
+        .app { display: flex; height: 100vh; width: 100%; position: relative; }
+        .right-panel {
+            position: fixed; right: 0; top: 0; width: 360px; height: 100%;
+            background: rgba(8,12,25,0.95); backdrop-filter: blur(16px);
+            border-left: 1px solid rgba(0,255,255,0.5); z-index: 30;
+            transform: translateX(0); transition: transform 0.3s ease;
+            display: flex; flex-direction: column; padding: 20px; gap: 20px;
+            overflow-y: auto;
+        }
+        .right-panel.hide { transform: translateX(100%); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2f6f9f; padding-bottom: 8px; }
+        .panel-header h3 { color: #0cf; }
+        .toggle-btn { background: none; border: none; color: #0cf; font-size: 1.2rem; cursor: pointer; }
+        .upload-group { display: flex; flex-direction: column; gap: 8px; }
+        .upload-group label { font-size: 0.8rem; font-weight: 600; color: #8dd0ff; }
+        .file-btn { background: #111a2e; border: 1px solid #2b4b7a; border-radius: 40px; padding: 6px 12px; cursor: pointer; text-align: center; font-size: 0.8rem; }
+        .file-btn:hover { background: #1f3a60; border-color: cyan; }
+        input[type="file"] { display: none; }
+        .file-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; max-height: 120px; overflow-y: auto; }
+        .file-tag { background: #1a2a4a; border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #3a6a9a; }
+        .file-tag button { background: none; border: none; color: #ffaa88; cursor: pointer; font-size: 0.8rem; }
+        .action-buttons { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .btn { background: #1e2a47; border: 1px solid #3c6e9e; padding: 6px 12px; border-radius: 40px; cursor: pointer; font-size: 0.75rem; text-align: center; flex: 1; }
+        .btn-primary { background: #0f3b5c; border-color: #0cf; }
+        .main-area { flex: 1; padding: 20px; overflow-y: auto; transition: margin-right 0.3s; margin-right: 0; }
+        .main-area.shift { margin-right: 360px; }
+        .stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card { background: rgba(8,12,30,0.7); backdrop-filter: blur(8px); border-radius: 20px; border: 1px solid rgba(0,255,255,0.3); flex: 1; min-width: 120px; padding: 8px 12px; }
+        .stat-label { font-size: 0.7rem; text-transform: uppercase; color: #7da2cc; }
+        .stat-value { font-size: 1.6rem; font-weight: 700; color: #d6e6ff; }
+        .filter-bar { background: rgba(8,12,30,0.6); border-radius: 20px; margin-bottom: 16px; border: 1px solid rgba(0,255,255,0.3); overflow: hidden; }
+        .filter-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; cursor: pointer; background: rgba(0,0,0,0.3); }
+        .filter-title { font-size: 0.8rem; font-weight: 600; color: #8dd0ff; display: flex; align-items: center; gap: 8px; }
+        .collapse-icon { font-size: 0.9rem; width: 24px; text-align: center; }
+        .filter-btns { display: flex; gap: 8px; }
+        .filter-btns button { background: #1e2f4a; border: none; padding: 2px 10px; border-radius: 20px; cursor: pointer; color: white; font-size: 0.7rem; }
+        .filter-content { padding: 10px 12px; border-top: 1px solid rgba(0,255,255,0.2); max-height: 150px; overflow-y: auto; transition: max-height 0.2s; }
+        .filter-content.collapsed { max-height: 0; padding: 0 12px; overflow: hidden; border-top: none; }
+        .customer-box { display: flex; flex-wrap: wrap; gap: 8px; }
+        .customer-box label { font-size: 0.75rem; display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.3); padding: 2px 10px; border-radius: 20px; cursor: pointer; }
+        .table-wrapper { background: rgba(0,0,0,0.55); backdrop-filter: blur(8px); border-radius: 20px; border: 1px solid rgba(0,255,255,0.3); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+        th { text-align: left; padding: 8px 6px; background: rgba(20,35,60,0.8); color: #bbf0ff; border-bottom: 1px solid #2f6080; cursor: pointer; }
+        td { padding: 6px; border-bottom: 1px solid rgba(60,100,130,0.4); vertical-align: top; }
+        tr:hover { background: rgba(0,160,255,0.1); }
+        .rate-100 { background-color: rgba(220,53,69,0.25) !important; }
+        .rate-90 { background-color: rgba(13,110,253,0.25) !important; }
+        .rate-80 { background-color: rgba(25,135,84,0.25) !important; }
+        .diff-highlight { background-color: rgba(255,165,0,0.25) !important; border-left: 3px solid #ffaa44; }
+        .progress { width: 70px; background: #1e2a3a; border-radius: 20px; height: 5px; display: inline-block; margin-right: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #12c2e9, #c471ed); width: 0%; }
+        .diff-up { color: #ffaa66; }
+        .diff-down { color: #88ccff; }
+        .diff-equal { color: #88ffaa; }
+        .empty-state { text-align: center; padding: 40px; color: #7f9bc0; }
+        .footer-tip { text-align: center; margin-top: 12px; font-size: 0.6rem; color: #6e8bb8; }
+        .price-dist { font-size: 0.65rem; line-height: 1.3; white-space: nowrap; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div id="rightPanel" class="right-panel">
+        <div class="panel-header">
+            <h3>📂 文件管理</h3>
+            <button class="toggle-btn" id="closePanelBtn">✖</button>
+        </div>
+        <div class="upload-group">
+            <label>📄 订单文件（可多选）</label>
+            <div class="file-btn" id="orderFileBtn">📎 选择订单文件</div>
+            <input type="file" id="orderFileInput" accept=".xlsx, .xls, .csv" multiple>
+            <div id="orderFileList" class="file-list"></div>
+        </div>
+        <div class="upload-group">
+            <label>📦 批销文件（可多选）</label>
+            <div class="file-btn" id="shipFileBtn">📎 选择批销记录</div>
+            <input type="file" id="shipFileInput" accept=".xlsx, .xls, .csv" multiple>
+            <div id="shipFileList" class="file-list"></div>
+        </div>
+        <div class="action-buttons">
+            <div class="btn btn-primary" id="processBtn">🚀 解析并保存</div>
+            <div class="btn" id="resetDataBtn">🗑️ 重置所有数据</div>
+        </div>
+        <div class="action-buttons">
+            <div class="btn" id="exportBtn">📥 导出备份</div>
+            <div class="btn" id="importBtn">📤 导入恢复</div>
+            <input type="file" id="importFile" accept=".json" style="display:none">
+        </div>
+        <div style="font-size:0.65rem; text-align:center; margin-top:auto; color:#5f7f9e;">
+            💾 数据自动保存 | 同名文件自动覆盖<br>✖ 可折叠右侧面板
+        </div>
+    </div>
+
+    <div id="mainArea" class="main-area shift">
+        <div class="stats">
+            <div class="stat-card"><div class="stat-label">📋 馆配项目数</div><div class="stat-value" id="statProjects">0</div></div>
+            <div class="stat-card"><div class="stat-label">📚 订单总册数</div><div class="stat-value" id="statOrderQty">0</div></div>
+            <div class="stat-card"><div class="stat-label">📦 批销总册数</div><div class="stat-value" id="statShippedQty">0</div></div>
+            <div class="stat-card"><div class="stat-label">📋 理论到货总数</div><div class="stat-value" id="statReceivedQty">0</div></div>
+            <div class="stat-card"><div class="stat-label">✅ 综合批销率</div><div class="stat-value" id="statRate">0%</div></div>
+        </div>
+
+        <div class="filter-bar">
+            <div class="filter-header" id="filterHeader">
+                <div class="filter-title">
+                    <span class="collapse-icon" id="filterCollapseIcon">▼</span>
+                    <span>🔍 按客户筛选</span>
+                </div>
+                <div class="filter-btns">
+                    <button id="selectAllBtn">全选</button>
+                    <button id="deselectAllBtn">全取消</button>
+                </div>
+            </div>
+            <div class="filter-content" id="filterContent">
+                <div id="customerCheckboxes" class="customer-box"></div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="dataTable">
+                <thead id="tableHeader">
+                    <tr>
+                        <th data-field="reportDate">报订日期</th>
+                        <th data-field="customer">客户名称</th>
+                        <th data-field="reqNumber">馆配单号</th>
+                        <th data-field="orderQty">订单总册数</th>
+                        <th data-field="receivedQty">理论到货数</th>
+                        <th data-field="arrivalRate">到货率</th>
+                        <th data-field="shippedQty">批销册数</th>
+                        <th data-field="shipRate">批销率</th>
+                        <th>差异对比</th>
+                        <th>批销进度</th>
+                        <th>册数价格分布</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="11" class="empty-state">📌 请从右侧面板选择订单和批销文件，点击「解析并保存」</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="footer-tip">💡 点击「✖」折叠右侧面板 | 册数价格分布：按不同订购册数分组，显示该册数下所有品种的定价区间（最小值-最大值）</div>
+    </div>
+</div>
+
+<script>
+    // 特殊客户列表（需同时匹配馆配单号）
+    const SPECIAL_CUSTOMERS = new Set(["中南民族大学", "湖北省图书馆"]);
+
+    let orderFileItems = [];
+    let shipmentFileItems = [];
+    let currentData = [];
+    let selectedCustomers = new Set();
+    let currentSort = { field: 'reportDate', order: 'asc' };
+    let filterCollapsed = false;
+
+    // DOM 元素
+    const rightPanel = document.getElementById('rightPanel');
+    const mainArea = document.getElementById('mainArea');
+    const orderFileInput = document.getElementById('orderFileInput');
+    const shipFileInput = document.getElementById('shipFileInput');
+    const orderFileBtn = document.getElementById('orderFileBtn');
+    const shipFileBtn = document.getElementById('shipFileBtn');
+    const orderFileListDiv = document.getElementById('orderFileList');
+    const shipFileListDiv = document.getElementById('shipFileList');
+    const processBtn = document.getElementById('processBtn');
+    const resetDataBtn = document.getElementById('resetDataBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const importFile = document.getElementById('importFile');
+    const closePanelBtn = document.getElementById('closePanelBtn');
+    const tableBody = document.getElementById('tableBody');
+    const customerDiv = document.getElementById('customerCheckboxes');
+    const filterContent = document.getElementById('filterContent');
+    const filterCollapseIcon = document.getElementById('filterCollapseIcon');
+    const filterHeader = document.getElementById('filterHeader');
+    const statProjects = document.getElementById('statProjects');
+    const statOrderQty = document.getElementById('statOrderQty');
+    const statShippedQty = document.getElementById('statShippedQty');
+    const statReceivedQty = document.getElementById('statReceivedQty');
+    const statRate = document.getElementById('statRate');
+
+    function escapeHtml(str) { return (str+'').replace(/[&<>]/g, m => m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
+    function findColumn(row, possible) {
+        if (!row) return null;
+        const keys = Object.keys(row);
+        for (let p of possible) {
+            const lower = p.toLowerCase();
+            const match = keys.find(k => k.toLowerCase() === lower || k.toLowerCase().includes(lower));
+            if (match) return match;
+        }
+        return null;
+    }
+    function parseDate(val) {
+        if (!val) return null;
+        let d = new Date(val);
+        if (!isNaN(d)) return d;
+        let str = String(val).trim().replace(/[年月]/g, '-').replace(/日/g, '').split(/[-\/ :]+/);
+        if (str.length >= 3) {
+            let y = parseInt(str[0]), m = parseInt(str[1])-1, day = parseInt(str[2]);
+            if (!isNaN(y) && !isNaN(m) && !isNaN(day)) return new Date(y, m, day);
+        }
+        return null;
+    }
+    function parseOrderExcel(buffer) {
+        const wb = XLSX.read(buffer, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        if (!rows.length) throw new Error('无数据');
+        const sample = rows[0];
+        const colCust = findColumn(sample, ['客户名称', '客户', '购货单位']);
+        const colReq = findColumn(sample, ['馆配需求单名称', '馆配需求单号', '馆配单号']);
+        const colIsbn = findColumn(sample, ['书号', 'ISBN']);
+        const colOrder = findColumn(sample, ['订数', '册数', '数量']);
+        const colPrice = findColumn(sample, ['定价', '价格']);
+        const colReceived = findColumn(sample, ['已到货数', '已收数', '到货册数']);
+        const colDate = findColumn(sample, ['上报日期', '报订日期', '报订时间']);
+        if (!colCust || !colOrder) throw new Error('缺少客户名称或订数列');
+        const details = [];
+        for (let r of rows) {
+            let customer = (r[colCust] || '').toString().trim();
+            if (!customer) continue;
+            let orderQty = parseFloat(r[colOrder]);
+            if (isNaN(orderQty) || orderQty <= 0) continue;
+            let receivedQty = colReceived ? parseFloat(r[colReceived]) : 0;
+            if (isNaN(receivedQty)) receivedQty = 0;
+            let reqNumber = colReq ? (r[colReq] || '').toString().trim() : '';
+            let isbn = colIsbn ? (r[colIsbn] || '').toString().trim() : '';
+            if (!reqNumber && !isbn) continue;
+            let reportDate = colDate ? parseDate(r[colDate]) : null;
+            let price = colPrice ? parseFloat(r[colPrice]) : null;
+            if (price !== null && isNaN(price)) price = null;
+            details.push({ customer, reqNumber, isbn, orderQty, receivedQty, reportDate, price });
+        }
+        return details;
+    }
+    function parseShipmentExcel(buffer) {
+        const wb = XLSX.read(buffer, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        if (!rows.length) throw new Error('无数据');
+        const sample = rows[0];
+        const colCust = findColumn(sample, ['购货单位', '客户名称', '客户']);
+        const colReq = findColumn(sample, ['馆配单据', '馆配单号', '馆配需求单名称']);
+        const colIsbn = findColumn(sample, ['书号', 'ISBN']);
+        const colQty = findColumn(sample, ['批销册数', '册数', '数量']);
+        if (!colCust || !colQty) throw new Error('缺少购货单位或批销册数列');
+        const details = [];
+        for (let r of rows) {
+            let customer = (r[colCust] || '').toString().trim();
+            if (!customer) continue;
+            let qty = parseFloat(r[colQty]);
+            if (isNaN(qty) || qty === 0) continue;
+            let reqNumber = colReq ? (r[colReq] || '').toString().trim() : '';
+            let isbn = colIsbn ? (r[colIsbn] || '').toString().trim() : '';
+            if (!reqNumber && !isbn) continue;
+            details.push({ customer, reqNumber, isbn, shippedQty: qty });
+        }
+        return details;
+    }
+    async function readFile(file) {
+        return new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = e => resolve(e.target.result);
+            fr.onerror = reject;
+            fr.readAsArrayBuffer(file);
+        });
+    }
+
+    // 生成价格分布字符串：输入 [{qty, price}] 数组
+    function buildPriceDistribution(items) {
+        // 按册数分组
+        const group = new Map(); // qty -> { min, max }
+        for (let it of items) {
+            const qty = it.qty;
+            const price = it.price;
+            if (!price) continue;
+            if (!group.has(qty)) {
+                group.set(qty, { min: price, max: price });
+            } else {
+                const cur = group.get(qty);
+                if (price < cur.min) cur.min = price;
+                if (price > cur.max) cur.max = price;
+            }
+        }
+        // 排序册数
+        const sortedQtys = Array.from(group.keys()).sort((a,b) => a - b);
+        const parts = sortedQtys.map(qty => {
+            const { min, max } = group.get(qty);
+            return `${qty}册(${min.toFixed(2)}-${max.toFixed(2)})`;
+        });
+        return parts.join('；');
+    }
+
+    // 核心聚合：订单分组，批销按“客户+书号”（特殊客户+单号+书号）匹配，按订单日期倒序优先分配
+    async function aggregateFromFiles(orderFiles, shipFiles) {
+        let allOrders = [], allShips = [];
+        for (let f of orderFiles) {
+            const buf = await readFile(f);
+            const parsed = parseOrderExcel(buf);
+            allOrders.push(...parsed);
+        }
+        for (let f of shipFiles) {
+            const buf = await readFile(f);
+            const parsed = parseShipmentExcel(buf);
+            allShips.push(...parsed);
+        }
+
+        // 构建订单Map：key = customer|reqNumber
+        const orderMap = new Map(); // key -> { customer, reqNumber, totalOrder, totalReceived, isbnMap, remainingIsbnMap, shippedTotal, earliestDate, priceDetails }
+        for (let o of allOrders) {
+            if (!o.reqNumber) continue;
+            const key = `${o.customer}|${o.reqNumber}`;
+            if (!orderMap.has(key)) {
+                orderMap.set(key, {
+                    customer: o.customer,
+                    reqNumber: o.reqNumber,
+                    totalOrder: 0,
+                    totalReceived: 0,
+                    isbnMap: new Map(),      // isbn -> 订数
+                    remainingIsbnMap: new Map(), // isbn -> 剩余可批销额
+                    shippedTotal: 0,
+                    earliestDate: o.reportDate,
+                    priceDetails: []          // 存储 { qty, price }
+                });
+            }
+            const item = orderMap.get(key);
+            item.totalOrder += o.orderQty;
+            item.totalReceived += o.receivedQty;
+            if (o.isbn) {
+                const cur = item.isbnMap.get(o.isbn) || 0;
+                item.isbnMap.set(o.isbn, cur + o.orderQty);
+                const rem = item.remainingIsbnMap.get(o.isbn) || 0;
+                item.remainingIsbnMap.set(o.isbn, rem + o.orderQty);
+            }
+            if (o.price) {
+                item.priceDetails.push({ qty: o.orderQty, price: o.price });
+            }
+            if (o.reportDate && (!item.earliestDate || o.reportDate < item.earliestDate)) {
+                item.earliestDate = o.reportDate;
+            }
+        }
+
+        // 批销匹配
+        const shipRecords = [...allShips];
+        // 普通客户匹配：按 customer + isbn 分组，按订单日期倒序分配
+        const normalShip = shipRecords.filter(s => !SPECIAL_CUSTOMERS.has(s.customer));
+        const normalGroup = new Map();
+        for (let s of normalShip) {
+            if (!s.isbn) continue;
+            const key = `${s.customer}|${s.isbn}`;
+            if (!normalGroup.has(key)) normalGroup.set(key, []);
+            normalGroup.get(key).push({ shippedQty: s.shippedQty });
+        }
+        for (let [groupKey, shipList] of normalGroup.entries()) {
+            const [customer, isbn] = groupKey.split('|');
+            const candidates = [];
+            for (let [orderKey, orderItem] of orderMap.entries()) {
+                if (orderItem.customer === customer && orderItem.remainingIsbnMap.has(isbn) && orderItem.remainingIsbnMap.get(isbn) > 0) {
+                    candidates.push({ orderKey, orderItem });
+                }
+            }
+            candidates.sort((a, b) => {
+                const da = a.orderItem.earliestDate ? new Date(a.orderItem.earliestDate).getTime() : 0;
+                const db = b.orderItem.earliestDate ? new Date(b.orderItem.earliestDate).getTime() : 0;
+                return db - da;
+            });
+            for (let rec of shipList) {
+                let remaining = rec.shippedQty;
+                for (let cand of candidates) {
+                    if (remaining <= 0) break;
+                    const order = cand.orderItem;
+                    const avail = order.remainingIsbnMap.get(isbn);
+                    if (avail <= 0) continue;
+                    const use = Math.min(remaining, avail);
+                    if (use > 0) {
+                        order.shippedTotal += use;
+                        order.remainingIsbnMap.set(isbn, avail - use);
+                        remaining -= use;
+                    }
+                }
+            }
+        }
+
+        // 特殊客户匹配：customer + reqNumber + isbn
+        const specialShip = shipRecords.filter(s => SPECIAL_CUSTOMERS.has(s.customer));
+        const specialGroup = new Map();
+        for (let s of specialShip) {
+            if (!s.isbn || !s.reqNumber) continue;
+            const key = `${s.customer}|${s.reqNumber}|${s.isbn}`;
+            if (!specialGroup.has(key)) specialGroup.set(key, []);
+            specialGroup.get(key).push({ shippedQty: s.shippedQty });
+        }
+        for (let [groupKey, shipList] of specialGroup.entries()) {
+            const parts = groupKey.split('|');
+            const customer = parts[0];
+            const reqNumber = parts[1];
+            const isbn = parts[2];
+            const orderKey = `${customer}|${reqNumber}`;
+            const orderItem = orderMap.get(orderKey);
+            if (!orderItem) continue;
+            for (let rec of shipList) {
+                let remaining = rec.shippedQty;
+                const avail = orderItem.remainingIsbnMap.get(isbn) || 0;
+                if (avail <= 0) continue;
+                const use = Math.min(remaining, avail);
+                if (use > 0) {
+                    orderItem.shippedTotal += use;
+                    orderItem.remainingIsbnMap.set(isbn, avail - use);
+                    remaining -= use;
+                }
+            }
+        }
+
+        // 生成结果
+        const result = [];
+        for (let [key, item] of orderMap.entries()) {
+            const priceDist = buildPriceDistribution(item.priceDetails);
+            result.push({
+                customer: item.customer,
+                req_number: item.reqNumber,
+                total_order_qty: item.totalOrder,
+                total_received_qty: item.totalReceived,
+                total_shipped_qty: item.shippedTotal,
+                arrival_rate: item.totalOrder ? (item.totalReceived / item.totalOrder) * 100 : 0,
+                ship_rate: item.totalOrder ? (item.shippedTotal / item.totalOrder) * 100 : 0,
+                earliest_date: item.earliestDate ? item.earliestDate.toISOString() : null,
+                price_distribution: priceDist || '—'
+            });
+        }
+        return result;
+    }
+
+    async function processCurrentFiles() {
+        if (orderFileItems.length === 0 || shipmentFileItems.length === 0) {
+            alert('请同时选择订单文件和批销文件');
+            return;
+        }
+        processBtn.disabled = true;
+        processBtn.textContent = '处理中...';
+        try {
+            const orderFiles = orderFileItems.map(f => f.fileObj);
+            const shipFiles = shipmentFileItems.map(f => f.fileObj);
+            const aggregated = await aggregateFromFiles(orderFiles, shipFiles);
+            if (!aggregated.length) throw new Error('没有有效订单数据，请检查文件列名');
+            currentData = aggregated;
+            const allCust = [...new Set(currentData.map(i => i.customer))];
+            selectedCustomers.clear();
+            allCust.forEach(c => selectedCustomers.add(c));
+            saveFullState();
+            renderCustomerCheckboxes();
+            renderTable();
+            alert(`成功！共 ${aggregated.length} 个馆配项目。匹配逻辑：普通客户按“客户+书号”，特殊客户（省图/中南民大）按“客户+馆配单号+书号”，均按订单日期倒序优先分配。`);
+        } catch (err) {
+            alert('处理失败: ' + err.message);
+        } finally {
+            processBtn.disabled = false;
+            processBtn.textContent = '🚀 解析并保存';
+        }
+    }
+
+    // 文件管理函数（保持原有）
+    function addOrderFiles(files) {
+        for (let f of files) {
+            const idx = orderFileItems.findIndex(item => item.name === f.name);
+            if (idx !== -1) orderFileItems.splice(idx, 1);
+            orderFileItems.push({ name: f.name, fileObj: f });
+        }
+        renderFileLists();
+        if (orderFileItems.length > 0 && shipmentFileItems.length > 0) processCurrentFiles().catch(console.warn);
+    }
+    function addShipmentFiles(files) {
+        for (let f of files) {
+            const idx = shipmentFileItems.findIndex(item => item.name === f.name);
+            if (idx !== -1) shipmentFileItems.splice(idx, 1);
+            shipmentFileItems.push({ name: f.name, fileObj: f });
+        }
+        renderFileLists();
+        if (orderFileItems.length > 0 && shipmentFileItems.length > 0) processCurrentFiles().catch(console.warn);
+    }
+    function removeOrderFile(index) {
+        orderFileItems.splice(index, 1);
+        renderFileLists();
+        if (orderFileItems.length > 0 && shipmentFileItems.length > 0) processCurrentFiles().catch(console.warn);
+        else { currentData = []; selectedCustomers.clear(); saveFullState(); renderCustomerCheckboxes(); renderTable(); }
+    }
+    function removeShipFile(index) {
+        shipmentFileItems.splice(index, 1);
+        renderFileLists();
+        if (orderFileItems.length > 0 && shipmentFileItems.length > 0) processCurrentFiles().catch(console.warn);
+        else { currentData = []; selectedCustomers.clear(); saveFullState(); renderCustomerCheckboxes(); renderTable(); }
+    }
+    function renderFileLists() {
+        orderFileListDiv.innerHTML = orderFileItems.map((f, idx) => `<span class="file-tag">📄 ${escapeHtml(f.name)} <button data-idx="${idx}" class="del-order">✖</button></span>`).join('');
+        document.querySelectorAll('.del-order').forEach(btn => btn.onclick = () => removeOrderFile(parseInt(btn.getAttribute('data-idx'))));
+        shipFileListDiv.innerHTML = shipmentFileItems.map((f, idx) => `<span class="file-tag">📦 ${escapeHtml(f.name)} <button data-idx="${idx}" class="del-ship">✖</button></span>`).join('');
+        document.querySelectorAll('.del-ship').forEach(btn => btn.onclick = () => removeShipFile(parseInt(btn.getAttribute('data-idx'))));
+    }
+
+    function renderCustomerCheckboxes() {
+        const allCust = [...new Set(currentData.map(i => i.customer))];
+        if (allCust.length === 0) { customerDiv.innerHTML = '<span style="color:#aaa;">暂无客户</span>'; return; }
+        let html = '';
+        for (let c of allCust) {
+            const checked = selectedCustomers.has(c) ? 'checked' : '';
+            html += `<label><input type="checkbox" value="${escapeHtml(c)}" ${checked}> ${escapeHtml(c)}</label>`;
+        }
+        customerDiv.innerHTML = html;
+        document.querySelectorAll('#customerCheckboxes input').forEach(cb => {
+            cb.onchange = (e) => {
+                if (e.target.checked) selectedCustomers.add(e.target.value);
+                else selectedCustomers.delete(e.target.value);
+                saveFullState();
+                renderTable();
+            };
+        });
+    }
+    function getFiltered() {
+        if (selectedCustomers.size === 0) return [];
+        return currentData.filter(item => selectedCustomers.has(item.customer));
+    }
+    function compare(a, b, field, order) {
+        let av, bv;
+        if (field === 'reportDate') {
+            av = a.earliest_date ? new Date(a.earliest_date).getTime() : 0;
+            bv = b.earliest_date ? new Date(b.earliest_date).getTime() : 0;
+        } else if (field === 'customer') { av = a.customer.toLowerCase(); bv = b.customer.toLowerCase(); }
+        else if (field === 'reqNumber') { av = a.req_number; bv = b.req_number; }
+        else if (field === 'orderQty') { av = a.total_order_qty; bv = b.total_order_qty; }
+        else if (field === 'receivedQty') { av = a.total_received_qty; bv = b.total_received_qty; }
+        else if (field === 'arrivalRate') { av = a.arrival_rate; bv = b.arrival_rate; }
+        else if (field === 'shippedQty') { av = a.total_shipped_qty; bv = b.total_shipped_qty; }
+        else if (field === 'shipRate') { av = a.ship_rate; bv = b.ship_rate; }
+        else return 0;
+        if (av === bv) return 0;
+        const res = av > bv ? 1 : -1;
+        return order === 'asc' ? res : -res;
+    }
+    function renderTable() {
+        let items = getFiltered();
+        items.sort((a,b) => compare(a, b, currentSort.field, currentSort.order));
+        const totalOrder = items.reduce((s,i) => s + i.total_order_qty, 0);
+        const totalShipped = items.reduce((s,i) => s + i.total_shipped_qty, 0);
+        const totalReceived = items.reduce((s,i) => s + i.total_received_qty, 0);
+        statProjects.innerText = items.length;
+        statOrderQty.innerText = totalOrder.toLocaleString();
+        statShippedQty.innerText = totalShipped.toLocaleString();
+        statReceivedQty.innerText = totalReceived.toLocaleString();
+        statRate.innerText = totalOrder === 0 ? '0%' : ((totalShipped / totalOrder) * 100).toFixed(1) + '%';
+        if (items.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="11" class="empty-state">📭 暂无数据，请选择文件并点击「解析并保存」</td></tr>`;
+            return;
+        }
+        let html = '';
+        for (let i of items) {
+            let rowClass = '';
+            if (i.ship_rate >= 100) rowClass = 'rate-100';
+            else if (i.ship_rate >= 90) rowClass = 'rate-90';
+            else if (i.ship_rate >= 80) rowClass = 'rate-80';
+            let diffText = '', diffClass = '';
+            if (Math.abs(i.ship_rate - i.arrival_rate) < 0.01) { diffText = '一致'; diffClass = 'diff-equal'; }
+            else if (i.ship_rate > i.arrival_rate) { diffText = '偏大'; diffClass = 'diff-up'; }
+            else { diffText = '偏小'; diffClass = 'diff-down'; }
+            if (Math.abs(i.ship_rate - i.arrival_rate) >= 10) rowClass += ' diff-highlight';
+            const barWidth = Math.min(100, i.ship_rate);
+            const dateStr = i.earliest_date ? new Date(i.earliest_date).toISOString().slice(0,10) : '—';
+            html += `<tr class="${rowClass}">
+                <td style="white-space:nowrap;">${dateStr}</td>
+                <td><strong>${escapeHtml(i.customer)}</strong></td>
+                <td><code>${escapeHtml(i.req_number)}</code></td>
+                <td>${i.total_order_qty.toLocaleString()}</td>
+                <td>${i.total_received_qty.toLocaleString()}</td>
+                <td>${i.arrival_rate.toFixed(1)}%</td>
+                <td>${i.total_shipped_qty.toLocaleString()}</td>
+                <td>${i.ship_rate.toFixed(1)}%</td>
+                <td><span class="${diffClass}">${diffText}</span></td>
+                <td><div class="progress"><div class="progress-fill" style="width:${barWidth}%"></div></div>${barWidth.toFixed(0)}%</td>
+                <td class="price-dist">${escapeHtml(i.price_distribution)}</td>
+             </tr>`;
+        }
+        tableBody.innerHTML = html;
+    }
+    function selectAll() {
+        const allCust = [...new Set(currentData.map(i => i.customer))];
+        selectedCustomers.clear();
+        allCust.forEach(c => selectedCustomers.add(c));
+        saveFullState();
+        renderCustomerCheckboxes();
+        renderTable();
+    }
+    function deselectAll() {
+        selectedCustomers.clear();
+        saveFullState();
+        renderCustomerCheckboxes();
+        renderTable();
+    }
+    function toggleFilterCollapse() {
+        if (filterCollapsed) {
+            filterContent.classList.add('collapsed');
+            filterCollapseIcon.textContent = '▶';
+        } else {
+            filterContent.classList.remove('collapsed');
+            filterCollapseIcon.textContent = '▼';
+        }
+    }
+    function saveFullState() {
+        localStorage.setItem('orderRateData', JSON.stringify(currentData));
+        localStorage.setItem('selectedCustomers', JSON.stringify([...selectedCustomers]));
+        localStorage.setItem('currentSort', JSON.stringify(currentSort));
+        localStorage.setItem('filterCollapsed', filterCollapsed);
+        localStorage.setItem('orderFileNames', JSON.stringify(orderFileItems.map(f => f.name)));
+        localStorage.setItem('shipFileNames', JSON.stringify(shipmentFileItems.map(f => f.name)));
+    }
+    function loadFullState() {
+        const data = localStorage.getItem('orderRateData');
+        if (data) { try { currentData = JSON.parse(data); } catch(e) { currentData = []; } }
+        const selected = localStorage.getItem('selectedCustomers');
+        if (selected) { try { selectedCustomers = new Set(JSON.parse(selected)); } catch(e) { selectedCustomers.clear(); } }
+        const sort = localStorage.getItem('currentSort');
+        if (sort) { try { currentSort = JSON.parse(sort); } catch(e) { currentSort = { field: 'reportDate', order: 'asc' }; } }
+        const collapsed = localStorage.getItem('filterCollapsed');
+        if (collapsed) filterCollapsed = collapsed === 'true';
+        toggleFilterCollapse();
+        const orderNames = localStorage.getItem('orderFileNames');
+        if (orderNames) { try { const names = JSON.parse(orderNames); orderFileItems = names.map(n => ({ name: n, fileObj: null })); } catch(e) {} }
+        const shipNames = localStorage.getItem('shipFileNames');
+        if (shipNames) { try { const names = JSON.parse(shipNames); shipmentFileItems = names.map(n => ({ name: n, fileObj: null })); } catch(e) {} }
+        renderFileLists();
+        renderCustomerCheckboxes();
+        renderTable();
+    }
+    function resetAll() {
+        if (confirm('清空所有数据？此操作不可撤销。')) {
+            orderFileItems = []; shipmentFileItems = []; currentData = []; selectedCustomers.clear();
+            currentSort = { field: 'reportDate', order: 'asc' }; filterCollapsed = false;
+            renderFileLists(); renderCustomerCheckboxes(); renderTable(); toggleFilterCollapse();
+            localStorage.clear();
+        }
+    }
+    function exportBackup() {
+        const backup = { data: currentData, selectedCustomers: [...selectedCustomers], sort: currentSort, orderFileNames: orderFileItems.map(f => f.name), shipFileNames: shipmentFileItems.map(f => f.name) };
+        const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `订单数据_${new Date().toISOString().slice(0,19)}.json`;
+        a.click(); URL.revokeObjectURL(a.href);
+    }
+    function importBackup(file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const b = JSON.parse(e.target.result);
+                if (b.data) currentData = b.data;
+                if (b.selectedCustomers) selectedCustomers = new Set(b.selectedCustomers);
+                if (b.sort) currentSort = b.sort;
+                if (b.orderFileNames) orderFileItems = b.orderFileNames.map(n => ({ name: n, fileObj: null }));
+                if (b.shipFileNames) shipmentFileItems = b.shipFileNames.map(n => ({ name: n, fileObj: null }));
+                saveFullState(); renderFileLists(); renderCustomerCheckboxes(); renderTable();
+                alert('导入成功');
+            } catch(err) { alert('文件格式错误'); }
+        };
+        reader.readAsText(file);
+    }
+    function bindSorting() {
+        const headers = document.querySelectorAll('#tableHeader th');
+        headers.forEach(th => {
+            th.onclick = () => {
+                const field = th.getAttribute('data-field');
+                if (!field) return;
+                if (currentSort.field === field) currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+                else { currentSort.field = field; currentSort.order = 'asc'; }
+                renderTable(); saveFullState();
+            };
+        });
+    }
+    function toggleRightPanel() { rightPanel.classList.toggle('hide'); mainArea.classList.toggle('shift'); }
+    function bindEvents() {
+        orderFileBtn.onclick = () => orderFileInput.click();
+        shipFileBtn.onclick = () => shipFileInput.click();
+        orderFileInput.onchange = (e) => { addOrderFiles(Array.from(e.target.files)); orderFileInput.value = ''; };
+        shipFileInput.onchange = (e) => { addShipmentFiles(Array.from(e.target.files)); shipFileInput.value = ''; };
+        processBtn.onclick = processCurrentFiles;
+        resetDataBtn.onclick = resetAll;
+        exportBtn.onclick = exportBackup;
+        importBtn.onclick = () => importFile.click();
+        importFile.onchange = (e) => { if (e.target.files.length) importBackup(e.target.files[0]); importFile.value = ''; };
+        closePanelBtn.onclick = toggleRightPanel;
+        document.getElementById('selectAllBtn').onclick = selectAll;
+        document.getElementById('deselectAllBtn').onclick = deselectAll;
+        filterHeader.onclick = (e) => { if (e.target.tagName === 'BUTTON') return; filterCollapsed = !filterCollapsed; toggleFilterCollapse(); saveFullState(); };
+        filterCollapseIcon.onclick = (e) => { e.stopPropagation(); filterCollapsed = !filterCollapsed; toggleFilterCollapse(); saveFullState(); };
+        window.addEventListener('keydown', (e) => { if (e.key === 'F2') { e.preventDefault(); toggleRightPanel(); } });
+        bindSorting();
+    }
+    loadFullState();
+    bindEvents();
+</script>
+</body>
+</html>
