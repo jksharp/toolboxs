@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>天命之球 · 双重视角</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: #03050b;
+            font-family: 'Segoe UI', 'Poppins', monospace;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            color: #eef5ff;
+        }
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            position: relative;
+        }
+        /* 左侧任务面板 - 使用 transform 隐藏，但影响布局，改为 display + 过渡？ */
+        .control-panel {
+            width: 360px;
+            background: rgba(8, 12, 25, 0.92);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(0, 255, 255, 0.5);
+            display: flex;
+            flex-direction: column;
+            z-index: 20;
+            overflow-y: auto;
+            padding: 20px 16px;
+            transition: width 0.3s ease, opacity 0.3s ease;
+        }
+        .control-panel.hidden {
+            width: 0;
+            padding: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+        /* 右侧配置面板 */
+        .config-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 340px;
+            height: 100%;
+            background: rgba(8, 12, 25, 0.95);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(0, 255, 255, 0.5);
+            z-index: 30;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .config-panel.visible {
+            transform: translateX(0);
+        }
+        /* 右侧主区域 */
+        .main-area {
+            flex: 1;
+            position: relative;
+            background: #010008;
+            overflow: hidden;
+        }
+        .canvas-mode {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .wall-mode {
+            width: 100%;
+            height: 100%;
+            display: none;
+            overflow-y: auto;
+            padding: 20px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+        }
+        .wall-mode.active {
+            display: block;
+        }
+        .canvas-mode.hide {
+            display: none;
+        }
+        /* 模式切换按钮 */
+        .mode-switch {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .mode-switch button {
+            flex: 1;
+            background: #1a2a4f;
+            border: 1px solid #2f6f9f;
+            padding: 8px;
+            border-radius: 40px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+        }
+        .mode-switch button.active {
+            background: #2a4f6f;
+            box-shadow: 0 0 8px cyan;
+        }
+        /* 任务卡片网格 */
+        .task-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: flex-start;
+            align-items: start;
+        }
+        .task-card {
+            width: 180px;
+            background: rgba(20, 30, 55, 0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 16px;
+            border-left: 6px solid;
+            padding: 12px;
+            cursor: pointer;
+            transition: 0.1s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .task-card:hover {
+            transform: translateY(-4px);
+            background: rgba(40, 60, 100, 0.9);
+        }
+        .task-card.highlight {
+            background: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 12px cyan;
+        }
+        .task-card-title {
+            font-weight: bold;
+            font-size: 14px;
+            word-break: break-word;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+        .task-card-deadline {
+            font-size: 11px;
+            color: #9cf;
+            margin-bottom: 8px;
+        }
+        .task-card-priority {
+            font-size: 10px;
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            background: rgba(0,0,0,0.5);
+        }
+        .task-card-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .task-card-complete, .task-card-edit {
+            background: none;
+            border: 1px solid cyan;
+            border-radius: 20px;
+            padding: 2px 8px;
+            cursor: pointer;
+            color: #ccf;
+            font-size: 10px;
+        }
+        .task-card-edit {
+            border-color: #0ff;
+        }
+        /* 左侧列表样式 */
+        .task-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .task-item {
+            border-left: 4px solid cyan;
+            padding: 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            background: rgba(20,30,55,0.7);
+            transition: 0.1s;
+            color: #eef5ff;  /* 字体颜色改为亮色 */
+        }
+        .task-item:hover {
+            transform: translateX(5px);
+            filter: brightness(1.1);
+            background: rgba(0, 255, 255, 0.2);
+        }
+        .task-item.highlight {
+            background: rgba(0, 255, 255, 0.3);
+            border-left-color: #fff;
+        }
+        .task-title {
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .task-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .edit-task, .delete-task {
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .edit-task { color: #0ff; }
+        .delete-task { color: #f88; }
+        .task-deadline {
+            font-size: 0.7rem;
+            color: #9cf;
+        }
+        .complete-btn {
+            background: none;
+            border: 1px solid cyan;
+            border-radius: 20px;
+            padding: 2px 10px;
+            cursor: pointer;
+            color: #ccf;
+            font-size: 0.7rem;
+        }
+        .panel-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            background: linear-gradient(135deg, #aaffff, #ff6a4a);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 20px;
+        }
+        .task-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 20px;
+            padding: 15px;
+        }
+        .task-form input, .task-form textarea, .task-form select {
+            background: #0a0f1c;
+            border: 1px solid #2c3e66;
+            color: #bbf0ff;
+            padding: 8px;
+            border-radius: 14px;
+        }
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .form-buttons button {
+            flex: 1;
+            background: #1a2a4f;
+            border: 1px solid #2f6f9f;
+            padding: 6px;
+            border-radius: 40px;
+            cursor: pointer;
+        }
+        .filter-area {
+            margin-bottom: 20px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 20px;
+            padding: 12px;
+        }
+        select#statusFilter {
+            width: 100%;
+            background: #030617;
+            border-color: #2f6f9f;
+            color: white;
+            padding: 6px;
+            border-radius: 20px;
+        }
+        .shortcut-hint {
+            font-size: 11px;
+            text-align: center;
+            margin-top: 15px;
+            color: #9cf;
+        }
+        .config-section {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 20px;
+            padding: 15px;
+        }
+        .config-section h3 {
+            margin-bottom: 12px;
+            font-size: 1.2rem;
+            color: #0ff;
+        }
+        .config-section button {
+            background: #1a2a4f;
+            border: 1px solid #2f6f9f;
+            padding: 8px;
+            border-radius: 40px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            color: white;
+        }
+        .config-section input {
+            width: 100%;
+            background: #0a0f1c;
+            border: 1px solid #2c3e66;
+            color: #bbf0ff;
+            padding: 8px;
+            border-radius: 20px;
+            margin-top: 6px;
+        }
+        .link-help {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #0ff;
+            text-decoration: none;
+        }
+        .link-help:hover {
+            text-decoration: underline;
+        }
+        .hover-tooltip {
+            position: fixed;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0,255,255,0.7);
+            border-radius: 20px;
+            padding: 12px 18px;
+            color: #0ff;
+            font-family: monospace;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 300;
+            white-space: nowrap;
+            display: none;
+        }
+        .tooltip-card {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 320px;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0,255,255,0.8);
+            border-radius: 28px;
+            padding: 20px;
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .ai-panel {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 380px;
+            background: rgba(8,12,25,0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0,255,255,0.8);
+            border-radius: 28px;
+            padding: 20px;
+            z-index: 250;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 0 40px rgba(0,255,255,0.3);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .ai-panel.visible {
+            display: flex;
+        }
+    </style>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+</head>
+<body>
+<div class="app-container">
+    <div class="control-panel" id="controlPanel">
+        <div class="panel-header">✦ 天命之球 ✦</div>
+        <div class="mode-switch">
+            <button id="bubbleModeBtn" class="active">🔵 气泡模式</button>
+            <button id="wallModeBtn">📋 信息墙模式</button>
+        </div>
+        <div class="task-form">
+            <input type="text" id="taskName" placeholder="任务名称">
+            <textarea id="taskDesc" rows="2" placeholder="详细说明..."></textarea>
+            <input type="datetime-local" id="taskDeadline">
+            <select id="taskPriority">
+                <option value="5">🔴 红色 - 紧急 (5)</option>
+                <option value="4">🟠 橙色 (4)</option>
+                <option value="3" selected>🟡 黄色 (3)</option>
+                <option value="2">🔵 蓝色 (2)</option>
+                <option value="1">⚪ 白色 (1)</option>
+            </select>
+            <div class="form-buttons">
+                <button id="addTaskBtn">➕ 添加任务</button>
+                <button id="updateTaskBtn">✏️ 更新任务</button>
+            </div>
+        </div>
+        <div class="filter-area">
+            <div class="filter-title">筛选</div>
+            <select id="statusFilter">
+                <option value="all" selected>全部任务</option>
+                <option value="active">未完成</option>
+                <option value="expired">已过期</option>
+                <option value="completed">已完成</option>
+            </select>
+        </div>
+        <div class="task-list" id="taskListContainer"></div>
+        <div class="shortcut-hint">★ 拖拽球体 | 点击 ✏️ 编辑 | F2 隐藏面板 | F3 配置 | F4 切换模式</div>
+    </div>
+
+    <div id="configPanel" class="config-panel">
+        <div class="config-section">
+            <h3>📎 数据导入/导出</h3>
+            <button id="exportExcelBtn">导出 Excel</button>
+            <button id="importExcelBtn">导入 Excel</button>
+            <button id="exportJsonBtn">导出 JSON</button>
+            <button id="importJsonBtn">导入 JSON</button>
+            <input type="file" id="excelFileInput" accept=".xlsx,.csv,.xls" style="display:none">
+            <input type="file" id="jsonFileInput" accept=".json" style="display:none">
+        </div>
+        <div class="config-section">
+            <h3>🤖 AI 智能规划 (DeepSeek)</h3>
+            <input type="text" id="deepseekKey" placeholder="DeepSeek API Key">
+            <button id="checkQuotaBtn">🔍 查询剩余额度</button>
+            <div id="quotaDisplay" style="font-size:12px; margin-top:8px;"></div>
+            <input type="text" id="aiPrompt" placeholder="计划主题，如：制定今天的工作计划">
+            <button id="generatePlanBtn">✨ 生成每日计划</button>
+        </div>
+        <div class="config-section">
+            <h3>📱 微信提醒 (Server酱)</h3>
+            <input type="text" id="sendKey" placeholder="SendKey">
+            <button id="sendWechatBtn">📨 发送所有未完成任务</button>
+            <button id="copyTasksBtn">📋 复制未完成任务列表</button>
+            <a href="https://sct.ftqq.com/" target="_blank" class="link-help">👉 获取 Server酱 SendKey</a>
+        </div>
+        <div class="config-section">
+            <h3>⚙️ 管理</h3>
+            <button id="resetTasksBtn">重置任务 (20个预设)</button>
+            <button id="resetPositionsBtn">重置球体位置</button>
+        </div>
+    </div>
+
+    <div class="main-area">
+        <canvas id="canvas2d" class="canvas-mode"></canvas>
+        <div id="wallContainer" class="wall-mode">
+            <div id="taskGrid" class="task-grid"></div>
+        </div>
+    </div>
+</div>
+
+<div id="aiPanel" class="ai-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(0,255,255,0.3); padding-bottom:8px;">
+        <span style="font-size:1.2rem; color:#0ff;">✨ AI 智能规划</span>
+        <span id="closeAiPanel" style="cursor:pointer; color:#f99;">✖</span>
+    </div>
+    <div id="aiPanelContent" style="font-size:14px; line-height:1.6;"></div>
+</div>
+
+<div id="taskDetailCard" class="tooltip-card">
+    <span class="tooltip-close" id="closeTooltip">✖</span>
+    <div class="tooltip-title" id="detailTitle">任务</div>
+    <div id="detailDesc">说明</div>
+    <div id="detailDeadline">⏰ 截止</div>
+    <div id="detailPriority">⚡ 优先级</div>
+    <div id="detailUrgency">🔥 紧迫度</div>
+    <button id="detailActionBtn">✨ 标记已完成</button>
+</div>
+<div id="hoverTooltip" class="hover-tooltip"></div>
+
+<script>
+    // ---------- 全局变量 ----------
+    const priorityColorMap = {1:"#ddddff",2:"#3399ff",3:"#ffcc33",4:"#ff8833",5:"#ff3333"};
+    const priorityName = {1:"白色",2:"蓝色",3:"黄色",4:"橙色",5:"红色"};
+
+    function getPulseParams(priority, isCompleted, isExpired) {
+        if (isCompleted || isExpired) return { freq: 0, amp: 0 };
+        switch(priority) {
+            case 5: return { freq: 5.5, amp: 0.22 };
+            case 4: return { freq: 1.2, amp: 0.05 };
+            case 3: return { freq: 0.6, amp: 0.03 };
+            case 2: return { freq: 0.2, amp: 0.02 };
+            default: return { freq: 0, amp: 0 };
+        }
+    }
+
+    // 紧迫度分数，过期的任务强制排在后面（分数为负）
+    function getUrgencyScore(task, now = new Date()) {
+        if (task.completed) return -100; // 已完成任务排最后
+        if (task.expired) return -50;     // 过期任务排在未过期但未完成之后
+        let priorityBase = (task.priority - 1) / 4;
+        let timeFactor = 0;
+        if (task.deadline) {
+            const hoursLeft = (new Date(task.deadline) - now) / (1000 * 3600);
+            if (hoursLeft <= 0) timeFactor = 1;
+            else if (hoursLeft <= 2) timeFactor = 0.9;
+            else if (hoursLeft <= 12) timeFactor = 0.7;
+            else if (hoursLeft <= 48) timeFactor = 0.4;
+            else if (hoursLeft <= 168) timeFactor = 0.2;
+            else timeFactor = 0.05;
+        }
+        let score = priorityBase * 0.6 + timeFactor * 0.4;
+        return Math.min(0.98, Math.max(0, score));
+    }
+
+    function generatePresetTasks() {
+        const baseNames = [
+            "💼 上班工作","💍 结婚筹备","🏠 买房计划","💰 理财规划","📚 读书成长",
+            "🏋️ 健身锻炼","🍳 学会做饭","🚗 考驾照","🌍 年度旅行","📈 副业赚钱",
+            "🩺 全面体检","👪 陪伴家人","🎓 学历提升","🧘 冥想练习","🎨 培养爱好",
+            "📝 写作输出","🧹 整理房间","🌱 学习AI","💬 社交拓展","🏆 年度目标"
+        ];
+        const now = new Date();
+        return baseNames.map((name,i) => ({
+            id: i+1,
+            name: name,
+            desc: `关于${name.slice(2)}的任务。`,
+            deadline: new Date(now.getTime() + (Math.floor(Math.random()*65)-5)*86400000).toISOString(),
+            priority: (i % 5) + 1,
+            completed: false,
+            expired: false
+        }));
+    }
+
+    let tasks = [];
+    let nextId = 100;
+    let activeFilter = 'all';
+    let spherePositions = new Map();
+    let currentMode = 'bubble'; // 'bubble' or 'wall'
+    let sortable = null;
+
+    // 气泡模式相关变量
+    let canvas, ctx, animFrame, spheresData = [], animTime = 0;
+    let clickAnimation = null;
+    let isDragging = false, dragSphereId = null, dragStartX = 0, dragStartY = 0;
+    let stars = [];
+
+    // 鲸鱼动画参数
+    let whale = {
+        x: 0.7, y: 0.5,
+        vx: 0.0012, vy: 0.0009,
+        angle: 0,
+        tailOffset: 0,
+        alpha: 1.0
+    };
+    const bigDipperPoints = [
+        { x: -55, y: -1 }, { x: -35, y: -15 }, { x: -13, y: -12 },
+        { x: 4, y: -15 }, { x: 8, y: 3 }, { x: 35, y: 3 }, { x: 37, y: -18 }
+    ];
+    const bigDipperConn = [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6]];
+
+    // ---------- 任务管理核心函数 ----------
+    function updateExpiredStatus() {
+        const now = new Date();
+        tasks.forEach(t => {
+            if (!t.completed && t.deadline) t.expired = new Date(t.deadline) < now;
+            else t.expired = false;
+        });
+    }
+
+    function getSortedTasks() {
+        let filtered = [...tasks];
+        if (activeFilter === 'active') filtered = filtered.filter(t => !t.completed && !t.expired);
+        else if (activeFilter === 'expired') filtered = filtered.filter(t => !t.completed && t.expired);
+        else if (activeFilter === 'completed') filtered = filtered.filter(t => t.completed);
+        // 排序：紧迫度高的在前，但过期和已完成的任务已经被过滤或排在后面
+        filtered.sort((a,b) => {
+            const scoreA = getUrgencyScore(a, new Date());
+            const scoreB = getUrgencyScore(b, new Date());
+            return scoreB - scoreA;
+        });
+        return filtered;
+    }
+
+    function renderTaskList() {
+        const container = document.getElementById('taskListContainer');
+        const sorted = getSortedTasks();
+        container.innerHTML = '';
+        if (!sorted.length) { container.innerHTML = '<div style="padding:20px;text-align:center">✨ 暂无任务 ✨</div>'; return; }
+        sorted.forEach(task => {
+            const color = priorityColorMap[task.priority];
+            const r=parseInt(color.slice(1,3),16), g=parseInt(color.slice(3,5),16), b=parseInt(color.slice(5,7),16);
+            const div = document.createElement('div');
+            div.className = 'task-item';
+            div.style.background = `rgba(${r},${g},${b},0.25)`;
+            div.setAttribute('data-id', task.id);
+            div.innerHTML = `
+                <div class="task-title">
+                    <span>${task.name}</span>
+                    <div class="task-actions">
+                        <span class="edit-task" data-id="${task.id}">✏️</span>
+                        <span class="delete-task" data-id="${task.id}">🗑️</span>
+                    </div>
+                </div>
+                <div class="task-deadline">⏰ ${task.deadline ? new Date(task.deadline).toLocaleString() : '无期限'}</div>
+                <div style="margin-top:6px; display:flex; justify-content:space-between;">
+                    <span>⚡ ${priorityName[task.priority]}</span>
+                    ${!task.completed && !task.expired ? `<button class="complete-btn" data-id="${task.id}">✔️完成</button>` : (task.completed ? '<span>✓ 已完成</span>' : '<span style="color:#f66;">💔 过期</span>')}
+                </div>
+            `;
+            div.querySelector('.edit-task')?.addEventListener('click', (e) => { e.stopPropagation(); loadTaskToForm(task); });
+            div.querySelector('.delete-task')?.addEventListener('click', (e) => { e.stopPropagation(); deleteTaskById(task.id); });
+            div.querySelector('.complete-btn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleComplete(task.id); });
+            div.addEventListener('mouseenter', () => highlightTask(task.id));
+            div.addEventListener('mouseleave', () => unhighlightTask());
+            div.addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-task') || e.target.classList.contains('delete-task') || e.target.classList.contains('complete-btn')) return;
+                showTaskDetail(task);
+            });
+            container.appendChild(div);
+        });
+    }
+
+    function loadTaskToForm(task) {
+        document.getElementById('taskName').value = task.name;
+        document.getElementById('taskDesc').value = task.desc || '';
+        if (task.deadline) {
+            const d = new Date(task.deadline);
+            document.getElementById('taskDeadline').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        } else document.getElementById('taskDeadline').value = '';
+        document.getElementById('taskPriority').value = task.priority;
+        currentEditId = task.id;
+    }
+    let currentEditId = null;
+    function updateCurrentTask() {
+        if (currentEditId === null) { alert('请先点击编辑图标 ✏️'); return; }
+        const task = tasks.find(t => t.id === currentEditId);
+        if (!task) return;
+        const newName = document.getElementById('taskName').value.trim();
+        if (!newName) { alert('任务名称不能为空'); return; }
+        task.name = newName;
+        task.desc = document.getElementById('taskDesc').value;
+        const deadlineStr = document.getElementById('taskDeadline').value;
+        task.deadline = deadlineStr ? new Date(deadlineStr).toISOString() : null;
+        task.priority = parseInt(document.getElementById('taskPriority').value);
+        if (task.completed) { task.completed = false; task.expired = false; }
+        updateExpiredStatus();
+        saveTasks();
+        renderTaskList();
+        if (currentMode === 'wall') renderWall();
+        if (currentMode === 'bubble') refreshBubble();
+        currentEditId = null;
+    }
+
+    function saveTasks() {
+        localStorage.setItem('cosmic_tasks', JSON.stringify(tasks));
+        const posObj = {};
+        for (let [id,pos] of spherePositions) posObj[id] = pos;
+        localStorage.setItem('sphere_positions', JSON.stringify(posObj));
+        const order = Array.from(document.querySelectorAll('.task-card')).map(c => parseInt(c.dataset.id));
+        if (order.length) localStorage.setItem('task_order', JSON.stringify(order));
+    }
+
+    function loadTasks() {
+        const raw = localStorage.getItem('cosmic_tasks');
+        if (raw) {
+            try {
+                const parsed = JSON.parse(raw);
+                tasks = (Array.isArray(parsed) && parsed.length === 20) ? parsed : generatePresetTasks();
+            } catch(e) { tasks = generatePresetTasks(); }
+        } else { tasks = generatePresetTasks(); }
+        nextId = Math.max(...tasks.map(t=>t.id)) + 1;
+        updateExpiredStatus();
+        const posRaw = localStorage.getItem('sphere_positions');
+        if (posRaw) {
+            try { const obj = JSON.parse(posRaw); for (let id in obj) spherePositions.set(parseInt(id), obj[id]); } catch(e) {}
+        }
+        saveTasks();
+        renderTaskList();
+    }
+
+    function addTask(name, desc, deadline, priority) {
+        if (!name.trim()) return;
+        tasks.push({ id: nextId++, name, desc: desc||"", deadline: deadline||null, priority: parseInt(priority), completed: false, expired: false });
+        saveTasks();
+        updateExpiredStatus();
+        renderTaskList();
+        if (currentMode === 'wall') renderWall();
+        if (currentMode === 'bubble') refreshBubble();
+    }
+
+    function deleteTaskById(id) {
+        tasks = tasks.filter(t => t.id !== id);
+        spherePositions.delete(id);
+        saveTasks();
+        renderTaskList();
+        if (currentMode === 'wall') renderWall();
+        if (currentMode === 'bubble') refreshBubble();
+        if (selectedTaskId === id) hideDetail();
+        if (currentEditId === id) {
+            currentEditId = null;
+            document.getElementById('taskName').value = '';
+            document.getElementById('taskDesc').value = '';
+            document.getElementById('taskDeadline').value = '';
+            document.getElementById('taskPriority').value = '3';
+        }
+    }
+
+    function toggleComplete(id) {
+        const task = tasks.find(t => t.id === id);
+        if (task) {
+            task.completed = !task.completed;
+            if (task.completed) task.expired = false;
+            saveTasks();
+            updateExpiredStatus();
+            renderTaskList();
+            if (currentMode === 'wall') renderWall();
+            if (currentMode === 'bubble') refreshBubble();
+            if (selectedTaskId === id) showTaskDetail(task);
+        }
+    }
+
+    let selectedTaskId = null;
+    function showTaskDetail(task) {
+        selectedTaskId = task.id;
+        const card = document.getElementById('taskDetailCard');
+        document.getElementById('detailTitle').innerText = task.name;
+        document.getElementById('detailDesc').innerHTML = `📜 说明: ${task.desc || '无'}`;
+        document.getElementById('detailDeadline').innerHTML = `⏰ 截止: ${task.deadline ? new Date(task.deadline).toLocaleString() : '无期限'}`;
+        document.getElementById('detailPriority').innerHTML = `⚡ 优先级: ${task.priority} (${priorityName[task.priority]})`;
+        const urgency = getUrgencyScore(task, new Date());
+        document.getElementById('detailUrgency').innerHTML = `🔥 紧迫度: ${Math.round(urgency*100)}%`;
+        card.style.display = 'flex';
+        const actionBtn = document.getElementById('detailActionBtn');
+        const newBtn = actionBtn.cloneNode(true);
+        actionBtn.parentNode.replaceChild(newBtn, actionBtn);
+        if (task.completed) {
+            newBtn.textContent = '✨ 重新打开 ✨';
+            newBtn.style.background = '#6f2a4f';
+            newBtn.onclick = () => { toggleComplete(task.id); hideDetail(); };
+        } else {
+            newBtn.textContent = '✨ 标记已完成 ✨';
+            newBtn.style.background = '#2a4f6f';
+            newBtn.onclick = () => { toggleComplete(task.id); hideDetail(); };
+        }
+    }
+    function hideDetail() { document.getElementById('taskDetailCard').style.display = 'none'; selectedTaskId = null; }
+
+    // 高亮任务
+    function highlightTask(id) {
+        // 气泡模式：高亮球体
+        if (currentMode === 'bubble' && spheresData) {
+            const sphere = spheresData.find(s => s.id === id);
+            if (sphere) {
+                // 临时改变球体的发光效果，这里通过重新绘制时特殊处理
+                // 为了简单，我们存储高亮ID，在drawSpheres中特殊绘制
+                window.highlightedSphereId = id;
+                refreshBubble();
+            }
+        }
+        // 信息墙模式：高亮卡片
+        if (currentMode === 'wall') {
+            document.querySelectorAll('.task-card').forEach(card => {
+                if (parseInt(card.dataset.id) === id) {
+                    card.classList.add('highlight');
+                } else {
+                    card.classList.remove('highlight');
+                }
+            });
+        }
+        // 左侧列表高亮
+        document.querySelectorAll('.task-item').forEach(item => {
+            if (parseInt(item.getAttribute('data-id')) === id) {
+                item.classList.add('highlight');
+            } else {
+                item.classList.remove('highlight');
+            }
+        });
+    }
+
+    function unhighlightTask() {
+        window.highlightedSphereId = null;
+        if (currentMode === 'bubble') refreshBubble();
+        if (currentMode === 'wall') {
+            document.querySelectorAll('.task-card').forEach(card => card.classList.remove('highlight'));
+        }
+        document.querySelectorAll('.task-item').forEach(item => item.classList.remove('highlight'));
+    }
+
+    // 导入导出（略，保持功能）
+    function exportToExcel() {
+        const data = tasks.map(t => ({ ID:t.id, 名称:t.name, 说明:t.desc, 截止时间:t.deadline?new Date(t.deadline).toLocaleString():'', 优先级:t.priority, 已完成:t.completed?"是":"否", 已过期:t.expired?"是":"否" }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "任务清单");
+        XLSX.writeFile(wb, `任务清单_${new Date().toISOString().slice(0,19)}.xlsx`);
+    }
+    function importFromExcel(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet);
+            if (!rows.length) return;
+            const newTasks = [];
+            let maxId = 0;
+            for (let row of rows) {
+                let id = row["ID"] || (maxId+1);
+                if (typeof id === 'string') id = parseInt(id);
+                const name = row["名称"] || "未命名";
+                const desc = row["说明"] || "";
+                let deadline = row["截止时间"];
+                let deadlineISO = deadline ? new Date(deadline).toISOString() : null;
+                let priority = parseInt(row["优先级"]) || 3;
+                let completed = row["已完成"] === "是";
+                let expired = row["已过期"] === "是";
+                newTasks.push({ id, name, desc, deadline: deadlineISO, priority, completed, expired });
+                if (id > maxId) maxId = id;
+            }
+            tasks = newTasks;
+            nextId = maxId + 1;
+            updateExpiredStatus();
+            saveTasks();
+            renderTaskList();
+            if (currentMode === 'wall') renderWall();
+            if (currentMode === 'bubble') refreshBubble();
+            alert(`导入成功，共 ${tasks.length} 个任务`);
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    function exportToJson() {
+        const blob = new Blob([JSON.stringify(tasks,null,2)], {type:'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `tasks_${new Date().toISOString().slice(0,19)}.json`;
+        a.click();
+        URL.revokeObjectURL(blob);
+    }
+    function importFromJson(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (Array.isArray(imported)) {
+                    tasks = imported;
+                    nextId = Math.max(...tasks.map(t=>t.id)) + 1;
+                    updateExpiredStatus();
+                    saveTasks();
+                    renderTaskList();
+                    if (currentMode === 'wall') renderWall();
+                    if (currentMode === 'bubble') refreshBubble();
+                    alert('导入成功');
+                } else throw new Error();
+            } catch { alert('文件格式错误'); }
+        };
+        reader.readAsText(file);
+    }
+
+    // 微信提醒（略）
+    function getActiveTasks() { return tasks.filter(t => !t.completed); }
+    function formatTasksForMessage() {
+        const active = getActiveTasks();
+        if (!active.length) return "🎉 没有未完成的任务。";
+        const sorted = [...active].sort((a,b) => getUrgencyScore(b) - getUrgencyScore(a));
+        return sorted.map((t,i) => `${i+1}. ${t.name} (截止:${t.deadline?new Date(t.deadline).toLocaleString():'无期限'}, ${priorityName[t.priority]})`).join('\n');
+    }
+    async function sendWechatAllTasks() {
+        const sendKey = document.getElementById('sendKey').value.trim();
+        if (!sendKey) { alert('请先填入 SendKey'); return; }
+        const content = formatTasksForMessage();
+        const title = `【任务提醒】未完成列表 (${new Date().toLocaleString()})`;
+        try {
+            const res = await fetch(`https://sctapi.ftqq.com/${sendKey}.send`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title, desp:content}) });
+            const result = await res.json();
+            alert(result.code===0 ? '已发送' : '发送失败：'+result.message);
+        } catch(err) { alert('网络错误'); }
+    }
+    function copyAllTasks() {
+        const content = formatTasksForMessage();
+        navigator.clipboard.writeText(content).then(()=>alert('已复制')).catch(()=>alert('复制失败'));
+    }
+    function resetTasks() {
+        tasks = generatePresetTasks();
+        nextId = tasks.length + 1;
+        spherePositions.clear();
+        updateExpiredStatus();
+        saveTasks();
+        renderTaskList();
+        if (currentMode === 'wall') renderWall();
+        if (currentMode === 'bubble') refreshBubble();
+        alert('已重置为20个预设任务');
+    }
+    function resetPositions() { spherePositions.clear(); saveTasks(); if (currentMode === 'bubble') refreshBubble(); alert('位置已重置'); }
+
+    // AI 功能（略）
+    async function checkDeepSeekQuota() {
+        const key = document.getElementById('deepseekKey').value.trim();
+        if (!key) { alert('请输入 API Key'); return; }
+        localStorage.setItem('deepseek_key', key);
+        const quotaDiv = document.getElementById('quotaDisplay');
+        quotaDiv.innerHTML = '查询中...';
+        try {
+            const res = await fetch('https://api.deepseek.com/v1/usage', {
+                headers: { 'Authorization': `Bearer ${key}` }
+            });
+            if (res.status === 200) {
+                const data = await res.json();
+                quotaDiv.innerHTML = `💰 剩余免费额度: ${data.total_available || '未知'} tokens`;
+            } else if (res.status === 401) quotaDiv.innerHTML = '❌ API Key 无效';
+            else quotaDiv.innerHTML = `⚠️ 查询失败 (${res.status})`;
+        } catch(e) { quotaDiv.innerHTML = '⚠️ 网络错误'; }
+    }
+    async function generateDailyPlan() {
+        const key = document.getElementById('deepseekKey').value.trim();
+        if (!key) { alert('请输入 DeepSeek API Key'); return; }
+        const prompt = document.getElementById('aiPrompt').value.trim();
+        if (!prompt) { alert('请输入计划主题'); return; }
+        const panel = document.getElementById('aiPanel');
+        const contentDiv = document.getElementById('aiPanelContent');
+        contentDiv.innerHTML = '🤔 AI 正在思考...';
+        panel.style.display = 'flex';
+        try {
+            const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'deepseek-chat',
+                    messages: [{ role: 'system', content: '你是生活规划专家，请根据用户需求生成详细计划，用Markdown格式。' }, { role: 'user', content: prompt }]
+                })
+            });
+            if (res.status === 200) {
+                const data = await res.json();
+                let html = data.choices[0].message.content.replace(/\n/g,'<br>').replace(/### (.*?)<br>/g,'<h3>$1</h3>').replace(/## (.*?)<br>/g,'<h2>$1</h2>').replace(/# (.*?)<br>/g,'<h1>$1</h1>');
+                contentDiv.innerHTML = html;
+            } else {
+                contentDiv.innerHTML = `❌ 生成失败: ${res.status}`;
+            }
+        } catch(e) { contentDiv.innerHTML = '❌ 网络错误'; }
+    }
+
+    // ---------- 信息墙模式 ----------
+    function renderWall() {
+        const container = document.getElementById('taskGrid');
+        const activeTasks = tasks.filter(t => !t.completed);
+        if (!activeTasks.length) { container.innerHTML = '<div style="text-align:center; width:100%; padding:40px;">✨ 暂无未完成任务 ✨</div>'; return; }
+        let savedOrder = localStorage.getItem('task_order');
+        let orderIds = savedOrder ? JSON.parse(savedOrder) : [];
+        let sorted = [...activeTasks];
+        if (orderIds.length) {
+            sorted.sort((a,b) => {
+                let ia = orderIds.indexOf(a.id), ib = orderIds.indexOf(b.id);
+                if (ia===-1) ia=9999; if (ib===-1) ib=9999;
+                return ia-ib;
+            });
+        } else {
+            sorted.sort((a,b) => getUrgencyScore(b, new Date()) - getUrgencyScore(a, new Date()));
+        }
+        container.innerHTML = '';
+        sorted.forEach(task => {
+            const card = document.createElement('div');
+            card.className = 'task-card';
+            card.setAttribute('data-id', task.id);
+            card.style.borderLeftColor = priorityColorMap[task.priority];
+            card.innerHTML = `
+                <div class="task-card-title">${task.name}</div>
+                <div class="task-card-deadline">⏰ ${task.deadline ? new Date(task.deadline).toLocaleString() : '无期限'}</div>
+                <div class="task-card-priority" style="background:${priorityColorMap[task.priority]}40">${priorityName[task.priority]}</div>
+                <div class="task-card-actions">
+                    <button class="task-card-complete" data-id="${task.id}">✔️ 完成</button>
+                    <button class="task-card-edit" data-id="${task.id}">✏️ 编辑</button>
+                </div>
+            `;
+            card.addEventListener('mouseenter', () => highlightTask(task.id));
+            card.addEventListener('mouseleave', () => unhighlightTask());
+            card.addEventListener('click', (e) => {
+                if (e.target.classList.contains('task-card-complete') || e.target.classList.contains('task-card-edit')) return;
+                showTaskDetail(task);
+            });
+            container.appendChild(card);
+        });
+        document.querySelectorAll('.task-card-complete').forEach(btn => {
+            btn.addEventListener('click', (e) => { e.stopPropagation(); toggleComplete(parseInt(btn.dataset.id)); });
+        });
+        document.querySelectorAll('.task-card-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => { e.stopPropagation(); const t = tasks.find(t=>t.id===parseInt(btn.dataset.id)); if(t) loadTaskToForm(t); });
+        });
+        if (sortable) sortable.destroy();
+        sortable = new Sortable(container, {
+            animation: 150,
+            onEnd: () => {
+                const newOrder = Array.from(document.querySelectorAll('.task-card')).map(c => parseInt(c.dataset.id));
+                localStorage.setItem('task_order', JSON.stringify(newOrder));
+            }
+        });
+    }
+
+    // ---------- 气泡模式 ----------
+    function initBubble() {
+        canvas = document.getElementById('canvas2d');
+        ctx = canvas.getContext('2d');
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            if (currentMode === 'bubble') drawSpheres(animTime);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        new ResizeObserver(resizeCanvas).observe(canvas.parentElement);
+        resizeCanvas();
+
+        // 初始化星星
+        for (let i=0;i<1500;i++) {
+            stars.push({
+                x: Math.random(),
+                y: Math.random(),
+                radius: Math.random() * 1.8 + 0.5,
+                speed: 0.3 + Math.random() * 1.2,
+                phase: Math.random() * Math.PI * 2
+            });
+        }
+
+        function drawStars(now) {
+            const w=canvas.width, h=canvas.height;
+            for(let s of stars) {
+                const alpha = 0.1 + 0.5 * (Math.sin(now * s.speed + s.phase) + 1) * 0.7;
+                ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+                ctx.beginPath();
+                ctx.arc(s.x * w, s.y * h, s.radius, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function updateWhale(now) {
+            whale.x += whale.vx;
+            whale.y += whale.vy;
+            if (whale.x <= 0.05 || whale.x >= 0.95) {
+                whale.vx = -whale.vx;
+                whale.x = Math.min(0.95, Math.max(0.05, whale.x));
+                whale.vy += (Math.random() - 0.5) * 0.0004;
+                whale.vy = Math.min(0.003, Math.max(-0.003, whale.vy));
+            }
+            if (whale.y <= 0.05 || whale.y >= 0.95) {
+                whale.vy = -whale.vy;
+                whale.y = Math.min(0.95, Math.max(0.05, whale.y));
+                whale.vx += (Math.random() - 0.5) * 0.0004;
+                whale.vx = Math.min(0.003, Math.max(-0.003, whale.vx));
+            }
+            whale.angle = Math.atan2(whale.vy, whale.vx);
+            whale.tailOffset = Math.sin(now * 1.5) * 0.3;
+            whale.alpha = (Math.sin(now * 0.8) + 1) / 2;
+            if (whale.alpha < 0.05) whale.alpha = 0;
+        }
+
+        function drawWhale(now) {
+            const cx = whale.x * canvas.width;
+            const cy = whale.y * canvas.height;
+            const size = Math.min(canvas.width, canvas.height) / 320;
+            const angle = whale.angle;
+            const alpha = whale.alpha * 0.75;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = "#0cf";
+            ctx.globalAlpha = alpha;
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#0cf";
+            ctx.fillStyle = "rgba(0, 200, 255, 0.12)";
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 55*size, 28*size, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(30*size, -8*size, 4*size, 0, Math.PI*2);
+            ctx.fillStyle = "#fff";
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(32*size, -9*size, 1.5*size, 0, Math.PI*2);
+            ctx.fillStyle = "#000";
+            ctx.fill();
+            const tailX = -55*size, tailY = 0, tailLen = 25*size, tailOff = whale.tailOffset;
+            ctx.beginPath();
+            ctx.moveTo(tailX, tailY);
+            ctx.lineTo(tailX - tailLen, tailY - 12*size - tailOff*6*size);
+            ctx.lineTo(tailX - tailLen*0.5, tailY - 2*size);
+            ctx.lineTo(tailX - tailLen, tailY + 12*size + tailOff*6*size);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            // 北斗七星
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 0.6 * size;
+            for(let c of bigDipperConn) {
+                ctx.beginPath();
+                ctx.moveTo(bigDipperPoints[c[0]].x * size, bigDipperPoints[c[0]].y * size);
+                ctx.lineTo(bigDipperPoints[c[1]].x * size, bigDipperPoints[c[1]].y * size);
+                ctx.stroke();
+            }
+            for(let p of bigDipperPoints) {
+                ctx.fillStyle = "white";
+                ctx.beginPath();
+                ctx.arc(p.x * size, p.y * size, 1.0 * size, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function assignFixedPositions() {
+            const w=canvas.width, h=canvas.height;
+            let needAssign = false;
+            for(let t of tasks) if(!spherePositions.has(t.id)) { needAssign=true; break; }
+            if(!needAssign) return;
+            const margin=60;
+            for(let t of tasks) {
+                if(spherePositions.has(t.id)) continue;
+                let placed=false;
+                for(let a=0;a<500;a++) {
+                    let x=margin+Math.random()*(w-margin*2), y=margin+Math.random()*(h-margin*2);
+                    let overlap=false;
+                    for(let [id,pos] of spherePositions) if(Math.hypot(pos.x-x,pos.y-y)<70) { overlap=true; break; }
+                    if(!overlap) { spherePositions.set(t.id,{x,y}); placed=true; break; }
+                }
+                if(!placed) spherePositions.set(t.id,{x:w/2,y:h/2});
+            }
+            saveTasks();
+        }
+
+        function drawSpheres(now) {
+            if(!canvas || !ctx) return;
+            const w=canvas.width, h=canvas.height;
+            if(w===0||h===0) return;
+            ctx.clearRect(0,0,w,h);
+            ctx.fillStyle='#000';
+            ctx.fillRect(0,0,w,h);
+            drawStars(now);
+            updateWhale(now);
+            drawWhale(now);
+            const activeTasks = tasks.filter(t=>!t.completed);
+            if(!activeTasks.length) return;
+            assignFixedPositions();
+            spheresData = [];
+            for(let task of activeTasks) {
+                const pos = spherePositions.get(task.id);
+                if(!pos) continue;
+                let {x,y}=pos;
+                const isExpired = task.expired;
+                let baseRadius = isExpired ? 24 : Math.min(60, Math.max(24, 22+task.priority*6));
+                const pulse = getPulseParams(task.priority, false, isExpired);
+                let factor = pulse.freq>0 ? 1+Math.sin(now*pulse.freq)*pulse.amp : 1;
+                let clickScale = 1;
+                if(clickAnimation && clickAnimation.id===task.id && (now-clickAnimation.startTime)<0.3) {
+                    const t = (now-clickAnimation.startTime)/0.3;
+                    clickScale = 1+Math.sin(t*Math.PI)*0.3;
+                }
+                const radius = baseRadius * factor * clickScale;
+                const color = priorityColorMap[task.priority];
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = color;
+                // 高亮效果：如果当前任务被高亮，增加外发光
+                if (window.highlightedSphereId === task.id) {
+                    ctx.shadowBlur = 30;
+                    ctx.shadowColor = "cyan";
+                }
+                ctx.beginPath();
+                ctx.arc(x,y,radius,0,Math.PI*2);
+                ctx.fillStyle = color;
+                if(isExpired) ctx.globalAlpha = 0.7;
+                else ctx.globalAlpha = 1;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                ctx.beginPath();
+                ctx.arc(x-radius*0.2, y-radius*0.2, radius*0.22, 0, Math.PI*2);
+                ctx.fillStyle = "rgba(255,255,255,0.45)";
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                if(task.priority===5 && !isExpired) {
+                    ctx.beginPath();
+                    ctx.arc(x,y,radius+5+Math.sin(now*12)*3,0,Math.PI*2);
+                    ctx.strokeStyle = `rgba(255,51,51,0.7)`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                spheresData.push({ id:task.id, x, y, radius, task });
+            }
+        }
+
+        function animate(timestamp) {
+            animTime = timestamp / 1000;
+            if (currentMode === 'bubble') drawSpheres(animTime);
+            requestAnimationFrame(animate);
+        }
+        animate(0);
+
+        // 交互事件
+        function onMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+            const mx = (e.clientX-rect.left)*sx, my = (e.clientY-rect.top)*sy;
+            for(let s of spheresData) {
+                if(Math.hypot(mx-s.x, my-s.y) <= s.radius) {
+                    isDragging = true;
+                    dragSphereId = s.id;
+                    dragStartX = s.x - mx;
+                    dragStartY = s.y - my;
+                    canvas.style.cursor = 'grabbing';
+                    break;
+                }
+            }
+        }
+        function onMouseMove(e) {
+            if(!isDragging || dragSphereId===null) return;
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+            const mx = (e.clientX-rect.left)*sx, my = (e.clientY-rect.top)*sy;
+            let newX = mx + dragStartX;
+            let newY = my + dragStartY;
+            newX = Math.min(canvas.width-50, Math.max(50, newX));
+            newY = Math.min(canvas.height-50, Math.max(50, newY));
+            spherePositions.set(dragSphereId, { x:newX, y:newY });
+            saveTasks();
+        }
+        function onMouseUp() { isDragging=false; dragSphereId=null; canvas.style.cursor='grab'; }
+        function onCanvasClick(e) {
+            if(isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+            const mx = (e.clientX-rect.left)*sx, my = (e.clientY-rect.top)*sy;
+            for(let s of spheresData) {
+                if(Math.hypot(mx-s.x, my-s.y) <= s.radius) {
+                    clickAnimation = { id:s.id, startTime:animTime };
+                    showTaskDetail(s.task);
+                    break;
+                }
+            }
+        }
+        function onHover(e) {
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+            const mx = (e.clientX-rect.left)*sx, my = (e.clientY-rect.top)*sy;
+            let hit = null;
+            for(let s of spheresData) {
+                if(Math.hypot(mx-s.x, my-s.y) <= s.radius) { hit = s; break; }
+            }
+            const tooltip = document.getElementById('hoverTooltip');
+            if(hit) {
+                const task = hit.task;
+                tooltip.innerHTML = `<strong style="color:#0ff;">${task.name}</strong><br>📅 ${task.deadline ? new Date(task.deadline).toLocaleString() : '无期限'}<br>⚡ ${priorityName[task.priority]} &nbsp; ${task.completed ? '✓已完成' : (task.expired ? '💔过期' : '进行中')}<br>📝 ${task.desc || ''}`;
+                tooltip.style.left = (e.clientX+15)+'px';
+                tooltip.style.top = (e.clientY-40)+'px';
+                tooltip.style.display = 'block';
+            } else {
+                tooltip.style.display = 'none';
+            }
+        }
+        canvas.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        canvas.addEventListener('click', onCanvasClick);
+        canvas.addEventListener('mousemove', onHover);
+        canvas.style.cursor = 'grab';
+    }
+
+    function refreshBubble() {
+        if (currentMode === 'bubble' && canvas && ctx) {
+            drawSpheres(animTime);
+        }
+    }
+
+    // 模式切换
+    function setMode(mode) {
+        currentMode = mode;
+        const canvasDiv = document.getElementById('canvas2d');
+        const wallDiv = document.getElementById('wallContainer');
+        const bubbleBtn = document.getElementById('bubbleModeBtn');
+        const wallBtn = document.getElementById('wallModeBtn');
+        if (mode === 'bubble') {
+            canvasDiv.classList.remove('hide');
+            wallDiv.classList.remove('active');
+            canvasDiv.style.display = 'block';
+            wallDiv.style.display = 'none';
+            bubbleBtn.classList.add('active');
+            wallBtn.classList.remove('active');
+            refreshBubble();
+        } else {
+            canvasDiv.classList.add('hide');
+            wallDiv.classList.add('active');
+            canvasDiv.style.display = 'none';
+            wallDiv.style.display = 'block';
+            bubbleBtn.classList.remove('active');
+            wallBtn.classList.add('active');
+            renderWall();
+        }
+    }
+
+    // UI 事件绑定
+    document.getElementById('statusFilter').onchange = (e) => { activeFilter = e.target.value; renderTaskList(); if(currentMode==='wall') renderWall(); if(currentMode==='bubble') refreshBubble(); };
+    document.getElementById('addTaskBtn').onclick = () => {
+        const name = document.getElementById('taskName').value;
+        const desc = document.getElementById('taskDesc').value;
+        const deadline = document.getElementById('taskDeadline').value;
+        const priority = parseInt(document.getElementById('taskPriority').value);
+        if (!name) return alert('请输入任务名称');
+        addTask(name, desc, deadline||null, priority);
+        document.getElementById('taskName').value = '';
+        document.getElementById('taskDesc').value = '';
+        document.getElementById('taskDeadline').value = '';
+        currentEditId = null;
+    };
+    document.getElementById('updateTaskBtn').onclick = updateCurrentTask;
+    document.getElementById('closeTooltip').onclick = hideDetail;
+    document.getElementById('exportExcelBtn').onclick = exportToExcel;
+    document.getElementById('importExcelBtn').onclick = () => document.getElementById('excelFileInput').click();
+    document.getElementById('excelFileInput').onchange = (e) => { if(e.target.files[0]) importFromExcel(e.target.files[0]); e.target.value=''; };
+    document.getElementById('exportJsonBtn').onclick = exportToJson;
+    document.getElementById('importJsonBtn').onclick = () => document.getElementById('jsonFileInput').click();
+    document.getElementById('jsonFileInput').onchange = (e) => { if(e.target.files[0]) importFromJson(e.target.files[0]); e.target.value=''; };
+    document.getElementById('sendWechatBtn').onclick = sendWechatAllTasks;
+    document.getElementById('copyTasksBtn').onclick = copyAllTasks;
+    document.getElementById('resetTasksBtn').onclick = resetTasks;
+    document.getElementById('resetPositionsBtn').onclick = resetPositions;
+    document.getElementById('checkQuotaBtn').onclick = checkDeepSeekQuota;
+    document.getElementById('generatePlanBtn').onclick = generateDailyPlan;
+    document.getElementById('closeAiPanel').onclick = () => document.getElementById('aiPanel').style.display = 'none';
+    document.getElementById('bubbleModeBtn').onclick = () => setMode('bubble');
+    document.getElementById('wallModeBtn').onclick = () => setMode('wall');
+
+    // 快捷键
+    const leftPanel = document.getElementById('controlPanel');
+    const configPanelDiv = document.getElementById('configPanel');
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'F2') { e.preventDefault(); leftPanel.classList.toggle('hidden'); }
+        else if (e.key === 'F3') { e.preventDefault(); configPanelDiv.classList.toggle('visible'); }
+        else if (e.key === 'F4') { e.preventDefault(); setMode(currentMode === 'bubble' ? 'wall' : 'bubble'); }
+    });
+
+    // 缓存 Key
+    const savedDeepSeek = localStorage.getItem('deepseek_key');
+    if (savedDeepSeek) document.getElementById('deepseekKey').value = savedDeepSeek;
+    const savedSend = localStorage.getItem('sendkey');
+    if (savedSend) document.getElementById('sendKey').value = savedSend;
+    document.getElementById('deepseekKey').addEventListener('change', () => localStorage.setItem('deepseek_key', document.getElementById('deepseekKey').value));
+    document.getElementById('sendKey').addEventListener('change', () => localStorage.setItem('sendkey', document.getElementById('sendKey').value));
+
+    // 启动
+    loadTasks();
+    initBubble();
+    setMode('bubble');
+    setInterval(() => { updateExpiredStatus(); renderTaskList(); if(currentMode==='wall') renderWall(); if(currentMode==='bubble') refreshBubble(); saveTasks(); }, 60000);
+</script>
+</body>
+</html>
