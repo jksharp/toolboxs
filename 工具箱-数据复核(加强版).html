@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>数据复核 · 新华书店工具箱</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; font-size: 13px; }
+        .app-container { display: flex; flex-direction: column; height: 100vh; background: white; }
+        .global-header { background: linear-gradient(135deg, #1e3c72, #2a4b7a); color: white; padding: 8px 20px; flex-shrink: 0; }
+        .global-header h1 { font-size: 1.2rem; font-weight: 500; letter-spacing: 1px; }
+        .global-header p { font-size: 0.7rem; opacity: 0.85; margin-top: 2px; }
+        .mode-bar { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 20px; display: flex; gap: 24px; align-items: center; flex-shrink: 0; }
+        .mode-radio-group { display: flex; gap: 20px; background: white; padding: 4px 16px; border-radius: 40px; box-shadow: 0 0 0 1px #e2e8f0; }
+        .mode-radio-group label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; color: #1e293b; }
+        .mode-radio-group input { accent-color: #2b4c7c; width: 16px; height: 16px; margin: 0; }
+        .mode-tip { font-size: 0.7rem; color: #4b6b8f; background: #f1f5f9; padding: 4px 12px; border-radius: 24px; }
+        .review-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .panel-hidden { display: none !important; }
+        .module { display: flex; flex-direction: column; height: 100%; background: white; }
+        .toolbar { background: #fefefe; padding: 6px 16px; border-bottom: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex-shrink: 0; }
+        button { border: none; background: #eef2f7; padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: 0.1s; }
+        button.primary { background: #2b4c7c; color: white; }
+        button.success { background: #e3f7ec; color: #2b6e3c; }
+        button.danger { background: #fee2e2; color: #b91c1c; }
+        .table-wrap { flex: 1; overflow: auto; padding: 0 12px 6px 12px; }
+        .review-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .review-table th, .review-table td { padding: 6px 10px; border-bottom: 1px solid #ecf3f9; white-space: normal; word-break: break-word; max-width: 250px; }
+        .review-table th { background: #f1f5f9; position: sticky; top: 0; }
+        .result-panel { background: white; border-top: 1px solid #e2e8f0; flex-shrink: 0; max-height: 200px; overflow-y: auto; }
+        .highlight-row { background-color: #fff3bf !important; }
+        .search-group { display: flex; gap: 6px; align-items: center; background: #f1f5f9; padding: 2px 16px; border-radius: 32px; margin-left: auto; }
+        .footer-note { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; background: #fefefe; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
+        .compare-area { background: #ffffff; border-bottom: 1px solid #ecf3f9; padding: 12px 20px; display: flex; gap: 24px; flex-wrap: wrap; flex-shrink: 0; }
+        .file-card { flex: 1; min-width: 240px; background: #f9fbfd; border: 1px solid #e2edf7; border-radius: 16px; padding: 10px 16px; }
+        .file-card h4 { font-size: 0.85rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .file-status { font-size: 0.7rem; margin-top: 6px; color: #2c5a2e; word-break: break-all; }
+        .mapping-sections { display: flex; flex-direction: column; gap: 16px; background: #fefefe; border-top: 1px solid #e9eef3; padding: 12px 20px; flex-shrink: 0; max-height: 280px; overflow-y: auto; }
+        .section { background: #f8fafc; border-radius: 20px; padding: 12px 16px; }
+        .section-title { font-weight: 600; font-size: 0.8rem; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .field-select-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .field-select-row select { padding: 5px 10px; border-radius: 30px; border: 1px solid #cbd5e1; background: white; font-size: 0.7rem; min-width: 150px; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; max-height: 80px; overflow-y: auto; }
+        .tag { background: white; border-radius: 30px; padding: 4px 12px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cbd5e1; }
+        .tag button { background: none; border: none; color: #b91c1c; font-weight: bold; cursor: pointer; font-size: 1rem; line-height: 1; margin-left: 6px; padding: 0 3px; }
+        .badge-key { background: #2b4c7c20; border-radius: 12px; padding: 2px 8px; font-size: 0.65rem; }
+        .compare-actions { display: flex; gap: 12px; margin: 8px 20px 12px 20px; flex-shrink: 0; }
+        .stats-badge { background: #eef2ff; border-radius: 24px; padding: 4px 12px; font-size: 0.7rem; display: inline-block; margin-right: 12px; }
+        .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; font-size: 1rem; z-index: 2000; pointer-events: none; border-left: 4px solid #f5a623; font-weight: 500; white-space: nowrap; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="global-header">
+        <h1>📚 数据复核 · 新华书店工具箱</h1>
+        <p>普通复核 | 文件对比（组合主键 + 智能比对 + 自动处理重复列名）</p>
+    </div>
+    <div class="mode-bar">
+        <div class="mode-radio-group">
+            <label><input type="radio" name="reviewMode" value="normal" checked> 📋 普通复核 (单表编辑/查找)</label>
+            <label><input type="radio" name="reviewMode" value="compare"> 🔄 文件对比复核 (双文件/组合主键)</label>
+        </div>
+        <div class="mode-tip" id="modeTip">普通模式：导入Excel，ISBN搜索/双击编辑</div>
+    </div>
+    <!-- 普通复核面板 -->
+    <div id="normalPanel" class="review-panel">
+        <div class="module">
+            <div class="toolbar">
+                <button id="importExcelBtn" class="primary">📂 导入Excel</button>
+                <button id="exportReviewBtn" class="success">📎 导出Excel</button>
+                <button id="clearReviewBtn" class="danger">🗑 清空数据</button>
+                <div class="search-group"><span>🔍 ISBN/书号</span><input type="text" id="searchKeywordInput" placeholder="输入ISBN或书号" style="width:260px"><button id="searchBtn">查找</button></div>
+            </div>
+            <div class="table-wrap"><table class="review-table"><thead id="reviewThead"></thead><tbody id="reviewTbody"></tbody></table></div>
+            <div class="result-panel" id="resultPanel"><div class="result-header">🔍 查找结果 (按ISBN列)</div><div style="color:#8ba0bc; padding:4px 8px;">输入ISBN后按回车或点击查找</div></div>
+            <div class="footer-note">💡 双击单元格编辑 | 点击表头三角排序 | 查找基于ISBN列</div>
+        </div>
+    </div>
+
+    <!-- 文件对比复核面板 -->
+    <div id="comparePanel" class="review-panel panel-hidden">
+        <div class="compare-area">
+            <div class="file-card">
+                <h4>📁 对比文件 (基准 / 源文件 A)</h4>
+                <input type="file" id="compareFileA" accept=".xlsx,.xls,.csv" style="display:none">
+                <button id="uploadAbtn" class="primary" style="background:#eef2f7; color:#1e3c72;">选择文件A (作为参照)</button>
+                <div id="fileAStatus" class="file-status">未加载</div>
+            </div>
+            <div class="file-card">
+                <h4>📁 被对比文件 (待校验文件 B)</h4>
+                <input type="file" id="compareFileB" accept=".xlsx,.xls,.csv" style="display:none">
+                <button id="uploadBbtn" class="primary" style="background:#eef2f7; color:#1e3c72;">选择文件B (待核对)</button>
+                <div id="fileBStatus" class="file-status">未加载</div>
+            </div>
+        </div>
+        
+        <div class="mapping-sections">
+            <div class="section">
+                <div class="section-title">🔑 组合主键映射 (可多字段) <span class="badge-key">用于唯一匹配，至少一组</span></div>
+                <div class="field-select-row">
+                    <select id="pkSrcSelect" style="flex:1"><option value="">— 源文件A主键字段 —</option></select>
+                    <span>➡️</span>
+                    <select id="pkTargetSelect" style="flex:1"><option value="">— 目标文件B主键字段 —</option></select>
+                    <button id="addPkBtn" class="primary" style="padding:4px 10px;">添加主键</button>
+                </div>
+                <div id="pkList" class="tag-list"><span style="color:#8ba0bc;">暂无主键，请至少添加一组</span></div>
+            </div>
+            <div class="section">
+                <div class="section-title">➕ 对比字段 (用于检测内容差异)</div>
+                <div class="field-select-row">
+                    <select id="cmpSrcSelect" style="flex:1"><option value="">— 源文件A字段 —</option></select>
+                    <span>➡️</span>
+                    <select id="cmpTargetSelect" style="flex:1"><option value="">— 目标文件B字段 —</option></select>
+                    <button id="addCmpBtn" class="primary" style="padding:4px 10px;">添加对比字段</button>
+                </div>
+                <div id="cmpList" class="tag-list"><span style="color:#8ba0bc;">暂无对比字段，可添加多个</span></div>
+            </div>
+        </div>
+        
+        <div class="compare-actions">
+            <button id="startCompareBtn" class="primary">🔍 开始对比 (生成四类结果)</button>
+            <button id="exportCompareResultBtn" class="success" disabled>📎 导出对比Excel (4个Sheet)</button>
+        </div>
+        <div id="compareStats" style="padding:0 20px 6px 20px; font-size:0.7rem; color:#2c5a2e; flex-shrink:0;"></div>
+        <div class="footer-note" style="border-top: none;">💡 支持组合主键，智能比对（忽略数值格式、空格、大小写）。自动处理重复列名（如两个“序号”字段会变成“序号”和“序号_1”），确保数据完整。不一致记录表“差异说明”列置于最前，A、B表所有字段完整展示并自动添加后缀区分重复字段名。</div>
+    </div>
+</div>
+
+<script>
+(function(){
+    let toastTimer = null;
+    function showTip(msg, isErr = true, dur = 2500) {
+        let tip = document.getElementById('globalTip');
+        if(!tip){ tip = document.createElement('div'); tip.id = 'globalTip'; tip.className = 'toast-tip'; document.body.appendChild(tip); }
+        tip.style.opacity = '1'; tip.innerText = msg;
+        if(toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { tip.style.opacity = '0'; }, dur);
+    }
+    function escapeHtml(str){ return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    function escapeAttr(str){ return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    // ---------- 智能值比对函数：处理数值格式差异、空格、大小写 ----------
+    function isValueEqual(v1, v2) {
+        if (v1 === v2) return true;
+        let s1 = String(v1 == null ? "" : v1).trim();
+        let s2 = String(v2 == null ? "" : v2).trim();
+        if (s1 === s2) return true;
+        let n1 = parseFloat(s1);
+        let n2 = parseFloat(s2);
+        if (!isNaN(n1) && !isNaN(n2) && n1 === n2) return true;
+        if (s1.toLowerCase() === s2.toLowerCase()) return true;
+        return false;
+    }
+
+    // ---------- 普通复核逻辑 (保留) ----------
+    const REVIEW_KEY = 'ReviewData_Final';
+    let reviewCols = [], reviewRows = [], currentSort = { col: null, dir: null };
+    let lastSearchKeyword = '', searchResults = [], currentHighlightIdx = -1, isbnColumn = null;
+    function autoDetectIsbnColumn(cols) { const keys=['isbn','isbn号','书号','bookid']; for(let k of keys) if(cols.find(c=>c.toLowerCase().includes(k))) return cols.find(c=>c.toLowerCase().includes(k)); return cols[0]; }
+    function renderReviewTable(){ 
+        const thead = document.getElementById('reviewThead'), tbody = document.getElementById('reviewTbody');
+        if(!thead || !tbody) return;
+        if(!reviewCols.length){ thead.innerHTML = '<tr><th>暂无数据，请导入Excel</th><\/tr>'; tbody.innerHTML = ''; return; }
+        let headerHtml = '<tr>';
+        reviewCols.forEach(col => { let sortClass = (currentSort.col===col) ? (currentSort.dir==='asc'?' ▲':' ▼'):' ↕️'; let isbnBadge = (col===isbnColumn) ? ' <span style="background:#2b4c7c20; padding:2px 6px; border-radius:12px;">ISBN</span>' : ''; headerHtml += `<th>${escapeHtml(col)}${isbnBadge}<span class="sort-btn" data-col="${escapeAttr(col)}">${sortClass}</span><\/th>`; });
+        headerHtml += '<\/tr>'; thead.innerHTML = headerHtml;
+        document.querySelectorAll('#reviewThead .sort-btn').forEach(btn => { btn.onclick = (e) => { e.stopPropagation(); const colName = btn.getAttribute('data-col'); let newDir = 'asc'; if(currentSort.col === colName && currentSort.dir === 'asc') newDir = 'desc'; sortReview(colName, newDir); }; });
+        let bodyHtml = ''; for(let idx=0; idx<reviewRows.length; idx++){ const row = reviewRows[idx]; bodyHtml += '<tr data-row-idx="'+idx+'">'; for(let ci=0; ci<reviewCols.length; ci++){ const col = reviewCols[ci]; const val = row[col] !== undefined ? row[col] : ''; bodyHtml += `<td ondblclick="window.editCell(${idx}, '${escapeAttr(col)}')">${escapeHtml(val)}<\/td>`; } bodyHtml += '<\/tr>'; }
+        tbody.innerHTML = bodyHtml; if(lastSearchKeyword) applyHighlightNormal();
+    }
+    function applyHighlightNormal(){ const tbody = document.getElementById('reviewTbody'); if(!tbody) return; for(let i=0;i<tbody.rows.length;i++){ const rowIdx = parseInt(tbody.rows[i].getAttribute('data-row-idx')); if(searchResults.includes(rowIdx)) tbody.rows[i].classList.add('highlight-row'); else tbody.rows[i].classList.remove('highlight-row'); } if(currentHighlightIdx !== -1 && tbody.rows[currentHighlightIdx]) tbody.rows[currentHighlightIdx].classList.add('highlight-row'); }
+    function sortReview(colName, dir){ const multiplier = dir === 'asc' ? 1 : -1; reviewRows.sort((a,b) => { let av = String(a[colName]||''), bv = String(b[colName]||''); let aNum = parseFloat(av), bNum = parseFloat(bv); if(!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * multiplier; return av.localeCompare(bv,'zh') * multiplier; }); currentSort = { col: colName, dir: dir }; lastSearchKeyword = ''; searchResults = []; currentHighlightIdx = -1; document.getElementById('searchKeywordInput').value = ''; renderReviewTable(); updateResultPanelNormal(); }
+    function searchByIsbn(keyword){ const kw=keyword.trim().toLowerCase(); if(!kw){ searchResults=[]; currentHighlightIdx=-1; lastSearchKeyword=''; applyHighlightNormal(); updateResultPanelNormal(); return; } if(!isbnColumn || !reviewCols.includes(isbnColumn)){ showTip('未识别到 ISBN列'); return; } const results=[]; for(let i=0;i<reviewRows.length;i++) if(String(reviewRows[i][isbnColumn]||'').toLowerCase().includes(kw)) results.push(i); searchResults=results; lastSearchKeyword=kw; if(results.length===0){ showTip('未找到包含 '+keyword+' 的记录'); currentHighlightIdx=-1; applyHighlightNormal(); updateResultPanelNormal(); return; } currentHighlightIdx=results[0]; applyHighlightNormal(); const tbody=document.getElementById('reviewTbody'); if(tbody&&tbody.rows[currentHighlightIdx]) tbody.rows[currentHighlightIdx].scrollIntoView({behavior:'smooth',block:'center'}); updateResultPanelNormal(); }
+    function updateResultPanelNormal(){ const panel=document.getElementById('resultPanel'); if(!panel) return; if(!lastSearchKeyword||searchResults.length===0){ panel.innerHTML='<div class="result-header">🔍 查找结果 (按ISBN列)</div><div style="color:#8ba0bc; padding:4px 8px;">输入ISBN后按回车或点击查找</div>'; return; } let html=`<div class="result-header">🔍 找到 ${searchResults.length} 条记录</div>`; for(let i=0;i<Math.min(searchResults.length,50);i++){ const rowIdx=searchResults[i]; let preview=`第${rowIdx+1}行: ${String(reviewRows[rowIdx][isbnColumn]||'').slice(0,50)}`; const activeClass=(currentHighlightIdx===rowIdx)?'active':''; html+=`<div class="result-item ${activeClass}" data-idx="${rowIdx}">📍 ${escapeHtml(preview)}</div>`; } panel.innerHTML=html; document.querySelectorAll('#resultPanel .result-item').forEach(el=>{ el.onclick=()=>{ const idx=parseInt(el.dataset.idx); if(!isNaN(idx)){ currentHighlightIdx=idx; applyHighlightNormal(); const tbody=document.getElementById('reviewTbody'); if(tbody&&tbody.rows[idx]) tbody.rows[idx].scrollIntoView({behavior:'smooth',block:'center'}); updateResultPanelNormal(); } }; }); }
+    function importExcelReview(){ const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls,.csv'; input.onchange=e=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=evt=>{ try{ const data=new Uint8Array(evt.target.result); const wb=XLSX.read(data,{type:'array'}); const sheet=wb.Sheets[wb.SheetNames[0]]; const raw=XLSX.utils.sheet_to_json(sheet,{header:1,defval:""}); if(!raw||raw.length<2) throw new Error("至少需要表头+数据"); let rawHeaders=raw[0].map(cell=>cell===undefined||cell===null?"":String(cell).trim()); let dataRows=raw.slice(1).filter(row=>row.some(cell=>cell!==undefined&&cell!==null&&cell!=="")); if(dataRows.length===0) throw new Error("无有效数据行"); const nonEmptyColIndices=[]; for(let colIdx=0;colIdx<rawHeaders.length;colIdx++){ let hasValue=false; for(let row of dataRows){ let val=(colIdx<row.length)?row[colIdx]:""; if(val!==undefined&&val!==null&&String(val).trim()!==""){ hasValue=true; break;} } if(hasValue) nonEmptyColIndices.push(colIdx); } if(nonEmptyColIndices.length===0) throw new Error("无非空列"); const finalHeaders=nonEmptyColIndices.map(i=>rawHeaders[i]||`列${i+1}`); const normalizedRows=dataRows.map(row=>{ const obj={}; for(let j=0;j<nonEmptyColIndices.length;j++){ const colIdx=nonEmptyColIndices[j]; let val=(colIdx<row.length)?row[colIdx]:""; obj[finalHeaders[j]]=(val!==undefined&&val!==null)?String(val):""; } return obj; }); reviewCols=finalHeaders; reviewRows=normalizedRows; isbnColumn=autoDetectIsbnColumn(reviewCols); currentSort={col:null,dir:null}; lastSearchKeyword=''; searchResults=[]; currentHighlightIdx=-1; document.getElementById('searchKeywordInput').value=''; renderReviewTable(); updateResultPanelNormal(); saveReview(); showTip(`导入成功: ${reviewRows.length}行`, false, 2500); }catch(err){ alert("导入失败:"+err.message); } }; reader.readAsArrayBuffer(file); }; input.click(); }
+    function exportReviewExcel(){ if(!reviewRows.length||!reviewCols.length){ alert("无数据"); return; } const sheetData=[reviewCols]; reviewRows.forEach(row=>{ sheetData.push(reviewCols.map(col=>row[col]!==undefined?row[col]:"")); }); const ws=XLSX.utils.aoa_to_sheet(sheetData); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"复核数据"); XLSX.writeFile(wb,`复核数据_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.xlsx`); showTip("导出成功",false); }
+    function clearReviewAll(){ if(reviewRows.length&&confirm("清空所有复核数据？不可恢复")){ reviewCols=[]; reviewRows=[]; lastSearchKeyword=''; searchResults=[]; currentHighlightIdx=-1; localStorage.removeItem(REVIEW_KEY); renderReviewTable(); updateResultPanelNormal(); showTip("已清空",false); } }
+    function saveReview(){ localStorage.setItem(REVIEW_KEY,JSON.stringify({cols:reviewCols,rows:reviewRows})); }
+    function loadReview(){ try{ const raw=localStorage.getItem(REVIEW_KEY); if(raw){ const data=JSON.parse(raw); reviewCols=data.cols||[]; reviewRows=data.rows||[]; } else{ reviewCols=[]; reviewRows=[]; } isbnColumn=autoDetectIsbnColumn(reviewCols); }catch(e){ reviewCols=[]; reviewRows=[]; isbnColumn=null; } }
+    window.editCell = function(rowIdx, colName){ const td = event.target; const oldVal = reviewRows[rowIdx][colName] || ''; const input = document.createElement('input'); input.value = oldVal; input.style.width = (td.clientWidth - 10) + 'px'; input.style.fontSize = '0.75rem'; td.innerText = ''; td.appendChild(input); input.focus(); input.onblur = () => { const newVal = input.value; reviewRows[rowIdx][colName] = newVal; saveReview(); renderReviewTable(); if(lastSearchKeyword) searchByIsbn(lastSearchKeyword); }; input.onkeypress = (e) => { if(e.key === 'Enter') input.blur(); }; };
+    
+    // ---------- 增强的文件解析：自动处理重复列名和空列名 ----------
+    function normalizeHeaders(headers) {
+        const headerCount = {};
+        return headers.map((h, idx) => {
+            let base = (h && h.trim() !== "") ? h.trim() : `列_${idx+1}`;
+            let final = base;
+            let count = headerCount[base] || 0;
+            if (count > 0) final = `${base}_${count}`;
+            headerCount[base] = count + 1;
+            return final;
+        });
+    }
+    
+    function parseExcelToData(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    if (!raw || raw.length < 2) reject("文件至少需要表头+数据");
+                    let rawHeaders = raw[0].map(cell => cell===undefined||cell===null?"":String(cell));
+                    let headers = normalizeHeaders(rawHeaders);
+                    let dataRows = raw.slice(1).filter(row => row.some(cell=>cell!==undefined && cell!==null && cell!==""));
+                    const normalized = dataRows.map(row => {
+                        const obj = {};
+                        headers.forEach((h, idx) => {
+                            let val = (idx < row.length && row[idx] !== undefined && row[idx] !== null) ? String(row[idx]) : "";
+                            obj[h] = val;
+                        });
+                        return obj;
+                    });
+                    resolve({ cols: headers, rows: normalized });
+                } catch(err) { reject(err.message); }
+            };
+            reader.onerror = () => reject("读取失败");
+            reader.readAsArrayBuffer(file);
+        });
+    }
+    
+    // ---------- 文件对比全新实现：组合主键 + 智能比对 + 双表全字段展示（差异说明前置、重复字段加后缀） ----------
+    let fileAData = null, fileBData = null;
+    let pkMappings = [];      // [{ srcField, targetField }]
+    let compareMappings = []; // [{ srcField, targetField }]
+    let compareResultStore = { hasMatch: false, matchedCount:0, onlyACount:0, onlyBCount:0, mismatchCount:0, fullData: null };
+    
+    function refreshAllSelects() {
+        const aCols = fileAData ? fileAData.cols : [];
+        const bCols = fileBData ? fileBData.cols : [];
+        const optionsA = aCols.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+        const optionsB = bCols.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+        document.getElementById('pkSrcSelect').innerHTML = optionsA || '<option value="">—无字段—</option>';
+        document.getElementById('pkTargetSelect').innerHTML = optionsB || '<option value="">—无字段—</option>';
+        document.getElementById('cmpSrcSelect').innerHTML = optionsA || '<option value="">—无字段—</option>';
+        document.getElementById('cmpTargetSelect').innerHTML = optionsB || '<option value="">—无字段—</option>';
+        if(aCols.length && bCols.length){
+            let defPkA = aCols.find(c=>c.toLowerCase().includes('isbn')||c.toLowerCase().includes('书号')) || aCols[0];
+            let defPkB = bCols.find(c=>c.toLowerCase().includes('isbn')||c.toLowerCase().includes('书号')) || bCols[0];
+            document.getElementById('pkSrcSelect').value = defPkA;
+            document.getElementById('pkTargetSelect').value = defPkB;
+        }
+    }
+    
+    function addPkMapping() {
+        const src = document.getElementById('pkSrcSelect').value;
+        const target = document.getElementById('pkTargetSelect').value;
+        if(!src || !target){ showTip("请选择主键字段对"); return; }
+        if(pkMappings.some(m=>m.srcField===src && m.targetField===target)){
+            showTip("该主键映射已存在"); return;
+        }
+        pkMappings.push({ srcField: src, targetField: target });
+        renderPkList();
+        document.getElementById('pkSrcSelect').value = '';
+        document.getElementById('pkTargetSelect').value = '';
+        if(fileAData && fileBData) refreshAllSelects();
+    }
+    function removePkMapping(idx){
+        pkMappings.splice(idx,1);
+        renderPkList();
+    }
+    function renderPkList(){
+        const container = document.getElementById('pkList');
+        if(!container) return;
+        if(pkMappings.length === 0){ container.innerHTML = '<span style="color:#8ba0bc;">暂无主键，请至少添加一组（组合主键）</span>'; return; }
+        let html = '';
+        pkMappings.forEach((m,idx) => {
+            html += `<div class="tag">🔑 ${escapeHtml(m.srcField)} ➔ ${escapeHtml(m.targetField)} <button data-idx="${idx}" class="del-pk">✖</button></div>`;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.del-pk').forEach(btn => {
+            btn.onclick = (e) => { let i = parseInt(btn.dataset.idx); if(!isNaN(i)) removePkMapping(i); };
+        });
+    }
+    
+    function addCompareMapping(){
+        const src = document.getElementById('cmpSrcSelect').value;
+        const target = document.getElementById('cmpTargetSelect').value;
+        if(!src || !target){ showTip("请选择对比字段对"); return; }
+        if(compareMappings.some(m=>m.srcField===src && m.targetField===target)){
+            showTip("该对比字段已存在"); return;
+        }
+        compareMappings.push({ srcField: src, targetField: target });
+        renderCompareList();
+        document.getElementById('cmpSrcSelect').value = '';
+        document.getElementById('cmpTargetSelect').value = '';
+        if(fileAData && fileBData) refreshAllSelects();
+    }
+    function removeCompareMapping(idx){
+        compareMappings.splice(idx,1);
+        renderCompareList();
+    }
+    function renderCompareList(){
+        const container = document.getElementById('cmpList');
+        if(!container) return;
+        if(compareMappings.length === 0){ container.innerHTML = '<span style="color:#8ba0bc;">暂无对比字段，可添加多个</span>'; return; }
+        let html = '';
+        compareMappings.forEach((m,idx) => {
+            html += `<div class="tag">📊 ${escapeHtml(m.srcField)} ➔ ${escapeHtml(m.targetField)} <button data-idx="${idx}" class="del-cmp">✖</button></div>`;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.del-cmp').forEach(btn => {
+            btn.onclick = (e) => { let i = parseInt(btn.dataset.idx); if(!isNaN(i)) removeCompareMapping(i); };
+        });
+    }
+    
+    function updateFileStatus() {
+        document.getElementById('fileAStatus').innerText = fileAData ? `已加载: ${fileAData.rows.length}行, 列:${fileAData.cols.slice(0,3).join(',')}...` : '未加载';
+        document.getElementById('fileBStatus').innerText = fileBData ? `已加载: ${fileBData.rows.length}行, 列:${fileBData.cols.slice(0,3).join(',')}...` : '未加载';
+        if(fileAData && fileBData) refreshAllSelects();
+    }
+    
+    function getCompositeKey(row, mappings, isSrc) {
+        let parts = [];
+        for(let m of mappings){
+            let field = isSrc ? m.srcField : m.targetField;
+            let val = row[field] !== undefined ? String(row[field]).trim() : "";
+            parts.push(val);
+        }
+        return parts.join('|');
+    }
+    
+    async function performCompare() {
+        if(!fileAData || !fileBData){ showTip("请先加载两个Excel文件"); return; }
+        if(pkMappings.length === 0){ showTip("请至少添加一组主键映射（组合主键）"); return; }
+        
+        const mapB = new Map();
+        for(let row of fileBData.rows){
+            let key = getCompositeKey(row, pkMappings, false);
+            if(key) mapB.set(key, row);
+        }
+        let matchedB = [];
+        let onlyA = [];
+        let onlyB = [];
+        let mismatchRecords = [];
+        const processedKeys = new Set();
+        
+        for(let rowA of fileAData.rows){
+            let key = getCompositeKey(rowA, pkMappings, true);
+            if(!key){ onlyA.push(rowA); continue; }
+            if(mapB.has(key)){
+                processedKeys.add(key);
+                const rowB = mapB.get(key);
+                let diffFields = [];
+                for(let cmp of compareMappings){
+                    let valA = rowA[cmp.srcField] !== undefined ? String(rowA[cmp.srcField]) : "";
+                    let valB = rowB[cmp.targetField] !== undefined ? String(rowB[cmp.targetField]) : "";
+                    if(!isValueEqual(valA, valB)){
+                        diffFields.push({ src: cmp.srcField, target: cmp.targetField, valA, valB });
+                    }
+                }
+                if(diffFields.length === 0){
+                    matchedB.push(rowB);
+                } else {
+                    mismatchRecords.push({ rowA, rowB, diffFields });
+                }
+            } else {
+                onlyA.push(rowA);
+            }
+        }
+        for(let rowB of fileBData.rows){
+            let key = getCompositeKey(rowB, pkMappings, false);
+            if(key && !processedKeys.has(key)) onlyB.push(rowB);
+        }
+        const hasMatch = matchedB.length > 0;
+        compareResultStore = {
+            hasMatch,
+            matchedCount: matchedB.length,
+            onlyACount: onlyA.length,
+            onlyBCount: onlyB.length,
+            mismatchCount: mismatchRecords.length,
+            fullData: { matchedB, onlyA, onlyB, mismatchRecords }
+        };
+        const statsHtml = `<span class="stats-badge">✅ 匹配成功(B数据):${matchedB.length}</span> <span class="stats-badge">📌 仅在对比文件A存在:${onlyA.length}</span> <span class="stats-badge">📌 仅在被对比文件B存在:${onlyB.length}</span> <span class="stats-badge">⚠️ 字段不一致:${mismatchRecords.length}</span>`;
+        document.getElementById('compareStats').innerHTML = statsHtml;
+        const exportBtn = document.getElementById('exportCompareResultBtn');
+        if(hasMatch){
+            exportBtn.disabled = false;
+            showTip(`对比完成！匹配成功${matchedB.length}条，可导出Excel`, false);
+        } else {
+            exportBtn.disabled = true;
+            showTip(`对比完成，但没有匹配成功的记录（一致记录数为0），无法导出`, true);
+        }
+    }
+    
+    function exportCompareToExcel() {
+        if(!compareResultStore.hasMatch){
+            showTip("没有匹配成功的数据，无法导出Excel");
+            return;
+        }
+        const { matchedB, onlyA, onlyB, mismatchRecords } = compareResultStore.fullData;
+        const wb = XLSX.utils.book_new();
+        if(matchedB.length && fileBData){
+            let cols = fileBData.cols;
+            let sheetData = [cols];
+            matchedB.forEach(row=> sheetData.push(cols.map(c=>row[c]||'')));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), "匹配成功_B数据");
+        }
+        if(onlyA.length && fileAData){
+            let cols = fileAData.cols;
+            let sheetData = [cols];
+            onlyA.forEach(row=> sheetData.push(cols.map(c=>row[c]||'')));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), "仅在对比文件A存在");
+        }
+        if(onlyB.length && fileBData){
+            let cols = fileBData.cols;
+            let sheetData = [cols];
+            onlyB.forEach(row=> sheetData.push(cols.map(c=>row[c]||'')));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), "仅在被对比文件B存在");
+        }
+        if(mismatchRecords.length && fileAData && fileBData){
+            const aColsRaw = fileAData.cols;
+            const bColsRaw = fileBData.cols;
+            const aCols = aColsRaw.map(c => `${c} (A)`);
+            const bCols = bColsRaw.map(c => `${c} (B)`);
+            const headers = ["⚠️ 差异说明", ...aCols, ...bCols];
+            let sheetData = [headers];
+            for(let item of mismatchRecords){
+                let aRowVals = aColsRaw.map(c => item.rowA[c] || "");
+                let bRowVals = bColsRaw.map(c => item.rowB[c] || "");
+                let diffDesc = item.diffFields.map(d => `${d.src} (A)="${d.valA}"  vs  ${d.target} (B)="${d.valB}"`).join("; ");
+                let rowData = [diffDesc, ...aRowVals, ...bRowVals];
+                sheetData.push(rowData);
+            }
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), "字段不一致记录_双表对比");
+        }
+        XLSX.writeFile(wb, `文件对比报告_组合主键_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.xlsx`);
+        showTip("导出成功(四个sheet，不一致记录差异说明前置且双表完整显示)", false);
+    }
+    
+    function initCompare() {
+        document.getElementById('uploadAbtn').onclick = () => { document.getElementById('compareFileA').click(); };
+        document.getElementById('uploadBbtn').onclick = () => { document.getElementById('compareFileB').click(); };
+        document.getElementById('compareFileA').onchange = async (e) => { if(e.target.files[0]){ fileAData = await parseExcelToData(e.target.files[0]); updateFileStatus(); } };
+        document.getElementById('compareFileB').onchange = async (e) => { if(e.target.files[0]){ fileBData = await parseExcelToData(e.target.files[0]); updateFileStatus(); } };
+        document.getElementById('addPkBtn').onclick = addPkMapping;
+        document.getElementById('addCmpBtn').onclick = addCompareMapping;
+        document.getElementById('startCompareBtn').onclick = performCompare;
+        document.getElementById('exportCompareResultBtn').onclick = exportCompareToExcel;
+        renderPkList();
+        renderCompareList();
+        refreshAllSelects();
+    }
+    
+    // 模式切换
+    const radioNormal = document.querySelector('input[value="normal"]');
+    const radioCompare = document.querySelector('input[value="compare"]');
+    const normalPanel = document.getElementById('normalPanel');
+    const comparePanel = document.getElementById('comparePanel');
+    const modeTipSpan = document.getElementById('modeTip');
+    function switchMode(mode){
+        if(mode === 'normal'){
+            normalPanel.classList.remove('panel-hidden');
+            comparePanel.classList.add('panel-hidden');
+            modeTipSpan.innerText = '普通模式：导入Excel，ISBN搜索/双击编辑';
+        } else {
+            normalPanel.classList.add('panel-hidden');
+            comparePanel.classList.remove('panel-hidden');
+            modeTipSpan.innerText = '文件对比模式：支持组合主键，智能比对，不一致记录展示双表全部字段且差异说明前置；自动处理重复列名（如两个“序号”会变成“序号”和“序号_1”）';
+            if(fileAData && fileBData) refreshAllSelects();
+        }
+    }
+    radioNormal.onchange = () => switchMode('normal');
+    radioCompare.onchange = () => switchMode('compare');
+    
+    function startup(){
+        loadReview(); renderReviewTable(); updateResultPanelNormal();
+        document.getElementById('importExcelBtn').onclick = importExcelReview;
+        document.getElementById('exportReviewBtn').onclick = exportReviewExcel;
+        document.getElementById('clearReviewBtn').onclick = clearReviewAll;
+        const searchInput = document.getElementById('searchKeywordInput'), searchBtn = document.getElementById('searchBtn');
+        const doSearch = () => searchByIsbn(searchInput.value);
+        searchBtn.onclick = doSearch; searchInput.onkeypress = (e) => { if(e.key === 'Enter') doSearch(); };
+        initCompare();
+        switchMode('normal');
+    }
+    startup();
+})();
+</script>
+</body>
+</html>

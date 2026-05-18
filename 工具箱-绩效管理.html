@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>武汉市新华书店·集团供应中心绩效考核系统</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #eef2ff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 登录界面 - 确保全屏不露出主应用 */
+        .login-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0b3b5f;
+            z-index: 1000;
+        }
+        .login-card {
+            background: white;
+            border-radius: 32px;
+            padding: 40px 32px;
+            width: 380px;
+            text-align: center;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.2);
+        }
+        .login-card h2 {
+            color: #0b3b5f;
+            margin-bottom: 8px;
+        }
+        .login-card input {
+            width: 100%;
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 40px;
+            border: 1px solid #cbd5e1;
+        }
+        .login-card button {
+            width: 100%;
+            background: #1e5a7d;
+            color: white;
+            padding: 12px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+        .login-card .copyright {
+            margin-top: 20px;
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        /* 主应用 */
+        .main-app {
+            display: none;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .top-nav {
+            background: #0b3b5f;
+            padding: 8px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            border-bottom: 3px solid #ffc107;
+            flex-shrink: 0;
+        }
+        .top-nav h2 {
+            font-size: 1.1rem;
+        }
+        .user-area {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        button {
+            background: #1e5a7d;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+        button.small { padding: 2px 8px; font-size: 0.7rem; }
+        button.danger { background: #dc2626; }
+        button.warning { background: #f59e0b; }
+        .app-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        .sidebar {
+            width: 240px;
+            background: #0f2b3d;
+            color: #e0e7ff;
+            padding: 16px 0;
+            transition: width 0.2s;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .sidebar.collapsed { width: 0; padding: 0; overflow: hidden; }
+        .menu-item {
+            padding: 8px 20px;
+            margin: 4px 12px;
+            border-radius: 40px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 0.85rem;
+        }
+        .menu-item.active { background: #1e5a7d; color: white; }
+        .menu-item:hover:not(.active) { background: #1e4a6e; }
+        .collapse-trigger {
+            width: 5px;
+            background: #3b82f6;
+            cursor: pointer;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            opacity: 0.7;
+        }
+        .collapse-trigger:hover {
+            background: #60a5fa;
+            opacity: 1;
+        }
+        .main-panel {
+            flex: 1;
+            background: #f0f4fa;
+            padding: 12px 20px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+        .footer-bar {
+            background: #0f2b3d;
+            color: #a0c4e2;
+            padding: 4px 28px;
+            font-size: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            border-top: 1px solid #1e5a7d;
+        }
+        .footer-left, .footer-right {
+            width: 120px;
+        }
+        .footer-center {
+            flex: 1;
+            text-align: center;
+        }
+        .footer-center .copyright {
+            color: #ffc107;
+        }
+        .page-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0b3b5f;
+            border-left: 4px solid #ffc107;
+            padding-left: 14px;
+            margin-bottom: 12px;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .filter-bar select, .filter-bar input {
+            padding: 4px 10px;
+            border-radius: 40px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            font-size: 0.75rem;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            overflow-y: auto;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            max-height: calc(100vh - 200px);
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+            min-width: 800px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #cbd5e1;
+            padding: 4px 4px;
+            text-align: center;
+            background: white;
+            white-space: nowrap;
+        }
+        .data-table th {
+            background: #eef2ff;
+            font-weight: 600;
+            padding: 6px 4px;
+        }
+        .readonly-cell {
+            background: #f8fafc;
+            cursor: pointer;
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 12px;
+            min-width: 40px;
+        }
+        .editable-input {
+            width: 60px;
+            text-align: center;
+            border-radius: 20px;
+            border: 1px solid #3b82f6;
+            padding: 2px;
+            font-size: 0.7rem;
+        }
+        .badge {
+            background: #e6f7ff;
+            padding: 2px 8px;
+            border-radius: 40px;
+            font-size: 0.65rem;
+        }
+        .modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            width: 460px;
+            max-width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-weight: 500; margin-bottom: 4px; font-size: 0.8rem; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 6px 10px;
+            border-radius: 40px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.8rem;
+        }
+        .big-number { font-size: 1rem; font-weight: bold; margin: 0 2px; }
+        .action-bar {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .month-badge {
+            font-size: 0.9rem;
+            background: #e6f7ff;
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 40px;
+        }
+        .multi-month-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .multi-month-group label {
+            background: #eef2ff;
+            padding: 2px 8px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 0.7rem;
+        }
+    </style>
+</head>
+<body>
+<div class="login-container" id="loginContainer">
+    <div class="login-card">
+        <h2>📚 武汉市新华书店集团</h2>
+        <p>集团供应中心 · 绩效考核系统</p>
+        <input type="text" id="loginUsername" placeholder="用户编号">
+        <input type="password" id="loginPassword" placeholder="密码">
+        <button id="loginBtn">登录</button>
+        <div class="copyright">© 武汉市新华书店 集团供应中心</div>
+    </div>
+</div>
+
+<div class="main-app" id="mainApp">
+    <div class="top-nav">
+        <div><h2>📖 武汉市新华书店 · 集团供应中心</h2></div>
+        <div class="user-area"><span>欢迎，<span id="currentUserName"></span></span><button id="logoutBtn">退出</button></div>
+    </div>
+    <div class="app-body">
+        <div class="sidebar" id="sidebar">
+            <div class="menu-item active" data-page="project">📐 绩效项目</div>
+            <div class="menu-item" data-page="monthsConfig">📆 考核月份</div>
+            <div class="menu-item" data-page="performance">📊 绩效考核</div>
+            <div class="menu-item" data-page="rewards">🏅 奖惩记录</div>
+            <div class="menu-item" data-page="statistics">📈 绩效统计</div>
+            <div class="menu-item" data-page="users">👥 用户管理</div>
+            <div class="menu-item" data-page="backup">💾 数据维护</div>
+        </div>
+        <div class="collapse-trigger" id="collapseTrigger"></div>
+        <div class="main-panel" id="mainPanel"></div>
+    </div>
+    <div class="footer-bar">
+        <div class="footer-left">当前用户：<span id="footerUserName"></span></div>
+        <div class="footer-center"><span class="copyright">© 武汉市新华书店 集团供应中心 2026</span></div>
+        <div class="footer-right">当前日期：<span id="footerDate"></span></div>
+    </div>
+</div>
+
+<script>
+    // ======================== 全局数据模型 ========================
+    let DB = {
+        items: [
+            { id: "i1", cat: "virtue", name: "职业道德", perScore: 2 },
+            { id: "i2", cat: "virtue", name: "廉洁自律", perScore: -2 },
+            { id: "i3", cat: "ability", name: "业务技能", perScore: 3 },
+            { id: "i4", cat: "ability", name: "创新意识", perScore: 5 },
+            { id: "i5", cat: "diligence", name: "迟到早退", perScore: -3 },
+            { id: "i6", cat: "diligence", name: "全勤奖励", perScore: 5 },
+            { id: "i7", cat: "diligence", name: "加班奉献", perScore: 4 }
+        ],
+        cats: [{ id: "virtue", name: "德", order: 1 }, { id: "ability", name: "能", order: 2 }, { id: "diligence", name: "勤", order: 3 }],
+        monthList: [],
+        monthsData: {},
+        persons: [],        // 考核人员（不包含总经理陈新华）
+        groups: [],
+        users: [
+            { no: "admin", pwd: "admin", role: "系统管理员", realName: "系统管理员", empId: null },
+            { no: "1000", pwd: "1000", role: "总经理", realName: "陈新华", empId: "p1" }
+        ],
+        logs: [],
+        curUser: null,
+        curMonthId: "",
+        curPage: "project"
+    };
+
+    // 辅助函数
+    function getCatName(catId) { let c = DB.cats.find(c => c.id === catId); return c ? c.name : ""; }
+    function getPersonById(id) { return DB.persons.find(p => p.id === id); }
+    function getPersonName(id) { let p = getPersonById(id); return p ? p.name : ""; }
+    function getAllEmpIds() { return DB.persons.map(p => p.id); }
+    function canEdit(empId) {
+        if (!DB.curUser) return false;
+        if (DB.curUser.role === "系统管理员" || DB.curUser.role === "经理") return true;
+        if (DB.curUser.role === "主任") {
+            let curPerson = DB.persons.find(p => p.name === DB.curUser.realName);
+            if (!curPerson || curPerson.position !== "主任") return false;
+            let target = DB.persons.find(p => p.id === empId);
+            return target && target.position === "员工" && target.groupId === curPerson.groupId;
+        }
+        return false;
+    }
+
+    // 月份管理
+    function createMonth(monthId, name, year, quarter, srcId = null) {
+        let src = srcId && DB.monthsData[srcId] ? DB.monthsData[srcId] : null;
+        let itemsSnap = src ? JSON.parse(JSON.stringify(src.items)) : JSON.parse(JSON.stringify(DB.items));
+        let counts = {}, leaderScores = {};
+        for (let e of getAllEmpIds()) {
+            let ec = {};
+            for (let i of itemsSnap) ec[i.id] = src ? (src.counts[e]?.[i.id] || 0) : 0;
+            counts[e] = ec;
+            leaderScores[e] = src ? (src.leaderScores[e] || 0) : 0;
+        }
+        DB.monthsData[monthId] = { items: itemsSnap, counts, leaderScores };
+        DB.monthList.push({ id: monthId, name, year, quarter });
+    }
+
+    function calcAdjust(eid, monthId) {
+        let m = DB.monthsData[monthId];
+        if (!m) return 0;
+        let sum = 0;
+        for (let i of m.items) sum += (m.counts[eid]?.[i.id] || 0) * i.perScore;
+        return sum;
+    }
+
+    function getTotalScore(eid, monthId) {
+        let adj = calcAdjust(eid, monthId);
+        let leader = DB.monthsData[monthId]?.leaderScores[eid] || 0;
+        let total = 80 + adj + leader;
+        return Math.min(Math.max(total, 0), 100);
+    }
+
+    function save() {
+        let data = {
+            items: DB.items, monthList: DB.monthList, monthsData: DB.monthsData,
+            persons: DB.persons, groups: DB.groups, users: DB.users, logs: DB.logs, curMonthId: DB.curMonthId
+        };
+        localStorage.setItem("perfSystem", JSON.stringify(data));
+    }
+
+    function load() {
+        let raw = localStorage.getItem("perfSystem");
+        if (raw) {
+            try {
+                let d = JSON.parse(raw);
+                DB.items = d.items || DB.items;
+                DB.monthList = d.monthList || [];
+                DB.monthsData = d.monthsData || {};
+                DB.persons = d.persons || [];
+                DB.groups = d.groups || [];
+                DB.users = d.users || DB.users;
+                DB.logs = d.logs || [];
+                DB.curMonthId = d.curMonthId || "";
+            } catch (e) {}
+        }
+        if (DB.persons.length === 0) initDefaultData();
+        if (DB.monthList.length === 0) initDefaultMonths();
+        if (!DB.curMonthId || !DB.monthsData[DB.curMonthId]) DB.curMonthId = DB.monthList[0]?.id || "";
+        if (!DB.users.find(u => u.no === "admin")) DB.users.unshift({ no: "admin", pwd: "admin", role: "系统管理员", realName: "系统管理员", empId: null });
+        if (!DB.users.find(u => u.no === "1000")) DB.users.push({ no: "1000", pwd: "1000", role: "总经理", realName: "陈新华", empId: "p1" });
+        let next = 1001;
+        for (let p of DB.persons) {
+            if (!DB.users.find(u => u.empId === p.id)) {
+                let role = p.position === "经理" ? "经理" : (p.position === "主任" ? "主任" : "员工");
+                DB.users.push({ no: String(next++), pwd: String(next-1), role: role, realName: p.name, empId: p.id });
+            }
+        }
+        save();
+    }
+
+    function initDefaultMonths() {
+        if (DB.monthList.length === 0) {
+            for (let i = 1; i <= 12; i++) {
+                let mName = `2026-${String(i).padStart(2, '0')}`;
+                let quarter = Math.ceil(i / 3).toString();
+                createMonth("m" + i, mName, "2026", quarter);
+            }
+            DB.curMonthId = DB.monthList[0].id;
+        }
+    }
+
+    function initDefaultData() {
+        DB.groups = [
+            { id: "g1", name: "馆配组" }, { id: "g2", name: "教材组" }, { id: "g3", name: "收发组" }
+        ];
+        DB.persons = [
+            { id: "p2", name: "张建国", groupId: "g1", position: "主任" }, { id: "p3", name: "张莉", groupId: "g1", position: "员工" },
+            { id: "p4", name: "李强", groupId: "g1", position: "员工" }, { id: "p5", name: "陈敏", groupId: "g1", position: "员工" },
+            { id: "p6", name: "赵敏", groupId: "g1", position: "员工" }, { id: "p7", name: "刘卫东", groupId: "g2", position: "主任" },
+            { id: "p8", name: "孙丽", groupId: "g2", position: "员工" }, { id: "p9", name: "周华", groupId: "g2", position: "员工" },
+            { id: "p10", name: "吴迪", groupId: "g2", position: "员工" }, { id: "p11", name: "郑爽", groupId: "g2", position: "员工" },
+            { id: "p12", name: "徐红", groupId: "g3", position: "主任" }, { id: "p13", name: "林晨", groupId: "g3", position: "员工" },
+            { id: "p14", name: "郭峰", groupId: "g3", position: "员工" }, { id: "p15", name: "唐雅", groupId: "g3", position: "员工" },
+            { id: "p16", name: "宋阳", groupId: "g3", position: "员工" }
+        ];
+        initDefaultMonths();
+        DB.logs = [];
+        let reasons = ["迟到1次", "全勤奖励", "创新建议采纳", "工作失误", "加班贡献", "客户表扬", "内部协作优秀", "违反流程", "廉洁自律表扬", "技能比武获奖"];
+        for (let i = 0; i < 30; i++) {
+            let emp = DB.persons[i % DB.persons.length];
+            let monthIdx = i % DB.monthList.length;
+            let monthId = DB.monthList[monthIdx].id;
+            let items = DB.monthsData[monthId].items;
+            let item = items[i % items.length];
+            let score = item.perScore;
+            let ts = `2026-${String(monthIdx+1).padStart(2,'0')}-15 00:00:00`;
+            DB.logs.push({
+                id: Date.now() + i, employeeId: emp.id, employeeName: emp.name,
+                itemId: item.id, itemName: item.name,
+                changeValue: score, oldValue: 0, newValue: score,
+                reason: reasons[i % reasons.length], timestamp: ts, monthKey: monthId
+            });
+            DB.monthsData[monthId].counts[emp.id][item.id] = (DB.monthsData[monthId].counts[emp.id][item.id] || 0) + 1;
+        }
+        save();
+    }
+
+    function exportExcel(data, filename) {
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        XLSX.writeFile(wb, filename);
+    }
+    function importExcel(file, callback) {
+        let reader = new FileReader();
+        reader.onload = e => {
+            let wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+            let ws = wb.Sheets[wb.SheetNames[0]];
+            callback(XLSX.utils.sheet_to_json(ws));
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function render() {
+        const container = document.getElementById("mainPanel");
+        const pages = {
+            project: () => renderProjectPage(container),
+            monthsConfig: () => renderMonthsConfig(container),
+            performance: () => renderPerformancePage(container),
+            rewards: () => renderRewardsPage(container),
+            statistics: () => renderStatisticsPage(container),
+            users: () => renderUsersPage(container),
+            backup: () => renderBackupPage(container)
+        };
+        pages[DB.curPage]();
+        updateFooter();
+    }
+
+    function updateFooter() {
+        if (DB.curUser) document.getElementById("footerUserName").innerText = DB.curUser.realName;
+        const now = new Date();
+        document.getElementById("footerDate").innerText = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    }
+
+    // ======================== 页面渲染函数 ========================
+
+    function renderProjectPage(container) {
+        let h = `<div class="page-title">📐 绩效项目（全局模板）</div><div class="card"><div class="flex-between"><h3>项目列表</h3><div><button id="expItems">导出</button><button id="impItemsBtn">导入</button><input type="file" id="impItemsFile" style="display:none"></div></div><div class="table-wrapper"><table class="data-table"><thead><tr><th>大类</th><th>项目名</th><th>每次分值</th><th>操作</th></tr></thead><tbody>${DB.items.map(i => `<tr><td style="background:#f8fafc;">${getCatName(i.cat)}</td><td>${i.name} (${i.perScore>0?`+${i.perScore}`:i.perScore})</td><td>${i.perScore>0?`+${i.perScore}`:i.perScore}</td><td><button class="editItem" data-id="${i.id}" style="background:#f59e0b;">修改</button> <button class="delItem" data-id="${i.id}" style="background:#dc2626;">删除</button></td></tr>`).join('')}</tbody></table></div><div style="margin-top:12px"><h4>新增/修改</h4><div style="display:flex; gap:8px"><select id="catId"><option value="">大类</option>${DB.cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><input id="itemName" placeholder="项目名"><input id="perScore" type="number" placeholder="每次分值"><button id="addItem">新增</button><button id="updItem" style="background:#f59e0b;">修改</button></div><span id="selId"></span><div class="badge">修改全局模板只影响【新创建的月份】，已有月份不变。</div></div></div>`;
+        container.innerHTML = h;
+        let selId = null;
+        document.querySelectorAll('.editItem').forEach(btn => btn.onclick = () => { selId = btn.dataset.id; let it = DB.items.find(x => x.id === selId); if (it) { document.getElementById('catId').value = it.cat; document.getElementById('itemName').value = it.name; document.getElementById('perScore').value = it.perScore; } });
+        document.querySelectorAll('.delItem').forEach(btn => btn.onclick = () => { DB.items = DB.items.filter(x => x.id !== btn.dataset.id); save(); render(); });
+        document.getElementById('addItem').onclick = () => { let cat = document.getElementById('catId').value, name = document.getElementById('itemName').value.trim(), ps = parseInt(document.getElementById('perScore').value) || 0; if (cat && name) { DB.items.push({ id: "i" + Date.now(), cat, name, perScore: ps }); save(); render(); } };
+        document.getElementById('updItem').onclick = () => { if (selId) { let it = DB.items.find(x => x.id === selId); if (it) { it.cat = document.getElementById('catId').value; it.name = document.getElementById('itemName').value.trim(); it.perScore = parseInt(document.getElementById('perScore').value) || 0; save(); render(); } } };
+        document.getElementById('expItems').onclick = () => exportExcel(DB.items, "绩效项目.xlsx");
+        document.getElementById('impItemsBtn').onclick = () => document.getElementById('impItemsFile').click();
+        document.getElementById('impItemsFile').onchange = e => importExcel(e.target.files[0], rows => { if (rows.length) { DB.items = rows.map(r => ({ id: "i"+Date.now()+Math.random(), cat: r.cat || "diligence", name: r.name, perScore: r.perScore || 0 })); save(); render(); } });
+    }
+
+    function renderMonthsConfig(container) {
+        let h = `<div class="page-title">📆 考核月份配置</div><div class="card"><div class="flex-between"><h3>月份列表</h3></div><div class="table-wrapper"><table class="data-table"><thead><tr><th>月份名称</th><th>年份</th><th>季度</th><th>操作</th></tr></thead><tbody>${DB.monthList.map(m => `<tr><td><input type="text" class="month-name" data-id="${m.id}" value="${m.name}"></td><td><input type="text" class="month-year" data-id="${m.id}" value="${m.year}"></td><td><select class="month-quarter" data-id="${m.id}"><option ${m.quarter==="1"?"selected":""}>1</option><option ${m.quarter==="2"?"selected":""}>2</option><option ${m.quarter==="3"?"selected":""}>3</option><option ${m.quarter==="4"?"selected":""}>4</option></select></td><td><button class="delMonthBtn" data-id="${m.id}" style="background:#dc2626;">删除</button></td></tr>`).join('')}</tbody></table></div><div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end"><div><label>月份名称</label><input id="newMonthName" placeholder="例: 2026-01"></div><div><label>年份</label><input id="newMonthYear" placeholder="例: 2026"></div><div><label>季度</label><select id="newMonthQuarter"><option>1</option><option>2</option><option>3</option><option>4</option></select></div><button id="addMonthBtn">➕新增</button></div><div class="badge">修改后请点击其他位置保存。删除月份会删除所有考核数据。</div></div>`;
+        container.innerHTML = h;
+        document.querySelectorAll('.month-name').forEach(inp => inp.onchange = () => { let m = DB.monthList.find(x => x.id === inp.dataset.id); if (m) m.name = inp.value; save(); });
+        document.querySelectorAll('.month-year').forEach(inp => inp.onchange = () => { let m = DB.monthList.find(x => x.id === inp.dataset.id); if (m) m.year = inp.value; save(); });
+        document.querySelectorAll('.month-quarter').forEach(sel => sel.onchange = () => { let m = DB.monthList.find(x => x.id === sel.dataset.id); if (m) m.quarter = sel.value; save(); });
+        document.querySelectorAll('.delMonthBtn').forEach(btn => btn.onclick = () => { let id = btn.dataset.id; if (DB.monthList.length <= 1) { alert("至少保留一个月"); return; } if (confirm(`删除月份“${DB.monthList.find(m => m.id === id)?.name}”及其所有考核数据？`)) { DB.monthList = DB.monthList.filter(m => m.id !== id); delete DB.monthsData[id]; if (DB.curMonthId === id) DB.curMonthId = DB.monthList[0].id; save(); render(); } });
+        document.getElementById('addMonthBtn').onclick = () => {
+            let name = document.getElementById('newMonthName').value.trim(), year = document.getElementById('newMonthYear').value.trim(), quarter = document.getElementById('newMonthQuarter').value;
+            if (!name || !year) { alert("月份名称和年份不能为空"); return; }
+            if (DB.monthList.find(m => m.name === name)) { alert("月份名称已存在"); return; }
+            let newId = "m" + Date.now();
+            let srcId = DB.monthList.length ? DB.monthList[DB.monthList.length-1].id : null;
+            createMonth(newId, name, year, quarter, srcId);
+            save(); render();
+        };
+    }
+
+    // 绩效考核页面（单月编辑，带暂存，无额外字段）
+    let pendingChanges = [];
+    function addPendingChange(type, empId, itemId, oldVal, newVal) {
+        pendingChanges.push({ type, monthId: DB.curMonthId, empId, itemId, oldVal, newVal });
+    }
+    function clearPendingChanges() { pendingChanges = []; }
+    function getLogTimestamp(monthId) {
+        let month = DB.monthList.find(m => m.id === monthId);
+        if (!month) return new Date().toISOString().slice(0,19).replace('T',' ');
+        let parts = month.name.split('-');
+        if (parts.length === 2) return `${parts[0]}-${parts[1]}-15 00:00:00`;
+        return new Date().toISOString().slice(0,19).replace('T',' ');
+    }
+    function applyPendingChanges() {
+        for (let ch of pendingChanges) {
+            let month = DB.monthsData[ch.monthId];
+            if (!month) continue;
+            if (ch.type === 'count') {
+                month.counts[ch.empId][ch.itemId] = ch.newVal;
+            } else if (ch.type === 'leader') {
+                month.leaderScores[ch.empId] = ch.newVal;
+            }
+        }
+        let logTime = getLogTimestamp(DB.curMonthId);
+        for (let ch of pendingChanges) {
+            if (ch.type === 'count') {
+                let month = DB.monthsData[ch.monthId];
+                let item = month.items.find(i => i.id === ch.itemId);
+                DB.logs.unshift({
+                    id: Date.now() + Math.random(),
+                    employeeId: ch.empId,
+                    employeeName: getPersonName(ch.empId),
+                    itemId: ch.itemId,
+                    itemName: item?.name || '',
+                    changeValue: (ch.newVal - ch.oldVal) * (item?.perScore || 0),
+                    reason: "绩效考核修改",
+                    timestamp: logTime,
+                    monthKey: ch.monthId
+                });
+            } else if (ch.type === 'leader') {
+                DB.logs.unshift({
+                    id: Date.now() + Math.random(),
+                    employeeId: ch.empId,
+                    employeeName: getPersonName(ch.empId),
+                    itemId: "leader",
+                    itemName: "绩(领导分)",
+                    changeValue: ch.newVal - ch.oldVal,
+                    reason: "绩效考核修改",
+                    timestamp: logTime,
+                    monthKey: ch.monthId
+                });
+            }
+        }
+        save();
+        clearPendingChanges();
+    }
+
+    function renderPerformancePage(container) {
+        if (DB.monthList.length === 0) { container.innerHTML = `<div class="card">请先在“考核月份”中配置月份</div>`; return; }
+        let monthOpts = DB.monthList.map(m => `<option value="${m.id}" ${m.id===DB.curMonthId?'selected':''}>${m.name} (${m.year}年Q${m.quarter})</option>`).join('');
+        let groupFilter = `<select id="groupFilter"><option value="all">全部组</option>${DB.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}</select>`;
+        let posFilter = `<select id="posFilter"><option value="all">全部职位</option><option value="主任">主任</option><option value="员工">员工</option></select>`;
+        let month = DB.monthsData[DB.curMonthId];
+        if (!month) { container.innerHTML = `<div class="card">月份数据不存在</div>`; return; }
+        let currentMonthName = DB.monthList.find(m => m.id === DB.curMonthId)?.name || '';
+        let sortedItems = [...month.items].sort((a,b) => (DB.cats.find(c=>c.id===a.cat)?.order||99) - (DB.cats.find(c=>c.id===b.cat)?.order||99));
+        let groupOrder = { g2:0, g1:1, g3:2 };
+        let sortedPersons = [...DB.persons].sort((a,b) => (groupOrder[a.groupId]??99) - (groupOrder[b.groupId]??99) || a.name.localeCompare(b.name));
+        let filterGroup = document.getElementById('groupFilter')?.value || 'all';
+        let filterPos = document.getElementById('posFilter')?.value || 'all';
+        let filtered = sortedPersons.filter(p => (filterGroup==='all'||p.groupId===filterGroup) && (filterPos==='all'||p.position===filterPos));
+        let bonus=0, penalty=0;
+        for (let p of filtered) { let adj = calcAdjust(p.id, DB.curMonthId); if (adj>0) bonus+=adj; else penalty+=-adj; }
+
+        let h = `<div class="page-title">📊 绩效考核</div>
+        <div class="card">
+            <div class="flex-between">
+                <div><span class="month-badge">📌 当前考核月份：${currentMonthName}</span></div>
+                <div><button id="exportMonthExcel">导出Excel</button> <button id="downloadTemplateBtn">下载导入模板</button> <button id="importMonthBtn">导入Excel</button> <input type="file" id="importMonthFile" style="display:none"></div>
+            </div>
+            <div class="flex-between">
+                <div>考核月份切换：<select id="monSel">${monthOpts}</select></div>
+                <div>组筛选：${groupFilter} 职位筛选：${posFilter}</div>
+                <div><span class="badge">总加分:<span class="big-number">+${bonus}</span></span> <span class="badge">总扣分:<span class="big-number">-${penalty}</span></span></div>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>组</th><th>姓名</th>${sortedItems.map(i => `<th>${i.name}<br><span class="badge">(${getCatName(i.cat)})<br>${i.perScore>0?`+${i.perScore}`:i.perScore}/次</span></th>`).join('')}<th>绩(0-20)</th><th>总分</th></tr></thead>
+                    <tbody>${filtered.map(p => {
+                        let eid = p.id, adj = calcAdjust(eid, DB.curMonthId), leader = month.leaderScores[eid]||0, total = 80+adj+leader;
+                        let row = ''; for (let i of sortedItems) { let times = month.counts[eid]?.[i.id]||0; row += `<td><span class="readonly-cell" data-type="count" data-e="${eid}" data-i="${i.id}">${times}</span></td>`; }
+                        return `<tr><td style="background:#f8fafc;">${DB.groups.find(g=>g.id===p.groupId)?.name||''}</td><td style="background:#f8fafc;">${p.name}</td>${row}<td><span class="readonly-cell" data-type="leader" data-e="${eid}">${leader}</span></td><td>${Math.min(Math.max(total,0),100)}</td></tr>`;
+                    }).join('')}</tbody>
+                </table>
+            </div>
+            <div class="action-bar">
+                <button id="viewChangesBtn" class="secondary">📋 查看修改记录</button>
+                <button id="saveChangesBtn" style="background:#16a34a;">💾 保存所有修改</button>
+            </div>
+        </div>`;
+        container.innerHTML = h;
+        attachDoubleClickEdit();
+        document.getElementById('monSel').onchange = e => { DB.curMonthId = e.target.value; clearPendingChanges(); render(); };
+        document.getElementById('groupFilter').onchange = () => renderPerformancePage(container);
+        document.getElementById('posFilter').onchange = () => renderPerformancePage(container);
+
+        document.getElementById('exportMonthExcel').onclick = () => {
+            let month = DB.monthsData[DB.curMonthId];
+            let items = month.items;
+            let monthName = DB.monthList.find(m=>m.id===DB.curMonthId)?.name;
+            let data = [];
+            for (let p of DB.persons) {
+                let row = { 考核月份: monthName, 姓名: p.name, 组: DB.groups.find(g=>g.id===p.groupId)?.name || '' };
+                for (let i of items) { let times = month.counts[p.id]?.[i.id] || 0; row[i.name] = times; }
+                let leader = month.leaderScores[p.id] || 0;
+                row['领导分'] = leader;
+                data.push(row);
+            }
+            exportExcel(data, `绩效考核_${monthName}.xlsx`);
+        };
+        document.getElementById('downloadTemplateBtn').onclick = () => {
+            let items = DB.monthsData[DB.curMonthId].items;
+            let templateData = [{ 考核月份: "2026-01", 员工姓名: "示例", 组别: "教材组", ...items.reduce((o,i)=>(o[i.name]=0,o), {}), 领导分: 0 }];
+            exportExcel(templateData, `绩效考核导入模板.xlsx`);
+        };
+        document.getElementById('importMonthBtn').onclick = () => document.getElementById('importMonthFile').click();
+        document.getElementById('importMonthFile').onchange = e => importExcel(e.target.files[0], rows => {
+            if (rows.length) {
+                let month = DB.monthsData[DB.curMonthId];
+                let items = month.items;
+                let currentMonthName = DB.monthList.find(m=>m.id===DB.curMonthId)?.name;
+                for (let r of rows) {
+                    let importMonth = r['考核月份'];
+                    if (importMonth && importMonth !== currentMonthName && !confirm(`导入文件的考核月份为“${importMonth}”，当前月份为“${currentMonthName}”。是否仍要继续导入？`)) continue;
+                    let emp = DB.persons.find(p => p.name === r.员工姓名);
+                    if (!emp) continue;
+                    for (let i of items) { let times = parseInt(r[i.name]) || 0; month.counts[emp.id][i.id] = times; }
+                    let leader = parseInt(r['领导分']) || 0;
+                    month.leaderScores[emp.id] = leader;
+                }
+                save(); render();
+            }
+        });
+
+        document.getElementById('viewChangesBtn').onclick = () => {
+            if (pendingChanges.length === 0) { alert("暂无未保存的修改记录"); return; }
+            let msg = "以下修改尚未保存：\n\n";
+            for (let ch of pendingChanges) {
+                let empName = getPersonName(ch.empId);
+                if (ch.type === 'count') {
+                    let item = DB.monthsData[ch.monthId]?.items.find(i=>i.id===ch.itemId);
+                    msg += `${empName}：项目“${item?.name}”次数：${ch.oldVal} → ${ch.newVal}\n`;
+                } else if (ch.type === 'leader') msg += `${empName}：领导分：${ch.oldVal} → ${ch.newVal}\n`;
+            }
+            alert(msg);
+        };
+        document.getElementById('saveChangesBtn').onclick = () => {
+            if (pendingChanges.length === 0) { alert("没有需要保存的修改"); return; }
+            let msg = "确认保存以下修改？\n\n";
+            for (let ch of pendingChanges) {
+                let empName = getPersonName(ch.empId);
+                if (ch.type === 'count') {
+                    let item = DB.monthsData[ch.monthId]?.items.find(i=>i.id===ch.itemId);
+                    msg += `${empName}：项目“${item?.name}”次数：${ch.oldVal} → ${ch.newVal}\n`;
+                } else if (ch.type === 'leader') msg += `${empName}：领导分：${ch.oldVal} → ${ch.newVal}\n`;
+            }
+            if (confirm(msg)) { applyPendingChanges(); alert("修改已保存"); render(); }
+            else alert("已取消保存");
+        };
+    }
+
+    function attachDoubleClickEdit() {
+        document.querySelectorAll('.readonly-cell').forEach(cell => {
+            cell.style.cursor = 'pointer';
+            cell.ondblclick = function() {
+                let type = cell.dataset.type, eid = cell.dataset.e, iid = cell.dataset.i;
+                let oldVal = cell.innerText, input = document.createElement('input');
+                input.type = 'number';
+                input.value = oldVal; input.classList.add('editable-input');
+                cell.innerHTML = ''; cell.appendChild(input); input.focus();
+                input.onblur = () => {
+                    let newVal = parseInt(input.value) || 0;
+                    if (newVal == oldVal) { cell.innerHTML = oldVal; return; }
+                    addPendingChange(type, eid, iid, oldVal, newVal);
+                    cell.innerHTML = newVal;
+                };
+            };
+        });
+    }
+
+    // 奖惩记录
+    function renderRewardsPage(container) {
+        let monthOpts = `<select id="filterMon"><option value="all">全部月份</option>${DB.monthList.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}</select>`;
+        let filterHtml = `<div class="filter-bar"><span>考核月份：${monthOpts}</span><input type="text" id="filterName" placeholder="员工姓名"><select id="filterGroup"><option value="all">全部组</option>${DB.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}</select><select id="filterPos"><option value="all">全部职位</option><option value="主任">主任</option><option value="员工">员工</option></select><button id="searchBtn">筛选</button> <button id="resetFilter">重置</button><button id="addRew">新增记录</button><button id="expRew">导出Excel</button><button id="impRewBtn">导入</button><input type="file" id="impRewFile" style="display:none"></div>`;
+        let html = `<div class="page-title">🏅 奖惩记录</div><div class="card">${filterHtml}<div class="table-wrapper"><div id="rewList"></div></div></div>`;
+        container.innerHTML = html;
+        function renderLogs() {
+            let fMon = document.getElementById('filterMon')?.value || 'all';
+            let nameF = document.getElementById('filterName')?.value.trim().toLowerCase() || '';
+            let groupF = document.getElementById('filterGroup')?.value || 'all';
+            let posF = document.getElementById('filterPos')?.value || 'all';
+            let flt = fMon === 'all' ? DB.logs : DB.logs.filter(l => l.monthKey === fMon);
+            if (nameF) flt = flt.filter(l => l.employeeName.toLowerCase().includes(nameF));
+            if (groupF !== 'all') { let eids = DB.persons.filter(p => p.groupId === groupF).map(p => p.id); flt = flt.filter(l => eids.includes(l.employeeId)); }
+            if (posF !== 'all') { let eids = DB.persons.filter(p => p.position === posF).map(p => p.id); flt = flt.filter(l => eids.includes(l.employeeId)); }
+            let tbl = `<table class="data-table"><thead><tr><th>时间</th><th>员工</th><th>组</th><th>职位</th><th>项目</th><th>大类</th><th>分值变化</th><th>事由</th><th>考核月份</th><th>操作</th></tr></thead><tbody>${flt.map(l => {
+                let p = DB.persons.find(pp => pp.id === l.employeeId);
+                let groupName = p ? DB.groups.find(g => g.id === p.groupId)?.name : '';
+                let catName = ''; if (l.itemId === 'leader') catName = '绩'; else { let it = DB.monthsData[l.monthKey]?.items.find(i => i.id === l.itemId); catName = it ? getCatName(it.cat) : ''; }
+                let monthName = DB.monthList.find(m => m.id === l.monthKey)?.name || '';
+                return `<tr><td>${l.timestamp}</td><td>${l.employeeName}</td><td>${groupName||''}</td><td>${p?.position||''}</td><td>${l.itemName||''}</td><td>${catName}</td><td>${l.changeValue>0?`+${l.changeValue}`:l.changeValue}</td><td>${l.reason}</td><td>${monthName}</td><td><button class="editLogBtn" data-id="${l.id}" style="background:#f59e0b;">编辑</button> <button class="delLogBtn" data-id="${l.id}" style="background:#dc2626;">删除</button></td></tr>`;
+            }).join('')}</tbody></table>`;
+            document.getElementById('rewList').innerHTML = tbl;
+            document.querySelectorAll('.editLogBtn').forEach(btn => btn.onclick = () => { let lid = btn.dataset.id; let log = DB.logs.find(x => x.id == lid); if (log) openRewardModal(log); });
+            document.querySelectorAll('.delLogBtn').forEach(btn => btn.onclick = () => { if (confirm("删除记录？")) { DB.logs = DB.logs.filter(x => x.id != btn.dataset.id); save(); renderLogs(); } });
+        }
+        renderLogs();
+        document.getElementById('filterMon').onchange = renderLogs;
+        document.getElementById('searchBtn').onclick = renderLogs;
+        document.getElementById('resetFilter').onclick = () => { document.getElementById('filterName').value = ''; document.getElementById('filterGroup').value = 'all'; document.getElementById('filterPos').value = 'all'; renderLogs(); };
+        document.getElementById('addRew').onclick = () => openRewardModal(null);
+        document.getElementById('expRew').onclick = () => exportExcel(DB.logs, "奖惩记录.xlsx");
+        document.getElementById('impRewBtn').onclick = () => document.getElementById('impRewFile').click();
+        document.getElementById('impRewFile').onchange = e => importExcel(e.target.files[0], rows => { DB.logs = rows; save(); render(); });
+    }
+
+    function openRewardModal(editLog) {
+        let isEdit = !!editLog;
+        let modal = document.createElement('div'); modal.className = 'modal';
+        let monthHtml = `<div class="form-group"><label>生效月份</label><select id="logMonth">${DB.monthList.map(m => `<option value="${m.id}" ${m.id===DB.curMonthId?'selected':''}>${m.name}</option>`).join('')}</select></div>`;
+        let groupedOpts = '';
+        for (let cat of DB.cats) {
+            let catItems = DB.items.filter(i => i.cat === cat.id);
+            if (catItems.length) {
+                groupedOpts += `<optgroup label="${cat.name}类">${catItems.map(i => `<option value="${i.id}">${i.name} (${i.perScore>0?`+${i.perScore}`:i.perScore}分/次)</option>`).join('')}</optgroup>`;
+            }
+        }
+        groupedOpts += `<optgroup label="其他"><option value="leader">绩（领导分0-20）</option></optgroup>`;
+        let itemSelect = `<select id="itemSelect" style="width:100%">${groupedOpts}</select>`;
+        let leaderDiv = `<div id="leaderDiv" style="display:block"><div class="form-group"><label>领导分（0-20）</label><input type="number" id="leaderScore" min="0" max="20" step="1" value="0"></div></div>`;
+        modal.innerHTML = `<div class="modal-content"><h3>${isEdit?'编辑':'新增'}奖惩记录</h3>${monthHtml}<div class="form-group"><label>时间</label><input type="datetime-local" id="logTime" value="${new Date().toISOString().slice(0,16)}"></div><div class="form-group"><label>员工</label><select id="logEmp">${DB.persons.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}</select></div><div class="form-group"><label>考核项目</label>${itemSelect}</div>${leaderDiv}<div class="form-group"><label>事由</label><textarea id="logReason" rows="2"></textarea></div><div class="flex-between"><button id="confirmRew">确认</button><button id="cancelRew">取消</button></div></div>`;
+        document.body.appendChild(modal);
+        let itemSel = document.getElementById('itemSelect');
+        itemSel.onchange = () => { let val = itemSel.value; document.getElementById('leaderDiv').style.display = (val === 'leader') ? 'block' : 'none'; };
+        if (isEdit) {
+            if (editLog.itemId === 'leader') {
+                itemSel.value = 'leader';
+                document.getElementById('leaderScore').value = editLog.newValue;
+            } else {
+                itemSel.value = editLog.itemId;
+            }
+            document.getElementById('logReason').value = editLog.reason;
+            document.getElementById('logTime').value = editLog.timestamp.replace(' ', 'T').slice(0,16);
+            document.getElementById('logEmp').value = editLog.employeeId;
+            document.getElementById('logMonth').value = editLog.monthKey;
+        }
+        document.getElementById('confirmRew').onclick = () => {
+            let time = document.getElementById('logTime').value.replace('T', ' ') + ':00';
+            let empId = document.getElementById('logEmp').value;
+            let selVal = itemSel.value;
+            let reason = document.getElementById('logReason').value;
+            let monthId = document.getElementById('logMonth').value;
+            if (!empId || !selVal || !monthId) return;
+            let month = DB.monthsData[monthId];
+            if (!month) { alert("月份数据不存在"); return; }
+            let itemId, itemName, change = 0, empName = getPersonName(empId);
+            if (selVal === 'leader') {
+                itemId = 'leader'; itemName = '绩(领导分)';
+                let newLeader = Math.min(20, Math.max(0, parseInt(document.getElementById('leaderScore').value) || 0));
+                let oldLeader = month.leaderScores[empId] || 0;
+                change = newLeader - oldLeader;
+                month.leaderScores[empId] = newLeader;
+            } else {
+                let it = DB.items.find(i => i.id === selVal);
+                if (!it) return;
+                itemId = it.id; itemName = it.name;
+                let delta = parseInt(prompt(`请输入${it.name} 增加/减少的次数（正数为增加）`, "1")) || 0;
+                if (delta === 0) { alert("次数变化不能为0"); return; }
+                let oldTimes = month.counts[empId]?.[itemId] || 0;
+                let newTimes = oldTimes + delta;
+                if (newTimes < 0) newTimes = 0;
+                month.counts[empId][itemId] = newTimes;
+                change = (newTimes - oldTimes) * it.perScore;
+            }
+            if (isEdit) {
+                let old = editLog;
+                let oldMonth = DB.monthsData[old.monthKey];
+                if (old.itemId === 'leader') oldMonth.leaderScores[old.employeeId] = old.oldValue;
+                else oldMonth.counts[old.employeeId][old.itemId] = old.oldValue;
+                DB.logs = DB.logs.filter(l => l.id !== old.id);
+            }
+            let newLog = { id: Date.now(), employeeId: empId, employeeName: empName, itemId, itemName, changeValue: change, oldValue: 0, newValue: change, reason, timestamp: time, monthKey: monthId };
+            DB.logs.unshift(newLog);
+            save(); modal.remove(); render();
+        };
+        document.getElementById('cancelRew').onclick = () => modal.remove();
+    }
+
+    // 绩效统计（多选月份累计，导出按钮与筛选同行）
+    function renderStatisticsPage(container) {
+        if (DB.monthList.length === 0) { container.innerHTML = `<div class="card">请先在“考核月份”中配置月份</div>`; return; }
+        let monthsList = [...DB.monthList].sort((a,b)=>a.name.localeCompare(b.name));
+        let defaultSelected = monthsList.slice(0, Math.min(6, monthsList.length)).map(m => m.id);
+        let checkboxes = `<div class="multi-month-group"><div><button id="selectAllMonths">全选</button> <button id="clearAllMonths">全不选</button></div>${monthsList.map(m => `<label><input type="checkbox" class="monthChk" value="${m.id}" ${defaultSelected.includes(m.id) ? 'checked' : ''}> ${m.name}</label>`).join('')}</div>`;
+        let groupFilter = `<select id="statGroup"><option value="all">全部组</option>${DB.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}</select>`;
+        let posFilter = `<select id="statPos"><option value="all">全部职位</option><option value="主任">主任</option><option value="员工">员工</option></select>`;
+        let h = `<div class="page-title">📈 绩效统计（多选月份累计）</div>
+        <div class="card">
+            <div class="multi-month-group" style="margin-bottom:10px;">${checkboxes}</div>
+            <div class="filter-bar" style="justify-content: space-between;">
+                <div><span>组筛选：${groupFilter}</span> <span>职位筛选：${posFilter}</span></div>
+                <div><button id="exportStatExcel">导出Excel</button></div>
+            </div>
+            <div class="table-wrapper" id="statTableWrap"></div>
+        </div>`;
+        container.innerHTML = h;
+        function renderStatTable() {
+            let selected = Array.from(document.querySelectorAll('.monthChk:checked')).map(cb => cb.value);
+            if (selected.length === 0) { document.getElementById('statTableWrap').innerHTML = '<div class="badge">请至少选择一个月份</div>'; return; }
+            let groupVal = document.getElementById('statGroup').value, posVal = document.getElementById('statPos').value;
+            let filteredPersons = DB.persons.filter(p => (groupVal==='all'||p.groupId===groupVal) && (posVal==='all'||p.position===posVal));
+            let groupOrder = { g2:0, g1:1, g3:2 };
+            let sortedPersons = filteredPersons.sort((a,b) => (groupOrder[a.groupId]??99) - (groupOrder[b.groupId]??99) || a.name.localeCompare(b.name));
+            let firstMonth = DB.monthsData[selected[0]];
+            if (!firstMonth) return;
+            let sortedItems = [...firstMonth.items].sort((a,b) => (DB.cats.find(c=>c.id===a.cat)?.order||99) - (DB.cats.find(c=>c.id===b.cat)?.order||99));
+            let thead = `<thead><tr><th>员工</th><th>组</th>${sortedItems.map(i => `<th>${i.name}<br><span class="badge">(${getCatName(i.cat)})<br>累计次数/得分</span></th>`).join('')}<th>累计总分</th><th>累计实发80%</th><th>累计预留20%</th><th>总绩效</th></tr></thead>`;
+            let tbody = '';
+            for (let p of sortedPersons) {
+                let groupName = DB.groups.find(g => g.id === p.groupId)?.name || '';
+                let row = `<tr><td style="background:#f8fafc;">${p.name}</td><td style="background:#f8fafc;">${groupName}</td>`;
+                let totalScore = 0;
+                let totalReal = 0;
+                let totalReserve = 0;
+                for (let item of sortedItems) {
+                    let totalTimes = 0;
+                    let totalItemScore = 0;
+                    for (let mid of selected) {
+                        let month = DB.monthsData[mid];
+                        if (month) {
+                            let times = month.counts[p.id]?.[item.id] || 0;
+                            totalTimes += times;
+                            totalItemScore += times * item.perScore;
+                        }
+                    }
+                    row += `<td>${totalTimes} → ${totalItemScore}</td>`;
+                    totalScore += totalItemScore;
+                }
+                let totalLeader = 0;
+                for (let mid of selected) {
+                    let month = DB.monthsData[mid];
+                    if (month) totalLeader += month.leaderScores[p.id] || 0;
+                }
+                totalScore += totalLeader;
+                let baseTotal = 80 * selected.length;
+                let finalTotal = baseTotal + totalScore;
+                finalTotal = Math.min(Math.max(finalTotal, 0), 100 * selected.length);
+                for (let mid of selected) {
+                    let month = DB.monthsData[mid];
+                    if (month) {
+                        let monthlyScore = 80 + calcAdjust(p.id, mid) + (month.leaderScores[p.id] || 0);
+                        monthlyScore = Math.min(Math.max(monthlyScore, 0), 100);
+                        let coeff = monthlyScore / 100;
+                        let base = 700 * coeff;
+                        totalReal += base * 0.8;
+                        totalReserve += base * 0.2;
+                    }
+                }
+                row += `<td>${finalTotal.toFixed(1)}</td><td>${totalReal.toFixed(2)}</td><td>${totalReserve.toFixed(2)}</td><td>${(totalReal+totalReserve).toFixed(2)}</td></tr>`;
+                tbody += row;
+            }
+            document.getElementById('statTableWrap').innerHTML = `<table class="data-table">${thead}${tbody}</table>`;
+        }
+        renderStatTable();
+        document.getElementById('selectAllMonths').onclick = () => { document.querySelectorAll('.monthChk').forEach(cb => cb.checked = true); renderStatTable(); };
+        document.getElementById('clearAllMonths').onclick = () => { document.querySelectorAll('.monthChk').forEach(cb => cb.checked = false); renderStatTable(); };
+        document.querySelectorAll('.monthChk').forEach(cb => cb.onchange = renderStatTable);
+        document.getElementById('statGroup').onchange = renderStatTable;
+        document.getElementById('statPos').onchange = renderStatTable;
+        document.getElementById('exportStatExcel').onclick = () => {
+            let selected = Array.from(document.querySelectorAll('.monthChk:checked')).map(cb => cb.value);
+            if (selected.length === 0) return;
+            let groupVal = document.getElementById('statGroup').value, posVal = document.getElementById('statPos').value;
+            let filtered = DB.persons.filter(p => (groupVal==='all'||p.groupId===groupVal) && (posVal==='all'||p.position===posVal));
+            let firstMonth = DB.monthsData[selected[0]];
+            let sortedItems = [...firstMonth.items].sort((a,b) => (DB.cats.find(c=>c.id===a.cat)?.order||99) - (DB.cats.find(c=>c.id===b.cat)?.order||99));
+            let exportData = [];
+            for (let p of filtered) {
+                let row = { 员工: p.name, 组: DB.groups.find(g=>g.id===p.groupId)?.name||'' };
+                let totalScore = 0;
+                let totalReal = 0, totalReserve = 0;
+                for (let item of sortedItems) {
+                    let totalTimes = 0;
+                    for (let mid of selected) {
+                        let month = DB.monthsData[mid];
+                        if (month) totalTimes += month.counts[p.id]?.[item.id] || 0;
+                    }
+                    row[`${item.name}_次数`] = totalTimes;
+                    let itemScore = totalTimes * item.perScore;
+                    row[`${item.name}_得分`] = itemScore;
+                    totalScore += itemScore;
+                }
+                let totalLeader = 0;
+                for (let mid of selected) {
+                    let month = DB.monthsData[mid];
+                    if (month) totalLeader += month.leaderScores[p.id] || 0;
+                }
+                totalScore += totalLeader;
+                let baseTotal = 80 * selected.length;
+                let finalTotal = baseTotal + totalScore;
+                finalTotal = Math.min(Math.max(finalTotal, 0), 100 * selected.length);
+                for (let mid of selected) {
+                    let month = DB.monthsData[mid];
+                    if (month) {
+                        let monthlyScore = 80 + calcAdjust(p.id, mid) + (month.leaderScores[p.id] || 0);
+                        monthlyScore = Math.min(Math.max(monthlyScore, 0), 100);
+                        let coeff = monthlyScore / 100;
+                        let base = 700 * coeff;
+                        totalReal += base * 0.8;
+                        totalReserve += base * 0.2;
+                    }
+                }
+                row['累计总分'] = finalTotal.toFixed(1);
+                row['累计实发80%'] = totalReal.toFixed(2);
+                row['累计预留20%'] = totalReserve.toFixed(2);
+                row['总绩效'] = (totalReal+totalReserve).toFixed(2);
+                exportData.push(row);
+            }
+            exportExcel(exportData, `绩效统计_累计.xlsx`);
+        };
+    }
+
+    // 用户管理
+    function renderUsersPage(container) {
+        let h = `<div class="page-title">👥 用户管理</div><div class="card"><div class="flex-between"><h3>系统用户</h3><button id="addUser">➕新增用户</button></div><div class="table-wrapper"><table class="data-table"><thead><tr><th>用户编号</th><th>真实姓名</th><th>密码</th><th>角色</th><th>操作</th></tr></thead><tbody>${DB.users.map(u => `<tr><td>${u.no}</td><td>${u.realName}</td><td>${u.pwd}</td><td>${u.role}</td><td><button class="editUser" data-no="${u.no}" style="background:#f59e0b;">编辑</button> ${u.no !== "admin" ? `<button class="delUser" data-no="${u.no}" style="background:#dc2626;">删除</button>` : ''}</td></tr>`).join('')}</tbody></table></div></div>`;
+        container.innerHTML = h;
+        document.querySelectorAll('.editUser').forEach(btn => btn.onclick = () => {
+            let no = btn.dataset.no;
+            let user = DB.users.find(u => u.no === no);
+            if (!user) return;
+            let modal = document.createElement('div'); modal.className = 'modal';
+            modal.innerHTML = `<div class="modal-content"><h3>编辑用户</h3><div class="form-group"><label>真实姓名</label><input id="editName" value="${user.realName}"></div><div class="form-group"><label>角色</label><select id="editRole"><option ${user.role==='系统管理员'?'selected':''}>系统管理员</option><option ${user.role==='总经理'?'selected':''}>总经理</option><option ${user.role==='经理'?'selected':''}>经理</option><option ${user.role==='主任'?'selected':''}>主任</option><option ${user.role==='员工'?'selected':''}>员工</option></select></div><div class="form-group"><label>密码</label><input id="editPwd" value="${user.pwd}"></div><div class="flex-between"><button id="saveEdit">保存</button><button id="cancelEdit">取消</button></div></div>`;
+            document.body.appendChild(modal);
+            document.getElementById('saveEdit').onclick = () => {
+                user.realName = document.getElementById('editName').value;
+                user.role = document.getElementById('editRole').value;
+                user.pwd = document.getElementById('editPwd').value;
+                save(); render(); modal.remove();
+            };
+            document.getElementById('cancelEdit').onclick = () => modal.remove();
+        });
+        document.querySelectorAll('.delUser').forEach(btn => btn.onclick = () => {
+            let no = btn.dataset.no;
+            if (no !== "admin") { DB.users = DB.users.filter(u => u.no !== no); save(); render(); }
+            else alert("不能删除管理员");
+        });
+        document.getElementById('addUser').onclick = () => {
+            let modal = document.createElement('div'); modal.className = 'modal';
+            modal.innerHTML = `<div class="modal-content"><h3>新增用户</h3><div class="form-group"><label>用户编号</label><input id="newNo"></div><div class="form-group"><label>真实姓名</label><input id="newName"></div><div class="form-group"><label>密码</label><input id="newPwd" type="password"></div><div class="form-group"><label>角色</label><select id="newRole"><option>员工</option><option>主任</option><option>经理</option><option>总经理</option></select></div><div class="flex-between"><button id="confirmAdd">确认</button><button id="cancelAdd">取消</button></div></div>`;
+            document.body.appendChild(modal);
+            document.getElementById('confirmAdd').onclick = () => {
+                let no = document.getElementById('newNo').value.trim(), name = document.getElementById('newName').value.trim(), pwd = document.getElementById('newPwd').value, role = document.getElementById('newRole').value;
+                if (!no || !name || !pwd) { alert("请完整填写"); return; }
+                if (DB.users.find(u => u.no === no)) { alert("编号已存在"); return; }
+                DB.users.push({ no, pwd, role, realName: name, empId: null });
+                save(); render(); modal.remove();
+            };
+            document.getElementById('cancelAdd').onclick = () => modal.remove();
+        };
+    }
+
+    // 数据维护
+    function renderBackupPage(container) {
+        container.innerHTML = `<div class="page-title">💾 数据维护</div><div class="card"><button id="fullExport" style="width:100%;margin-bottom:12px;">📤 导出全部数据</button><button id="fullImportBtn" style="width:100%;margin-bottom:12px;">📂 导入备份</button><input type="file" id="fullImportFile" style="display:none"><hr><button id="formatBtn" class="danger" style="width:100%;margin-bottom:12px;">🗑️ 格式化（清空）</button><button id="initBtn" class="warning" style="width:100%;">🔄 初始化（测试数据）</button></div>`;
+        document.getElementById('fullExport').onclick = () => exportExcel({ users: DB.users, persons: DB.persons, groups: DB.groups, items: DB.items, monthList: DB.monthList, monthsData: DB.monthsData, logs: DB.logs, curMonthId: DB.curMonthId }, "完整备份.xlsx");
+        document.getElementById('fullImportBtn').onclick = () => document.getElementById('fullImportFile').click();
+        document.getElementById('fullImportFile').onchange = e => importExcel(e.target.files[0], rows => { if (rows.length) { let d = rows[0]; if (d.users) DB.users = d.users; if (d.persons) DB.persons = d.persons; if (d.groups) DB.groups = d.groups; if (d.items) DB.items = d.items; if (d.monthList) DB.monthList = d.monthList; if (d.monthsData) DB.monthsData = d.monthsData; if (d.logs) DB.logs = d.logs; if (d.curMonthId) DB.curMonthId = d.curMonthId; save(); render(); } });
+        document.getElementById('formatBtn').onclick = () => { if (confirm("格式化将删除所有数据！")) { localStorage.removeItem("perfSystem"); DB.users = [{ no:"admin", pwd:"admin", role:"系统管理员", realName:"系统管理员", empId:null }]; DB.persons = []; DB.groups = []; DB.items = []; DB.monthList = []; DB.monthsData = {}; DB.logs = []; DB.curMonthId = ""; save(); load(); render(); } };
+        document.getElementById('initBtn').onclick = () => { if (confirm("初始化恢复默认测试数据")) { localStorage.removeItem("perfSystem"); initDefaultData(); load(); render(); } };
+    }
+
+    // 登录优化：回车切换和登录，修复登录页遮挡
+    function initLogin() {
+        const username = document.getElementById('loginUsername');
+        const password = document.getElementById('loginPassword');
+        const loginBtn = document.getElementById('loginBtn');
+        username.addEventListener('keypress', (e) => { if (e.key === 'Enter') password.focus(); });
+        password.addEventListener('keypress', (e) => { if (e.key === 'Enter') loginBtn.click(); });
+        loginBtn.onclick = () => {
+            let no = username.value.trim();
+            let pwd = password.value;
+            let user = DB.users.find(u => u.no === no && u.pwd === pwd);
+            if (user) {
+                DB.curUser = user;
+                document.getElementById('currentUserName').innerText = user.realName;
+                document.getElementById('loginContainer').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'flex';
+                load(); render();
+            } else alert("用户编号或密码错误");
+        };
+        document.getElementById('logoutBtn').onclick = () => { DB.curUser = null; document.getElementById('loginContainer').style.display = 'flex'; document.getElementById('mainApp').style.display = 'none'; };
+    }
+
+    function bindMenu() {
+        document.querySelectorAll('.menu-item').forEach(item => item.addEventListener('click', () => {
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            item.classList.add('active');
+            DB.curPage = item.dataset.page;
+            render();
+        }));
+    }
+    function initCollapse() {
+        const trigger = document.getElementById('collapseTrigger');
+        trigger.onclick = () => document.getElementById('sidebar').classList.toggle('collapsed');
+    }
+
+    load(); initLogin(); bindMenu(); initCollapse();
+</script>
+</body>
+</html>

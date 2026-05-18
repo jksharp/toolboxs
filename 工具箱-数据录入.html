@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>数据录入模块 · 新华书店工具箱（永久存储版）</title>
+    <title>数据录入模块 · 新华书店工具箱</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
@@ -49,7 +49,7 @@
 </head>
 <body>
 <div class="module">
-    <div class="module-header"><h2>📖 图书快捷录入</h2><p>永久存储 | 重复高亮滚动 | 匹配+重复双提示 | 合计左对齐</p></div>
+    <div class="module-header"><h2>📖 图书快捷录入</h2><p>三种模式：快速录入 | 完整录入 | 匹配录入（自动读取订数/册数）</p></div>
     <div class="toolbar">
         <span id="entryStats">0种/0册</span>
         <span id="currentPackStats" class="pack-stats">当前包：0种/0册</span>
@@ -93,53 +93,682 @@
         </div>
         <div id="matchInfo" class="match-info" style="display:none"></div>
     </div>
-    <div class="footer-note">💡 输入书号后按回车：自动检测当前包重复并高亮，匹配模式同时显示订单匹配结果。添加时若有重复则确认叠加。存储键已永久固定，不再丢失数据。</div>
+    <div class="footer-note">💡 输入书号后按回车：自动检测当前包重复并高亮，匹配模式同时显示订单匹配结果。添加时若有重复则确认叠加。存储键已固定，不会丢失数据。</div>
 </div>
 
 <script>
 (function(){
-    // ==================== 永久存储键（永不改变）====================
-    const STORAGE_KEY = 'BookEntrySystem_Permanent';
-    const LAST_PACK_KEY = 'LastPackageNo_Permanent';
-    const NOTE_PREFIX = 'PackageNote_Permanent_';
+    // ========== 固定存储键，不再变化 ==========
+    const STORAGE_KEY = 'BookEntrySystem_Final';
+    const LAST_PACK_KEY = 'LastPackageNo_Final';
+    const NOTE_PREFIX = 'CurrentPackageNote_Final_';
+    let books = [];            
+    let nextId = 1;
+    let matchDataSource = [];  // { isbn, title, price, qty }
+    let matchSourceFileName = '';
+    let currentMode = 'quick';
     
-    // 迁移旧数据的函数（兼容之前所有版本）
-    function migrateOldData() {
-        const oldKeys = [
-            'BookEntrySystem_V10', 'BookEntrySystem_V11', 'BookEntrySystem_V12', 'BookEntrySystem_V13', 'BookEntrySystem_V14',
-            'LastPackageNo', 'LastPackageNo_Final',
-            'CurrentPackageNote_', 'CurrentPackageNote_Final_'
-        ];
-        let migrated = false;
-        // 迁移书籍数据
-        for (let oldKey of oldKeys) {
-            if (oldKey.startsWith('BookEntrySystem')) {
-                const oldRaw = localStorage.getItem(oldKey);
-                if (oldRaw) {
-                    try {
-                        const oldData = JSON.parse(oldRaw);
-                        if (oldData.books && oldData.books.length) {
-                            if (!localStorage.getItem(STORAGE_KEY)) {
-                                localStorage.setItem(STORAGE_KEY, oldRaw);
-                                migrated = true;
-                            }
-                            break;
-                        }
-                    } catch(e) {}
-                }
+    // DOM 快捷引用
+    const dom = {
+        tbody: () => document.getElementById('entryTbody'),
+        statsSpan: document.getElementById('entryStats'),
+        packStatsSpan: document.getElementById('currentPackStats'),
+        packageNoInput: document.getElementById('packageNoInput'),
+        bookIdInput: document.getElementById('bookIdInput'),
+        titleInput: document.getElementById('titleInput'),
+        priceInput: document.getElementById('priceInput'),
+        copiesInput: document.getElementById('copiesInput'),
+        fullTitleGroup: document.getElementById('fullTitleGroup'),
+        fullPriceGroup: document.getElementById('fullPriceGroup'),
+        matchInfoDiv: document.getElementById('matchInfo'),
+        loadMatchBtn: document.getElementById('loadMatchSourceBtn'),
+        viewMatchTableBtn: document.getElementById('viewMatchTableBtn'),
+        customerName: document.getElementById('customerName'),
+        operatorName: document.getElementById('operatorName'),
+        consignmentNo: document.getElementById('consignmentNo'),
+        invoiceNo: document.getElementById('invoiceNo'),
+        packageNote: document.getElementById('packageNote'),
+        printDate: document.getElementById('printDate')
+    };
+    
+    let tipTimer = null;
+    function showTip(msg, isErr = false, dur = 2000) {
+        let tip = document.getElementById('globalTip');
+        if(!tip) { tip = document.createElement('div'); tip.id = 'globalTip'; tip.className = 'toast-tip'; document.body.appendChild(tip); }
+        tip.style.opacity = '1';
+        tip.innerText = msg;
+        if(tipTimer) clearTimeout(tipTimer);
+        tipTimer = setTimeout(() => { tip.style.opacity = '0'; }, dur);
+    }
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+    function escapeAttr(str) { return String(str).replace(/[&<>"]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':m==='>'?'&gt;':'&quot;'); }
+    
+    // 数据存储
+    function saveToLocal() { localStorage.setItem(STORAGE_KEY, JSON.stringify({ books, nextId })); }
+    function loadFromLocal() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(raw) try { const data = JSON.parse(raw); books = data.books || []; nextId = data.nextId || (books.length ? Math.max(...books.map(b=>b.id)) + 1 : 1); } catch(e){ books=[]; nextId=1; }
+        else { books = []; nextId = 1; }
+    }
+    
+    // 统计 & 渲染表格
+    function getPackStats(pkg) {
+        const packBooks = books.filter(b => b.packageNo === pkg);
+        return { varieties: packBooks.length, totalCopies: packBooks.reduce((s,b)=>s + (b.copies||0),0) };
+    }
+    function updatePackStatsUI() {
+        const pkg = dom.packageNoInput.value.trim();
+        if(pkg) { const st = getPackStats(pkg); dom.packStatsSpan.innerText = `当前包：${st.varieties}种 / ${st.totalCopies}册`; }
+        else dom.packStatsSpan.innerText = '当前包：0种/0册';
+    }
+    function updateTotalStats() {
+        const totalCopies = books.reduce((s,b)=>s + (b.copies||0),0);
+        dom.statsSpan.innerText = `${books.length}种/${totalCopies}册`;
+        updatePackStatsUI();
+    }
+    
+    // 高亮管理
+    function clearDuplicateHighlight() {
+        document.querySelectorAll('#entryTbody tr').forEach(r => r.classList.remove('duplicate-row-highlight'));
+    }
+    function highlightDuplicateRow(rowElement) {
+        clearDuplicateHighlight();
+        if(rowElement) rowElement.classList.add('duplicate-row-highlight');
+    }
+    function scrollToRow(rowElement) {
+        if(rowElement) rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    // 检测当前包内重复
+    function checkDuplicateInCurrentPackage(bookId, packageNo) {
+        if(!bookId) return null;
+        return books.find(b => b.packageNo === packageNo && b.bookId === bookId) || null;
+    }
+    
+    // 刷新下方的信息区域 （匹配模式：匹配结果 + 重复提示；非匹配模式：仅重复提示）
+    function updateInfoPanel() {
+        if(!dom.matchInfoDiv) return;
+        const pkg = dom.packageNoInput.value.trim();
+        const isbn = dom.bookIdInput.value.trim();
+        const isMatchMode = (currentMode === 'match');
+        let matchHtml = '';
+        let duplicateHtml = '';
+        
+        // 匹配模式：显示匹配库匹配结果
+        if(isMatchMode && isbn) {
+            const matched = matchDataSource.find(item => item.isbn === isbn);
+            if(matched) {
+                let info = `✅ 订单匹配：${escapeHtml(matched.title)}`;
+                if(matched.price != null) info += ` 定价 ¥${matched.price.toFixed(2)}`;
+                if(matched.qty != null && matched.qty > 0) info += ` (订数: ${matched.qty}册)`;
+                matchHtml = `<div class="match-info-row">${info}</div>`;
+            } else if(matchDataSource.length > 0 && isbn) {
+                matchHtml = `<div class="match-info-row">❌ 未找到书号「${escapeHtml(isbn)}」的订单匹配数据</div>`;
+            } else if(matchDataSource.length === 0) {
+                matchHtml = `<div class="match-info-row">⚠️ 未导入订单表，请先点击上方“导入订单表”</div>`;
             }
         }
-        // 迁移包号
-        const oldLastPack = localStorage.getItem('LastPackageNo') || localStorage.getItem('LastPackageNo_Final');
-        if (oldLastPack && !localStorage.getItem(LAST_PACK_KEY)) {
-            localStorage.setItem(LAST_PACK_KEY, oldLastPack);
-            migrated = true;
+        
+        // 重复提示
+        const duplicateBook = checkDuplicateInCurrentPackage(isbn, pkg);
+        if(duplicateBook) {
+            duplicateHtml = `<div class="match-info-row">⚠️ 当前包中已存在该书号，共 ${duplicateBook.copies} 本，已高亮该行。</div>`;
         }
-        // 迁移备注 (遍历)
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (key.startsWith('CurrentPackageNote_') || key.startsWith('CurrentPackageNote_Final_'))) {
-                const pack = key.replace('CurrentPackageNote_', '').replace('CurrentPackageNote_Final_', '');
-                const value = localStorage.getItem(key);
-                if (pack && value && !localStorage.getItem(NOTE_PREFIX+pack)) {
-                    localStorage.setItem(NOTE
+        
+        const finalHtml = matchHtml + duplicateHtml;
+        if(finalHtml) {
+            dom.matchInfoDiv.style.display = 'flex';
+            dom.matchInfoDiv.innerHTML = finalHtml;
+        } else {
+            dom.matchInfoDiv.style.display = 'none';
+            dom.matchInfoDiv.innerHTML = '';
+        }
+    }
+    
+    // 当书号输入框内容变化或按回车时，执行检测、高亮、滚动
+    function handleBookIdChange() {
+        const bookId = dom.bookIdInput.value.trim();
+        const packageNo = dom.packageNoInput.value.trim();
+        if(!bookId) {
+            clearDuplicateHighlight();
+            updateInfoPanel();
+            return;
+        }
+        const existing = checkDuplicateInCurrentPackage(bookId, packageNo);
+        if(existing) {
+            const row = document.querySelector(`#entryTbody tr[data-package="${escapeAttr(packageNo)}"][data-isbn="${escapeAttr(bookId)}"]`);
+            if(row) {
+                highlightDuplicateRow(row);
+                scrollToRow(row);
+            } else {
+                setTimeout(() => {
+                    const row2 = document.querySelector(`#entryTbody tr[data-package="${escapeAttr(packageNo)}"][data-isbn="${escapeAttr(bookId)}"]`);
+                    if(row2) { highlightDuplicateRow(row2); scrollToRow(row2); }
+                }, 50);
+            }
+        } else {
+            clearDuplicateHighlight();
+        }
+        updateInfoPanel();
+    }
+    
+    // 渲染表格（保留data属性）
+    function renderTable() {
+        const tbody = dom.tbody();
+        if(!tbody) return;
+        if(books.length === 0) { tbody.innerHTML = '<tr><td colspan="8">暂无数据，请扫码录入或导入文件</td></tr>'; updateTotalStats(); clearDuplicateHighlight(); updateInfoPanel(); return; }
+        let html = '';
+        books.forEach((b, idx) => {
+            const code = (b.price || 0) * b.copies;
+            html += `<tr data-idx="${idx}" data-package="${escapeAttr(b.packageNo)}" data-isbn="${escapeAttr(b.bookId)}">
+                <td style="text-align:center">${idx+1}</td>
+                <td style="text-align:center">${escapeHtml(b.packageNo||'')}</td>
+                <td style="text-align:left">${escapeHtml(b.bookId)}</td>
+                <td style="text-align:left">${escapeHtml(b.title||'')}</td>
+                <td style="text-align:center">${b.price!=null ? b.price.toFixed(2) : ''}</td>
+                <td style="text-align:center"><input type="number" class="inline-copies" data-id="${b.id}" value="${b.copies}" min="1" max="9999" style="width:65px; padding:3px;"></td>
+                <td style="text-align:right">${code.toFixed(2)}</td>
+                <td style="text-align:center"><button class="delete-btn" data-id="${b.id}">删除</button></td>
+              </tr>`;
+        });
+        tbody.innerHTML = html;
+        updateTotalStats();
+        // 内联修改
+        document.querySelectorAll('#entryTbody .inline-copies').forEach(inp => {
+            inp.onchange = (e) => {
+                let v = parseInt(e.target.value);
+                if(isNaN(v) || v<1) v = 1;
+                if(v>9999) v = 9999;
+                const id = parseInt(inp.dataset.id);
+                const book = books.find(b => b.id === id);
+                if(book) { book.copies = v; saveToLocal(); renderTable(); }
+            };
+        });
+        document.querySelectorAll('#entryTbody .delete-btn').forEach(btn => {
+            btn.onclick = () => {
+                const id = parseInt(btn.dataset.id);
+                const book = books.find(b=>b.id===id);
+                if(confirm(`确定删除「${book.bookId}」(${book.title||'无书名'}) 吗？`)) {
+                    books = books.filter(b=>b.id !== id);
+                    saveToLocal();
+                    renderTable();
+                    handleBookIdChange();
+                }
+            };
+        });
+        // 重新应用高亮
+        handleBookIdChange();
+    }
+    
+    function scrollToBottom() { const wrap = document.querySelector('.table-wrap'); if(wrap) wrap.scrollTop = wrap.scrollHeight; }
+    
+    // 添加/合并逻辑（供添加按钮和回车调用）
+    function performAddOrMerge(bookId, copies, packageNo, title, price) {
+        const existing = books.find(b => b.packageNo === packageNo && b.bookId === bookId);
+        if(existing) {
+            const userConfirmed = confirm(`当前包已存在该书号，现有 ${existing.copies} 本。是否叠加 ${copies} 本？\n点是则累加，点否则取消操作。`);
+            if(userConfirmed) {
+                existing.copies += copies;
+                if(title && title.trim()) existing.title = title.trim();
+                if(price !== null && !isNaN(price)) existing.price = parseFloat(price);
+                saveToLocal();
+                renderTable();
+                showTip(`叠加成功，现有 ${existing.copies} 本`, false, 1500);
+                scrollToBottom();
+                return true;
+            } else {
+                showTip(`已取消叠加操作`, true, 1500);
+                return false;
+            }
+        } else {
+            books.push({
+                id: nextId++,
+                bookId: bookId.trim(),
+                copies: copies,
+                packageNo: packageNo,
+                title: title || '',
+                price: (price !== null && !isNaN(price)) ? parseFloat(price) : null
+            });
+            saveToLocal();
+            renderTable();
+            scrollToBottom();
+            return true;
+        }
+    }
+    
+    // ========== 匹配库导入（增强订数识别） ==========
+    function importMatchSource(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            let records = [];
+            const isExcel = file.name.match(/\.(xlsx|xls)$/i);
+            try {
+                if(isExcel) {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    if(!json || json.length<2) throw new Error("文件至少需要表头+数据");
+                    const headers = json[0].map(h=>String(h||"").trim());
+                    const getIdx = (keywords) => headers.findIndex(h => keywords.some(kw => h.toLowerCase().includes(kw)));
+                    const isbnIdx = getIdx(['isbn','书号','isbn号','isbn13']);
+                    const titleIdx = getIdx(['书名','名称','title','品名']);
+                    const priceIdx = getIdx(['定价','价格','price','码洋']);
+                    const qtyIdx = getIdx(['订数','册数','数量','本数','订量','qty','copies']);
+                    if(isbnIdx === -1 || titleIdx === -1) throw new Error("缺失书号或书名列");
+                    for(let i=1;i<json.length;i++) {
+                        const row = json[i];
+                        let isbn = row[isbnIdx] ? String(row[isbnIdx]).trim() : "";
+                        if(!isbn) continue;
+                        let title = row[titleIdx] ? String(row[titleIdx]).trim() : "";
+                        let price = (priceIdx !== -1 && row[priceIdx]) ? parseFloat(row[priceIdx]) : null;
+                        if(isNaN(price)) price = null;
+                        let qty = (qtyIdx !== -1 && row[qtyIdx]) ? parseInt(row[qtyIdx]) : null;
+                        if(isNaN(qty)) qty = null;
+                        records.push({ isbn, title, price, qty });
+                    }
+                } else {
+                    let content = e.target.result;
+                    if(content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
+                    const lines = content.split(/\r?\n/);
+                    if(lines.length < 2) throw new Error("CSV至少包含表头");
+                    const headers = lines[0].split(',').map(s=>s.replace(/^"|"$/g,'').trim());
+                    const getIdx = (keywords) => headers.findIndex(h => keywords.some(kw => h.toLowerCase().includes(kw)));
+                    const isbnIdx = getIdx(['isbn','书号']);
+                    const titleIdx = getIdx(['书名','名称']);
+                    const priceIdx = getIdx(['定价','价格']);
+                    const qtyIdx = getIdx(['订数','册数','数量','本数','订量']);
+                    if(isbnIdx===-1 || titleIdx===-1) throw new Error("缺失书号或书名列");
+                    for(let i=1;i<lines.length;i++) {
+                        if(!lines[i].trim()) continue;
+                        let row=[], inQuote=false,cur='';
+                        for(let ch of lines[i]) {
+                            if(ch === '"') inQuote = !inQuote;
+                            else if(ch === ',' && !inQuote) { row.push(cur); cur=''; }
+                            else cur += ch;
+                        }
+                        row.push(cur);
+                        let isbn = row[isbnIdx] ? String(row[isbnIdx]).trim() : "";
+                        if(!isbn) continue;
+                        let title = row[titleIdx] ? String(row[titleIdx]).trim() : "";
+                        let price = (priceIdx !== -1 && row[priceIdx]) ? parseFloat(row[priceIdx]) : null;
+                        if(isNaN(price)) price = null;
+                        let qty = (qtyIdx !== -1 && row[qtyIdx]) ? parseInt(row[qtyIdx]) : null;
+                        if(isNaN(qty)) qty = null;
+                        records.push({ isbn, title, price, qty });
+                    }
+                }
+                if(records.length === 0) throw new Error("未找到有效匹配数据");
+                matchDataSource = records;
+                matchSourceFileName = file.name;
+                showTip(`订单表导入成功，共 ${records.length} 条记录（含订数）`, false, 3000);
+                refreshMatchUI();
+                if(dom.customerName && file.name) {
+                    let base = file.name.replace(/\.(xlsx|xls|csv)$/i,'');
+                    dom.customerName.value = base;
+                    localStorage.setItem('PrintCustomerName', base);
+                }
+                handleBookIdChange();
+            } catch(err) { alert("导入订单表失败: "+err.message); }
+        };
+        if(file.name.match(/\.(xlsx|xls)$/i)) reader.readAsArrayBuffer(file);
+        else reader.readAsText(file, 'UTF-8');
+    }
+    
+    function refreshMatchUI() {
+        if(currentMode !== 'match') return;
+        if(matchDataSource.length) {
+            if(dom.viewMatchTableBtn) dom.viewMatchTableBtn.style.display = 'inline-flex';
+        } else {
+            if(dom.viewMatchTableBtn) dom.viewMatchTableBtn.style.display = 'none';
+        }
+        handleBookIdChange();
+    }
+    
+    function showMatchDetailModal() {
+        if(!matchDataSource.length) { alert("暂无订单表数据，请先导入"); return; }
+        const modal = document.createElement('div'); modal.className = 'modal-overlay';
+        let rows = '';
+        matchDataSource.forEach(item => {
+            rows += `<tr>
+                        <td style="border:1px solid #ddd; padding:6px;">${escapeHtml(item.isbn)}</td>
+                        <td style="border:1px solid #ddd; padding:6px;">${escapeHtml(item.title)}</td>
+                        <td style="border:1px solid #ddd; padding:6px; text-align:right;">${item.price!=null ? item.price.toFixed(2) : '--'}</td>
+                        <td style="border:1px solid #ddd; padding:6px; text-align:center;">${item.qty != null ? item.qty : '--'}</td>
+                      </tr>`;
+        });
+        modal.innerHTML = `<div class="modal-container" style="max-width:900px;"><div class="modal-header"><span>📖 订单表详情 (含订数) — ${matchDataSource.length}条</span><button class="close-modal">&times;</button></div>
+                           <div class="modal-body"><table style="width:100%;"><thead><tr><th>书号(ISBN)</th><th>书名</th><th>定价</th><th>订数(册数)</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+        document.body.appendChild(modal);
+        modal.querySelector('.close-modal').onclick = () => modal.remove();
+        modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
+    }
+    
+    // ========== 打印与导出核心 (合计居左) ==========
+    function getPrintStyleBlock() {
+        return `<style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: '宋体', SimSun; margin: 0.7cm; background: white; }
+            .title { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 12px; }
+            .info-group { margin: 6px 0; font-size: 11pt; }
+            .data-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 10px 0; }
+            .data-table th, .data-table td { border: 0.5pt solid #000; padding: 6px; font-size: 10pt; vertical-align: top; }
+            .data-table th { background: #f5f5f5; text-align: center; }
+            .sign-line { margin-top: 20px; font-size: 10pt; }
+            .spacer { height: 12px; }
+            @page { size: auto; margin: 0mm; }
+            @media print { body { margin: 0.6cm; -webkit-print-color-adjust: exact; print-color-adjust: exact; } @page { margin: 0mm; } }
+        </style>`;
+    }
+    
+    function getPureDeliveryHtml(pkg, customer, operator, consignmentNo, note, invoiceNo) {
+        const pkgBooks = books.filter(b => b.packageNo === pkg);
+        if(pkgBooks.length === 0) return null;
+        let totalQty = 0, totalAmt = 0;
+        let rows = '';
+        pkgBooks.forEach((book, idx) => {
+            const code = (book.price || 0) * book.copies;
+            totalQty += book.copies;
+            totalAmt += code;
+            rows += `<tr>
+                <td style="border:0.5pt solid #000; padding:6px; text-align:center;">${idx+1}</td>
+                <td style="border:0.5pt solid #000; padding:6px; word-break:break-all;">${escapeHtml(book.bookId)}</td>
+                <td style="border:0.5pt solid #000; padding:6px;">${escapeHtml(book.title||'')}</td>
+                <td style="border:0.5pt solid #000; padding:6px; text-align:right;">${(book.price||0).toFixed(2)}</td>
+                <td style="border:0.5pt solid #000; padding:6px; text-align:center;">${book.copies}</td>
+                <td style="border:0.5pt solid #000; padding:6px; text-align:right;">${code.toFixed(2)}</td>
+              </tr>`;
+        });
+        const invoiceText = invoiceNo ? `单据编号：${escapeHtml(invoiceNo)}` : `单据编号：`;
+        return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>发货明细单</title>${getPrintStyleBlock()}</head><body>
+        <div class="title">武汉市新华书店集团供应中心发货明细单</div>
+        <div class="info-group">收货单位：${escapeHtml(customer)}</div>
+        ${consignmentNo ? `<div class="info-group">馆配单号：${escapeHtml(consignmentNo)}</div>` : ''}
+        <div class="info-group">${invoiceText}　　包号：${escapeHtml(pkg)}　　单据状态：结算完成　　制单时间：${dom.printDate.value || new Date().toLocaleDateString('zh-CN')}</div>
+        <div class="info-group">品种：${pkgBooks.length}　　册数：${totalQty}　　码洋：${totalAmt.toFixed(2)}</div>
+        <div class="spacer"></div>
+        <table class="data-table" style="table-layout:fixed;"><colgroup><col style="width:8%"><col style="width:22%"><col style="width:34%"><col style="width:12%"><col style="width:8%"><col style="width:16%"></colgroup>
+        <thead><tr><th>序号</th><th>ISBN</th><th>书名</th><th>定价</th><th>册数</th><th>码洋</th></tr></thead>
+        <tbody>${rows}<tr style="font-weight:bold;">
+            <td colspan="4" style="border:0.5pt solid #000; padding:6px; text-align:left;">合计：</td>
+            <td style="border:0.5pt solid #000; text-align:center;">${totalQty}</td>
+            <td style="border:0.5pt solid #000; text-align:right;">${totalAmt.toFixed(2)}</td>
+          </tr></tbody>
+        </table>
+        <div class="sign-line"><div>备      注：${escapeHtml(note||'')}</div><div>操  作  员：${escapeHtml(operator)}　　　　　　　　收 货 签 名：</div><div>提货人签名：</div></div>
+        </body></html>`;
+    }
+    
+    function getPureSummaryHtml(customer, consignmentNo, invoiceNo) {
+        if(books.length === 0) return null;
+        const pkgMap = new Map();
+        for(const b of books) {
+            const p = b.packageNo;
+            if(!pkgMap.has(p)) pkgMap.set(p, { amount:0, qty:0, books: new Set() });
+            const g = pkgMap.get(p);
+            const code = (b.price||0)*b.copies;
+            g.amount += code; g.qty += b.copies; g.books.add(b.bookId);
+        }
+        const pkgs = Array.from(pkgMap.keys()).sort((a,b)=>parseInt(a)-parseInt(b));
+        let rows = '', totalAmt=0, totalQty=0, totalVar=0;
+        pkgs.forEach((pkg,idx) => {
+            const g = pkgMap.get(pkg);
+            const variety = g.books.size;
+            totalAmt += g.amount; totalQty += g.qty; totalVar += variety;
+            rows += `<tr><td style="border:0.5pt solid #000; padding:6px; text-align:center;">${idx+1}</td>
+                     <td style="border:0.5pt solid #000; padding:6px; text-align:center;">${escapeHtml(pkg)}</td>
+                     <td style="border:0.5pt solid #000; padding:6px;">${escapeHtml(customer)}</td>
+                     <td style="border:0.5pt solid #000; text-align:center;">${variety}</td>
+                     <td style="border:0.5pt solid #000; text-align:center;">${g.qty}</td>
+                     <td style="border:0.5pt solid #000; text-align:right;">${g.amount.toFixed(2)}</td>
+                      </tr>`;
+        });
+        const invoiceText = invoiceNo ? `单据编号：${escapeHtml(invoiceNo)}` : `单据编号：`;
+        return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>发货汇总单</title>${getPrintStyleBlock()}</head><body>
+        <div class="title">武汉市新华书店集团供应中心发货汇总单</div>
+        <div class="info-group">客户名称：${escapeHtml(customer)}</div><div class="info-group">${invoiceText}</div>${consignmentNo ? `<div class="info-group">馆配单号：${escapeHtml(consignmentNo)}</div>` : ''}
+        <div class="info-group">制单时间：${dom.printDate.value || new Date().toLocaleDateString('zh-CN')}</div><div class="info-group">品种：${totalVar}　　册数：${totalQty}　　码洋：${totalAmt.toFixed(2)}</div>
+        <table class="data-table"><colgroup><col style="width:8%"><col style="width:12%"><col style="width:30%"><col style="width:10%"><col style="width:10%"><col style="width:30%"></colgroup>
+        <thead><tr><th>序号</th><th>包号</th><th>客户名称</th><th>品种</th><th>册数</th><th>码洋</th></tr></thead>
+        <tbody>${rows}<tr style="font-weight:bold;">
+            <td colspan="3" style="border:0.5pt solid #000; padding:6px; text-align:left;">合计：</td>
+            <td style="border:0.5pt solid #000; text-align:center;">${totalVar}</td>
+            <td style="border:0.5pt solid #000; text-align:center;">${totalQty}</td>
+            <td style="border:0.5pt solid #000; text-align:right;">${totalAmt.toFixed(2)}</td>
+          </tr></tbody>
+        </table><div class="sign-line"><div>销售单位：集团供应中心　　　　　　　　　　　　收货人：</div><div>联系人：　　　　　　　　　　　　　　　　　　　　收货日期：</div></div></body></html>`;
+    }
+    
+    function openPrintWindow(html, title) {
+        const win = window.open('', '_blank');
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>.btn-bar{text-align:right;margin-bottom:12px;}.btn{padding:4px 12px;margin-left:10px;background:#2b4c7c;color:white;border:none;border-radius:16px;cursor:pointer;}@media print{.btn-bar{display:none;}}</style><script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"><\/script><\/head><body><div class="btn-bar"><button class="btn" id="exportBtn">📎 导出Excel</button><button class="btn" id="printBtn">🖨️ 打印</button></div><div id="printContent"></div><script>
+        document.getElementById('printContent').innerHTML = ${JSON.stringify(html)};
+        document.getElementById('exportBtn').onclick = () => { var blob = new Blob([${JSON.stringify(html)}],{type:"application/vnd.ms-excel"}); saveAs(blob,"${title}.xls"); };
+        document.getElementById('printBtn').onclick = () => window.print();
+        <\/script><\/body><\/html>`);
+        win.document.close();
+    }
+    
+    function printCurrentPack() {
+        const pkg = dom.packageNoInput.value.trim();
+        if(!pkg) { alert("包号为空"); return; }
+        const cust = dom.customerName.value.trim() || "客户";
+        const op = dom.operatorName.value.trim() || "操作员";
+        const cons = dom.consignmentNo.value.trim();
+        const note = dom.packageNote.value;
+        const inv = dom.invoiceNo.value.trim();
+        const html = getPureDeliveryHtml(pkg, cust, op, cons, note, inv);
+        if(!html) { alert("当前包无数据"); return; }
+        openPrintWindow(html, `发货明细单_${pkg}`);
+    }
+    function printSummary() { const cust=dom.customerName.value.trim()||"客户", cons=dom.consignmentNo.value.trim(), inv=dom.invoiceNo.value.trim(); const html=getPureSummaryHtml(cust,cons,inv); if(html) openPrintWindow(html,"汇总单"); else alert("无数据"); }
+    function exportSummaryExcel() { const cust=dom.customerName.value.trim()||"客户", cons=dom.consignmentNo.value.trim(), inv=dom.invoiceNo.value.trim(); const html=getPureSummaryHtml(cust,cons,inv); if(html){ const blob=new Blob([html],{type:"application/vnd.ms-excel"}); saveAs(blob,`汇总单_${Date.now()}.xls`); showTip("导出汇总单成功"); } else alert("无数据"); }
+    
+    // 通用导入导出
+    function importExcel(file) { processImport(file, 'xlsx'); }
+    function importCSV(file) { processImport(file, 'csv'); }
+    function processImport(file, type) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            let records = [];
+            try {
+                if(type==='xlsx') {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data,{type:'array'});
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet,{header:1,defval:""});
+                    if(json.length<2) throw new Error("至少需要表头+数据");
+                    const headers=json[0].map(h=>String(h||"").trim());
+                    const getIdx = (kwList) => headers.findIndex(h=>kwList.some(kw=>h.toLowerCase().includes(kw)));
+                    const isbnIdx=getIdx(['isbn','书号']), titleIdx=getIdx(['书名']), priceIdx=getIdx(['定价']), qtyIdx=getIdx(['本数','册数','数量']), packIdx=getIdx(['包号']);
+                    if(isbnIdx===-1||titleIdx===-1||priceIdx===-1||qtyIdx===-1) throw new Error("缺失必要列(书号/书名/定价/本数)");
+                    for(let i=1;i<json.length;i++) {
+                        const row=json[i]; if(!row[isbnIdx]) continue;
+                        let isbn=String(row[isbnIdx]).trim(), title=String(row[titleIdx]).trim(), price=parseFloat(row[priceIdx]), qty=parseInt(row[qtyIdx]);
+                        if(isNaN(price)) price=0; if(isNaN(qty)) qty=0; if(price<=0||qty<=0) continue;
+                        let pack=(packIdx!==-1&&row[packIdx])?String(row[packIdx]).trim():"1";
+                        records.push({ bookId:isbn, copies:qty, packageNo:pack, title, price });
+                    }
+                } else {
+                    let content = e.target.result;
+                    if(content.charCodeAt(0)===0xFEFF) content=content.slice(1);
+                    const lines=content.split(/\r?\n/); if(lines.length<2) throw new Error("无数据");
+                    const headers=lines[0].split(',').map(s=>s.replace(/^"|"$/g,'').trim());
+                    const getIdx=(kwList)=>headers.findIndex(h=>kwList.some(kw=>h.toLowerCase().includes(kw)));
+                    const isbnIdx=getIdx(['isbn','书号']), titleIdx=getIdx(['书名']), priceIdx=getIdx(['定价']), qtyIdx=getIdx(['本数','册数','数量']), packIdx=getIdx(['包号']);
+                    if(isbnIdx===-1||titleIdx===-1||priceIdx===-1||qtyIdx===-1) throw new Error("缺失必要列");
+                    for(let i=1;i<lines.length;i++) {
+                        if(!lines[i].trim()) continue;
+                        let row=[], inQuote=false,cur='';
+                        for(let ch of lines[i]){ if(ch==='"') inQuote=!inQuote; else if(ch===','&&!inQuote){ row.push(cur); cur=''; } else cur+=ch; }
+                        row.push(cur);
+                        let isbn=row[isbnIdx]?String(row[isbnIdx]).trim():""; if(!isbn) continue;
+                        let title=row[titleIdx]?String(row[titleIdx]).trim():"";
+                        let price=parseFloat(row[priceIdx]); if(isNaN(price)) price=0;
+                        let qty=parseInt(row[qtyIdx]); if(isNaN(qty)) qty=0;
+                        if(price<=0||qty<=0) continue;
+                        let pack=(packIdx!==-1&&row[packIdx])?String(row[packIdx]).trim():"1";
+                        records.push({ bookId:isbn, copies:qty, packageNo:pack, title, price });
+                    }
+                }
+                for(let rec of records) {
+                    performAddOrMerge(rec.bookId, rec.copies, rec.packageNo, rec.title, rec.price);
+                }
+                showTip(`导入处理完成`, false);
+                scrollToBottom();
+            } catch(err) { alert("导入失败: "+err.message); }
+        };
+        if(type==='xlsx') reader.readAsArrayBuffer(file);
+        else reader.readAsText(file,'UTF-8');
+    }
+    function exportExcel() { if(!books.length){ alert("无数据"); return; } const sheet=[["序号","包号","书号","书名","定价","本数","码洋"]]; books.forEach((b,i)=>{ const code=(b.price||0)*b.copies; sheet.push([i+1,b.packageNo||'',b.bookId,b.title||'',b.price?.toFixed(2)||'',b.copies,code.toFixed(2)]); }); const ws=XLSX.utils.aoa_to_sheet(sheet); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"图书录入"); XLSX.writeFile(wb,`图书录入_${Date.now()}.xlsx`); showTip("导出Excel成功"); }
+    function exportCSV() { if(!books.length){ alert("无数据"); return; } const rows=[["序号","包号","书号","书名","定价","本数","码洋"]]; books.forEach((b,i)=>{ const code=(b.price||0)*b.copies; rows.push([i+1,b.packageNo||'',b.bookId,b.title||'',b.price?.toFixed(2)||'',b.copies,code.toFixed(2)]); }); const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n"); const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"}); saveAs(blob,`图书录入_${Date.now()}.csv`); showTip("导出CSV成功"); }
+    function clearAll() { if(books.length && confirm("清空所有录入数据？不可恢复")){ books=[]; nextId=1; saveToLocal(); renderTable(); clearDuplicateHighlight(); updateInfoPanel(); showTip("已清空"); } }
+    
+    // 模式切换
+    function setMode(mode) {
+        currentMode = mode;
+        dom.fullTitleGroup.style.display = mode === 'full' ? 'flex' : 'none';
+        dom.fullPriceGroup.style.display = mode === 'full' ? 'flex' : 'none';
+        const showMatch = mode === 'match';
+        dom.loadMatchBtn.style.display = showMatch ? 'inline-flex' : 'none';
+        if(showMatch && matchDataSource.length) {
+            dom.viewMatchTableBtn.style.display = 'inline-flex';
+        } else {
+            dom.viewMatchTableBtn.style.display = 'none';
+        }
+        if(showMatch) refreshMatchUI();
+        else dom.matchInfoDiv.style.display = 'none';
+        handleBookIdChange();
+    }
+    
+    // 初始化
+    function init() {
+        loadFromLocal();
+        renderTable();
+        const savedCust = localStorage.getItem('PrintCustomerName');
+        const savedOp = localStorage.getItem('OperatorName');
+        if(savedCust) dom.customerName.value = savedCust;
+        if(savedOp) dom.operatorName.value = savedOp;
+        dom.customerName.onchange = () => localStorage.setItem('PrintCustomerName', dom.customerName.value);
+        dom.operatorName.onchange = () => localStorage.setItem('OperatorName', dom.operatorName.value);
+        dom.printDate.value = new Date().toLocaleDateString('zh-CN');
+        const lastPack = localStorage.getItem(LAST_PACK_KEY);
+        if(lastPack && !isNaN(parseInt(lastPack))) dom.packageNoInput.value = lastPack;
+        const pkg = dom.packageNoInput.value.trim();
+        if(pkg) { const savedNote = localStorage.getItem(NOTE_PREFIX+pkg); if(savedNote) dom.packageNote.value = savedNote; }
+        dom.packageNoInput.addEventListener('change', () => { 
+            const npkg = dom.packageNoInput.value.trim(); 
+            if(npkg) dom.packageNote.value = localStorage.getItem(NOTE_PREFIX+npkg) || ''; 
+            updatePackStatsUI();
+            handleBookIdChange();
+        });
+        dom.packageNote.addEventListener('input', () => { const p = dom.packageNoInput.value.trim(); if(p) localStorage.setItem(NOTE_PREFIX+p, dom.packageNote.value); });
+        document.querySelectorAll('input[name="modeRadio"]').forEach(r => r.onchange = (e) => setMode(e.target.value));
+        setMode('quick');
+        
+        // 添加按钮
+        document.getElementById('addEntryBtn').onclick = () => {
+            const bookId = dom.bookIdInput.value.trim();
+            if(!bookId) { alert("书号不能为空"); return; }
+            let title='', price=null;
+            let copies = parseInt(dom.copiesInput.value)||1;
+            let packageNo = dom.packageNoInput.value.trim() || "1";
+            if(currentMode === 'full') { 
+                title = dom.titleInput.value.trim(); 
+                if(!title){ alert("请填写书名"); return; } 
+                price = parseFloat(dom.priceInput.value); 
+                if(isNaN(price)) price=0; 
+            }
+            if(currentMode === 'match') {
+                const matched = matchDataSource.find(item => item.isbn === bookId);
+                if(!matched){ alert("匹配模式下只能录入订单表中的书号"); dom.bookIdInput.focus(); return; }
+                title = matched.title; price = matched.price;
+                if(matched.qty != null && matched.qty > 0) copies = matched.qty;
+            }
+            const success = performAddOrMerge(bookId, copies, packageNo, title, price);
+            if(success) {
+                dom.bookIdInput.value = ''; 
+                dom.copiesInput.value = '1';
+                if(dom.titleInput) dom.titleInput.value = ''; 
+                if(dom.priceInput) dom.priceInput.value = '';
+                clearDuplicateHighlight();
+                handleBookIdChange();
+                dom.bookIdInput.focus();
+            } else {
+                handleBookIdChange();
+                dom.copiesInput.focus();
+                dom.copiesInput.select();
+            }
+        };
+        
+        // 书号输入框按回车
+        dom.bookIdInput.onkeydown = (e) => {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                const bookId = dom.bookIdInput.value.trim();
+                if(currentMode === 'full') {
+                    dom.titleInput.focus();
+                } else if(currentMode === 'match') {
+                    if(bookId) {
+                        const matched = matchDataSource.find(item => item.isbn === bookId);
+                        if(matched) {
+                            let autoQty = 1;
+                            if(matched.qty != null && matched.qty > 0) autoQty = matched.qty;
+                            dom.copiesInput.value = autoQty;
+                        }
+                    }
+                    handleBookIdChange();
+                    dom.copiesInput.focus();
+                    dom.copiesInput.select();
+                } else {
+                    handleBookIdChange();
+                    dom.copiesInput.focus();
+                    dom.copiesInput.select();
+                }
+            }
+        };
+        
+        dom.copiesInput.onkeydown = (e) => { 
+            if(e.key === 'Enter') { 
+                e.preventDefault(); 
+                document.getElementById('addEntryBtn').click(); 
+            } 
+        };
+        
+        dom.bookIdInput.onblur = () => { handleBookIdChange(); };
+        dom.packageNoInput.addEventListener('change', () => { handleBookIdChange(); });
+        
+        document.getElementById('nextPackBtn').onclick = () => { 
+            let newPack = (parseInt(dom.packageNoInput.value)||0)+1; 
+            dom.packageNoInput.value = newPack; 
+            localStorage.setItem(LAST_PACK_KEY, newPack); 
+            dom.packageNote.value = localStorage.getItem(NOTE_PREFIX+newPack)||''; 
+            dom.bookIdInput.value = ''; 
+            dom.copiesInput.value = '1'; 
+            if(dom.titleInput) dom.titleInput.value = ''; 
+            if(dom.priceInput) dom.priceInput.value = ''; 
+            clearDuplicateHighlight(); 
+            updatePackStatsUI(); 
+            handleBookIdChange();
+            dom.bookIdInput.focus(); 
+            showTip(`包号切换为 ${newPack}`); 
+        };
+        
+        document.getElementById('printCurrentPackBtn').onclick = printCurrentPack;
+        document.getElementById('printSummaryBtn').onclick = printSummary;
+        document.getElementById('exportSummaryBtn').onclick = exportSummaryExcel;
+        document.getElementById('importExcelBtn').onclick = () => { let inp = document.createElement('input'); inp.type='file'; inp.accept='.xlsx,.xls'; inp.onchange=e=>{if(e.target.files.length) importExcel(e.target.files[0]);}; inp.click(); };
+        document.getElementById('importCsvBtn').onclick = () => { let inp = document.createElement('input'); inp.type='file'; inp.accept='.csv'; inp.onchange=e=>{if(e.target.files.length) importCSV(e.target.files[0]);}; inp.click(); };
+        document.getElementById('exportExcelBtn').onclick = exportExcel;
+        document.getElementById('exportCsvBtn').onclick = exportCSV;
+        document.getElementById('clearEntryBtn').onclick = clearAll;
+        dom.loadMatchBtn.onclick = () => { let inp = document.createElement('input'); inp.type='file'; inp.accept='.xlsx,.xls,.csv'; inp.onchange=e=>{if(e.target.files.length) importMatchSource(e.target.files[0]);}; inp.click(); };
+        dom.viewMatchTableBtn.onclick = showMatchDetailModal;
+        updatePackStatsUI();
+    }
+    init();
+})();
+</script>
+</body>
+</html>

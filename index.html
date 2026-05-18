@@ -3,291 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>武汉市新华书店 · 集团供应中心工具箱（管理版）</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            min-height: 100vh;
-            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
-            font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
-            padding: 2rem;
-            position: relative;
-        }
-        .orb {
-            position: fixed;
-            width: 60vmax;
-            height: 60vmax;
-            border-radius: 50%;
-            filter: blur(80px);
-            animation: float 20s infinite alternate ease-in-out;
-            pointer-events: none;
-            z-index: 0;
-        }
-        .orb1 { top: -20vh; left: -20vw; background: radial-gradient(circle, rgba(0, 200, 255, 0.2), transparent 80%); }
-        .orb2 { bottom: -30vh; right: -10vw; width: 70vmax; height: 70vmax; background: radial-gradient(circle, rgba(150, 0, 255, 0.15), transparent 70%); animation-duration: 25s; }
-        @keyframes float {
-            0% { transform: translate(0, 0) scale(1); opacity: 0.6; }
-            100% { transform: translate(5%, 5%) scale(1.1); opacity: 0.9; }
-        }
-        .container { position: relative; z-index: 2; max-width: 1400px; margin: 0 auto; }
-        .hero { text-align: center; margin-bottom: 3rem; }
-        .hero h1 { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #FFFFFF, #A0D8FF, #7AA2F7); background-clip: text; -webkit-background-clip: text; color: transparent; }
-        .hero p { color: #9aaec7; font-size: 1rem; margin-top: 0.5rem; }
-        .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.8rem; margin-bottom: 2rem; }
-        .action-btn {
-            background: rgba(20, 30, 50, 0.8);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(0, 180, 255, 0.5);
-            border-radius: 40px;
-            padding: 0.5rem 1.2rem;
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: #cae9ff;
-            cursor: pointer;
-            transition: 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .action-btn:hover { background: rgba(0, 140, 230, 0.3); border-color: cyan; transform: translateY(-2px); }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem; margin: 2rem 0 2rem; }
-        .card {
-            background: rgba(20, 28, 40, 0.65);
-            backdrop-filter: blur(12px);
-            border-radius: 2rem;
-            border: 1px solid rgba(72, 187, 255, 0.3);
-            padding: 1.5rem;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            cursor: pointer;
-        }
-        .card:hover { transform: translateY(-6px); border-color: #00b4ff; background: rgba(25, 35, 55, 0.8); box-shadow: 0 20px 30px -12px black; }
-        .icon { font-size: 3rem; margin-bottom: 0.8rem; }
-        .card h3 { font-size: 1.4rem; font-weight: 600; color: #eef5ff; margin-bottom: 0.5rem; }
-        .card p { color: #b9c8f0; font-size: 0.85rem; line-height: 1.5; flex: 1; margin-bottom: 1rem; }
-        .badge { background: rgba(0, 180, 255, 0.2); border-radius: 40px; padding: 0.2rem 1rem; font-size: 0.7rem; color: #7bc5ff; width: fit-content; }
-        .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
-        .btn-launch {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(0, 212, 255, 0.5);
-            color: #cae9ff;
-            padding: 0.3rem 1rem;
-            border-radius: 40px;
-            font-size: 0.75rem;
-            cursor: pointer;
-        }
-        .btn-launch:hover { background: rgba(0, 160, 255, 0.3); border-color: cyan; }
-        .btn-edit, .btn-delete {
-            background: none;
-            border: none;
-            color: #a0b8d4;
-            font-size: 0.7rem;
-            cursor: pointer;
-            margin-left: 8px;
-            padding: 4px;
-        }
-        .btn-edit:hover { color: #ffb347; }
-        .btn-delete:hover { color: #ff6b6b; }
-        .edit-panel {
-            background: rgba(12, 18, 28, 0.95);
-            backdrop-filter: blur(16px);
-            border-radius: 2rem;
-            padding: 1.5rem;
-            margin-top: 1rem;
-            border: 1px solid rgba(0, 200, 255, 0.5);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-        }
-        .form-title { color: #b3e4ff; font-size: 0.9rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: baseline; }
-        .edit-status { background: #0a1a2c; border-radius: 30px; padding: 0.2rem 0.8rem; font-size: 0.7rem; color: #2dd4ff; }
-        .form-grid { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
-        .field { flex: 1; min-width: 160px; }
-        .field label { display: block; font-size: 0.7rem; color: #8db2e0; margin-bottom: 4px; }
-        .field input, .field textarea { width: 100%; background: #111722; border: 1px solid #2a3a5a; border-radius: 2rem; padding: 0.6rem 1rem; color: white; font-size: 0.85rem; }
-        .field textarea { border-radius: 1.2rem; resize: vertical; }
-        .form-actions { display: flex; gap: 0.8rem; margin-top: 1rem; }
-        .primary-btn { background: #2b4c7c; border: none; border-radius: 2rem; padding: 0.6rem 1.4rem; color: white; cursor: pointer; font-weight: bold; }
-        .primary-btn:hover { background: #1e6ab3; }
-        .secondary-btn { background: rgba(50, 70, 100, 0.7); border: 1px solid #4f7aa6; border-radius: 2rem; padding: 0.6rem 1.2rem; color: #d6ecff; cursor: pointer; }
-        .footer-note { text-align: center; color: #62748c; border-top: 1px solid rgba(72, 120, 184, 0.3); padding-top: 2rem; margin-top: 1rem; font-size: 0.8rem; }
-        @media (max-width: 700px) { .hero h1 { font-size: 2rem; } .form-grid { flex-direction: column; } }
-    </style>
-</head>
-<body>
-<div class="orb orb1"></div>
-<div class="orb orb2"></div>
-
-<div class="container">
-    <div class="hero">
-        <h1>📚 武汉市新华书店 · 集团供应中心工具箱</h1>
-        <p>管理后台 | 可自定义工具 | 导出纯静态导航页</p>
-    </div>
-
-    <div class="toolbar">
-        <button class="action-btn" id="clearAllBtn">🗑️ 清空所有工具</button>
-        <button class="action-btn" id="resetDefaultBtn">🔄 重置默认工具</button>
-        <button class="action-btn" id="exportJsonBtn">📎 导出 JSON</button>
-        <button class="action-btn" id="importJsonBtn">📂 导入 JSON</button>
-        <button class="action-btn" id="exportStaticBtn">⚡ 导出静态导航页</button>
-        <input type="file" id="importFileInput" accept=".json" style="display: none;">
-    </div>
-
-    <div class="grid" id="toolsGrid"></div>
-
-    <div class="edit-panel">
-        <div class="form-title">
-            <span>✏️ 工具配置面板</span>
-            <span class="edit-status" id="editModeLabel">✨ 新增模式</span>
-        </div>
-        <div class="form-grid">
-            <div class="field"><label>工具名称</label><input type="text" id="editName" placeholder="例：订单统计"></div>
-            <div class="field"><label>页面路径 (URL)</label><input type="text" id="editUrl" placeholder="例：stats.html 或 https://"></div>
-            <div class="field"><label>图标 Emoji</label><input type="text" id="editIcon" placeholder="📊" value="📄"></div>
-            <div class="field"><label>简短描述</label><textarea id="editDesc" rows="1" placeholder="工具功能简述..."></textarea></div>
-        </div>
-        <div class="form-actions">
-            <button class="primary-btn" id="addUpdateBtn">➕ 添加新工具</button>
-            <button class="secondary-btn" id="cancelEditBtn">✖️ 取消编辑</button>
-        </div>
-    </div>
-
-    <div class="footer-note">
-        💡 点击卡片打开工具页面 | 单击「编辑」自动填充下方表单，修改后点击「更新工具」保存 | 导出 JSON 可备份数据。<br>
-        ✨ 点击「导出静态导航页」将生成一个纯展示的 HTML 文件，无管理功能，适合分发。
-    </div>
-</div>
-
-<script>
-    // ---------- 默认6个核心工具 ----------
-    const DEFAULT_TOOLS = [
-        { id: "entry", name: "📝 数据录入", desc: "快速扫码/手动录入图书，支持三种模式，自动合并重复书号，生成发货单与汇总单。", icon: "📚", url: "工具箱-数据录入.html" },
-        { id: "review", name: "✅ 数据复核", desc: "导入Excel数据复核，自动识别ISBN列，过滤空列，支持双击编辑和ISBN快速定位。", icon: "🔍", url: "工具箱-数据复核.html" },
-        { id: "transfer", name: "🔄 批销直转", desc: "将供货商Excel转换为标准批销格式，按包号分组打包ZIP，智能列映射。", icon: "📦", url: "工具箱-数据直转.html" },
-        { id: "dd", name: "🧾 订单大屏", desc: "通过大屏展示订单的到货情况批销情况。", icon: "📈", url: "工具箱-订单大屏.html" },
-        { id: "dd-jd", name: "📑 订单大屏简单版", desc: "通过大屏展示订单的简单到货情况。", icon: "📉", url: "工具箱-订单大屏简单版.html" },
-        { id: "jh", name: "💡 鲲鹏计划", desc: "一个简单的计划展示大屏幕。", icon: "💎", url: "工具箱-鲲鹏计划AI版.html" }
-    ];
-
-    let toolsList = [];
-    let currentEditId = null;
-
-    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, function(m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; }); }
-    function escapeAttr(str) { if (!str) return ''; return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-
-    function saveTools() { localStorage.setItem('dynamic_tools_list', JSON.stringify(toolsList)); }
-    function loadToolsFromStorage() {
-        const stored = localStorage.getItem('dynamic_tools_list');
-        if (stored) {
-            try { toolsList = JSON.parse(stored); if (!Array.isArray(toolsList)) toolsList = []; } catch(e) { toolsList = []; }
-        }
-        if (!toolsList.length) { toolsList = JSON.parse(JSON.stringify(DEFAULT_TOOLS)); saveTools(); }
-        renderGrid();
-    }
-    function resetToDefault() { if (confirm("⚠️ 重置将丢失当前所有自定义工具，恢复默认的6个工具，确定吗？")) { toolsList = JSON.parse(JSON.stringify(DEFAULT_TOOLS)); saveTools(); cancelEditing(); renderGrid(); } }
-    function clearAllTools() { if (confirm("🗑️ 彻底清空全部工具，不可撤销！确定清空吗？")) { toolsList = []; saveTools(); cancelEditing(); renderGrid(); } }
-    function cancelEditing() { currentEditId = null; document.getElementById('editModeLabel').innerHTML = '✨ 新增模式'; document.getElementById('addUpdateBtn').innerHTML = '➕ 添加新工具'; document.getElementById('editName').value = ''; document.getElementById('editUrl').value = ''; document.getElementById('editIcon').value = '📄'; document.getElementById('editDesc').value = ''; }
-    function fillFormForEdit(tool) { document.getElementById('editName').value = tool.name || ''; document.getElementById('editUrl').value = tool.url || ''; document.getElementById('editIcon').value = tool.icon || '📄'; document.getElementById('editDesc').value = tool.desc || ''; currentEditId = tool.id; document.getElementById('editModeLabel').innerHTML = '✏️ 编辑模式: ' + tool.name.substring(0, 28); document.getElementById('addUpdateBtn').innerHTML = '💾 更新工具'; }
-    function handleAddOrUpdate() {
-        let name = document.getElementById('editName').value.trim();
-        let url = document.getElementById('editUrl').value.trim();
-        let icon = document.getElementById('editIcon').value.trim();
-        let desc = document.getElementById('editDesc').value.trim();
-        if (!name || !url) { alert('工具名称和页面路径不能为空！'); return; }
-        if (!icon) icon = '📄';
-        if (currentEditId !== null) {
-            const idx = toolsList.findIndex(t => t.id === currentEditId);
-            if (idx !== -1) { toolsList[idx] = { ...toolsList[idx], name: name, url: url, icon: icon, desc: desc || '无描述' }; saveTools(); renderGrid(); cancelEditing(); }
-            else cancelEditing();
-        } else {
-            const newId = Date.now() + '-' + Math.random().toString(36).substr(2, 8);
-            toolsList.push({ id: newId, name: name, url: url, icon: icon, desc: desc || '无描述' });
-            saveTools(); renderGrid(); document.getElementById('editName').focus();
-        }
-    }
-    function deleteToolById(id) { const tool = toolsList.find(t => t.id === id); if (!tool) return; if (confirm('确定删除工具「' + tool.name + '」吗？')) { toolsList = toolsList.filter(t => t.id !== id); saveTools(); if (currentEditId === id) cancelEditing(); renderGrid(); } }
-    function openTool(url) { if (url) window.open(url, '_blank'); }
-    function renderGrid() {
-        const grid = document.getElementById('toolsGrid'); if (!grid) return; grid.innerHTML = '';
-        if (toolsList.length === 0) { grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#8aa9cc; padding: 3rem;">📭 暂无工具，请通过下方面板添加，或点击「重置默认工具」恢复初始工具。</div>'; return; }
-        for (let i = 0; i < toolsList.length; i++) {
-            const tool = toolsList[i];
-            const card = document.createElement('div'); card.className = 'card'; card.setAttribute('data-id', tool.id);
-            card.addEventListener('click', (function(t) { return function(e) { if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return; openTool(t.url); }; })(tool));
-            card.innerHTML = '<div class="icon">' + escapeHtml(tool.icon || '📄') + '</div>' +
-                '<h3>' + escapeHtml(tool.name) + '</h3>' +
-                '<p>' + escapeHtml(tool.desc || '暂无描述') + '</p>' +
-                '<div class="card-footer">' +
-                '<span class="badge">⚙️ 工具</span>' +
-                '<div>' +
-                '<button class="btn-edit" data-id="' + escapeAttr(tool.id) + '">✏️ 编辑</button>' +
-                '<button class="btn-delete" data-id="' + escapeAttr(tool.id) + '">🗑️ 删除</button>' +
-                '<button class="btn-launch" data-url="' + escapeAttr(tool.url) + '">🚀 启动</button>' +
-                '</div></div>';
-            grid.appendChild(card);
-        }
-        attachButtonEvents();
-    }
-    function attachButtonEvents() {
-        document.querySelectorAll('.btn-edit').forEach(btn => { btn.removeEventListener('click', handleEditClick); btn.addEventListener('click', handleEditClick); });
-        document.querySelectorAll('.btn-delete').forEach(btn => { btn.removeEventListener('click', handleDeleteClick); btn.addEventListener('click', handleDeleteClick); });
-        document.querySelectorAll('.btn-launch').forEach(btn => { btn.removeEventListener('click', handleLaunchClick); btn.addEventListener('click', handleLaunchClick); });
-    }
-    function handleEditClick(e) { e.stopPropagation(); const id = e.currentTarget.getAttribute('data-id'); const tool = toolsList.find(t => t.id === id); if (tool) fillFormForEdit(tool); else alert("工具数据异常"); }
-    function handleDeleteClick(e) { e.stopPropagation(); deleteToolById(e.currentTarget.getAttribute('data-id')); }
-    function handleLaunchClick(e) { e.stopPropagation(); openTool(e.currentTarget.getAttribute('data-url')); }
-
-    function exportAsJSON() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(toolsList, null, 2)], { type: 'application/json' })); a.download = 'toolbox_' + new Date().toISOString().slice(0,19).replace(/:/g, '-') + '.json'; a.click(); URL.revokeObjectURL(a.href); }
-    function importJSON(file) {
-        const reader = new FileReader();
-        reader.onload = function(e) { try { const arr = JSON.parse(e.target.result); if (!Array.isArray(arr)) throw new Error('不是数组'); for (let i = 0; i < arr.length; i++) { if (!arr[i].name || !arr[i].url) throw new Error('缺少 name/url'); } const newList = []; for (let i = 0; i < arr.length; i++) { const item = arr[i]; newList.push({ id: item.id || (Date.now() + '-' + i + '-' + Math.random().toString(36).substr(2,6)), name: String(item.name), url: String(item.url), icon: item.icon || '📄', desc: item.desc || '无描述' }); } toolsList = newList; saveTools(); cancelEditing(); renderGrid(); alert('✅ 导入成功！共 ' + toolsList.length + ' 个工具。'); } catch (err) { alert('❌ 导入失败: ' + err.message); } }; reader.readAsText(file, 'UTF-8');
-    }
-
-    // 导出纯静态导航页（无管理功能，无 localStorage，无编辑面板，无任何菜单）
-    function exportStaticNav() {
-        // 获取当前工具列表的静态副本
-        const currentTools = toolsList.map(tool => ({
-            name: tool.name,
-            desc: tool.desc || '暂无描述',
-            icon: tool.icon || '📄',
-            url: tool.url
-        }));
-        // 生成纯静态 HTML 字符串
-        const staticHtml = generateStaticHtml(currentTools);
-        const blob = new Blob([staticHtml], { type: 'text/html' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'toolbox_nav_' + new Date().toISOString().slice(0,19).replace(/:/g, '-') + '.html';
-        a.click();
-        URL.revokeObjectURL(a.href);
-    }
-
-    function generateStaticHtml(tools) {
-        // 构建卡片 HTML
-        let cardsHtml = '';
-        for (let i = 0; i < tools.length; i++) {
-            const t = tools[i];
-            const icon = escapeHtmlStatic(t.icon);
-            const name = escapeHtmlStatic(t.name);
-            const desc = escapeHtmlStatic(t.desc);
-            const url = escapeAttrStatic(t.url);
-            cardsHtml += `
-                <div class="card" onclick="window.open('${url}', '_blank')">
-                    <div class="icon">${icon}</div>
-                    <h3>${name}</h3>
-                    <p>${desc}</p>
-                    <div class="card-footer">
-                        <span class="badge">⚙️ 工具</span>
-                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('${url}', '_blank')">🚀 启动</button>
-                    </div>
-                </div>
-            `;
-        }
-        // 完整 HTML 结构，无任何管理元素
-        return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>武汉市新华书店 · 集团供应中心工具箱（静态导航）</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -360,30 +75,101 @@
         <p>静态导航页 | 点击卡片即可打开对应工具</p>
     </div>
     <div class="grid">
-        ${cardsHtml}
+        
+                <div class="card" onclick="window.open('工具箱-数据录入.html', '_blank')">
+                    <div class="icon">📚</div>
+                    <h3>📝 数据录入</h3>
+                    <p>快速扫码/手动录入图书，支持三种模式，自动合并重复书号，生成发货单与汇总单。</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-数据录入.html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
+                <div class="card" onclick="window.open('工具箱-数据复核.html', '_blank')">
+                    <div class="icon">🔍</div>
+                    <h3>✅ 数据复核</h3>
+                    <p>导入Excel数据复核，自动识别ISBN列，过滤空列，支持双击编辑和ISBN快速定位。</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-数据复核.html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
+                <div class="card" onclick="window.open('工具箱-数据直转.html', '_blank')">
+                    <div class="icon">📦</div>
+                    <h3>🔄 批销直转</h3>
+                    <p>将供货商Excel转换为标准批销格式，按包号分组打包ZIP，智能列映射。</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-数据直转.html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
+                <div class="card" onclick="window.open('工具箱-订单大屏.html', '_blank')">
+                    <div class="icon">📈</div>
+                    <h3>🧾 订单大屏</h3>
+                    <p>通过大屏展示订单的到货情况批销情况。</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-订单大屏.html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
+                <div class="card" onclick="window.open('工具箱-订单大屏简单版.html', '_blank')">
+                    <div class="icon">📉</div>
+                    <h3>📑 订单大屏简单版</h3>
+                    <p>通过大屏展示订单的简单到货情况。</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-订单大屏简单版.html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
+                <div class="card" onclick="window.open('工具箱-鲲鹏计划AI版.html', '_blank')">
+                    <div class="icon">💎</div>
+                    <h3>💡 鲲鹏计划</h3>
+                    <p>一个简单的计划展示大屏幕。</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-鲲鹏计划AI版.html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
+                <div class="card" onclick="window.open('工具箱-绩效管理.html', '_blank')">
+                    <div class="icon">📆</div>
+                    <h3>⌚绩效考核</h3>
+                    <p>一个简单的绩效记录工具</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-绩效管理.html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
+                <div class="card" onclick="window.open('工具箱-数据复核(加强版).html', '_blank')">
+                    <div class="icon">🎢</div>
+                    <h3>🎡数据复核-加强版</h3>
+                    <p>数据复核功能的加强版本，能对比订单批销数据的差异</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-数据复核(加强版).html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
+                <div class="card" onclick="window.open('工具箱-绩效管理（持久数据版）.html', '_blank')">
+                    <div class="icon">⚽</div>
+                    <h3>🎒工具箱-绩效管理（持久数据版）</h3>
+                    <p>绩效管理工具，能做简单的绩效打分，数据能持久化</p>
+                    <div class="card-footer">
+                        <span class="badge">⚙️ 工具</span>
+                        <button class="btn-launch" onclick="event.stopPropagation(); window.open('工具箱-绩效管理（持久数据版）.html', '_blank')">🚀 启动</button>
+                    </div>
+                </div>
+            
     </div>
     <div class="footer-note">
         💡 本页面为纯静态导航，所有链接均已固化。如需修改工具列表，请使用管理后台。
     </div>
 </div>
-</body>
-</html>`;
-    }
-
-    // 静态专用转义 (避免依赖外部函数)
-    function escapeHtmlStatic(str) { if (!str) return ''; return str.replace(/[&<>]/g, function(m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; }); }
-    function escapeAttrStatic(str) { if (!str) return ''; return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-
-    // 绑定事件
-    document.getElementById('addUpdateBtn').addEventListener('click', handleAddOrUpdate);
-    document.getElementById('cancelEditBtn').addEventListener('click', cancelEditing);
-    document.getElementById('clearAllBtn').addEventListener('click', clearAllTools);
-    document.getElementById('resetDefaultBtn').addEventListener('click', resetToDefault);
-    document.getElementById('exportJsonBtn').addEventListener('click', exportAsJSON);
-    document.getElementById('importJsonBtn').addEventListener('click', function() { document.getElementById('importFileInput').click(); });
-    document.getElementById('exportStaticBtn').addEventListener('click', exportStaticNav);
-    document.getElementById('importFileInput').addEventListener('change', function(e) { if (e.target.files.length) importJSON(e.target.files[0]); e.target.value = ''; });
-    loadToolsFromStorage();
-</script>
 </body>
 </html>
