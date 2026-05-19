@@ -19,23 +19,27 @@
         button.primary { background: #2b4c7c; color: white; }
         button.success { background: #e3f7ec; color: #2b6e3c; }
         button.danger { background: #fee2e2; color: #b91c1c; }
-        input, select { padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 0.75rem; font-family: inherit; }
+        input, select { padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 0.75rem; font-family: inherit; background: white; }
+        input:disabled, select:disabled { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
         .table-wrap { flex: 2; overflow: auto; padding: 0 12px 6px 12px; min-height: 0; }
         .transfer-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
         .transfer-table th, .transfer-table td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: center; vertical-align: middle; white-space: nowrap; }
         .transfer-table th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; }
-        .mapping-panel { background: #f9fafb; padding: 8px 16px; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; flex-shrink: 0; }
+        .mapping-panel { background: #f9fafb; padding: 8px 16px; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; flex-shrink: 0; row-gap: 10px; }
         .mapping-item { display: flex; flex-direction: column; gap: 3px; min-width: 100px; }
         .mapping-item label { font-size: 0.65rem; font-weight: 600; color: #2c3e66; }
+        .mode-hint { background: #eef2ff; padding: 4px 12px; border-radius: 18px; font-size: 0.7rem; color: #1e3c72; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
         .footer-note { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; background: #fefefe; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
         .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; font-size: 1rem; z-index: 2000; pointer-events: none; border-left: 4px solid #f5a623; font-weight: 500; white-space: nowrap; text-align: center; }
+        .badge-info { background: #e6f0ff; border-radius: 12px; padding: 2px 8px; font-size: 0.7rem; color: #1e4a76; }
+        hr { margin: 0 4px; }
     </style>
 </head>
 <body>
 <div class="module">
     <div class="module-header">
         <h2>🔄 批销直转</h2>
-        <p>导入供货商Excel → 列映射 → 按包号分组导出标准格式（输出 .xls 文件，包号可选）</p>
+        <p>导入供货商Excel → 列映射 → 按包号分组或平均分包导出（输出 .xls 文件）</p>
     </div>
     <div class="toolbar">
         <button id="importSourceBtn" class="primary">📂 导入供货商Excel</button>
@@ -44,7 +48,7 @@
             <span>客户名称：</span>
             <input type="text" id="customerName" placeholder="例如：新华书店" style="width:180px;">
         </div>
-        <button id="generateSplitBtn" class="success">📦 按包号生成ZIP文件</button>
+        <button id="generateSplitBtn" class="success">📦 生成ZIP文件</button>
     </div>
     <div class="table-wrap">
         <table class="transfer-table">
@@ -58,8 +62,18 @@
         <div class="mapping-item"><label>📚 书名列（必选）</label><select id="mapTitle"></select></div>
         <div class="mapping-item"><label>💰 定价列（必选）</label><select id="mapPrice"></select></div>
         <div class="mapping-item"><label>🔢 数量列（必选）</label><select id="mapQty"></select></div>
+        <div class="mapping-item" id="customSplitWrapper" style="border-left: 1px solid #dce3ec; padding-left: 12px;">
+            <label>🧩 平均分包数 <span style="font-weight:normal;">(无包号列时生效)</span></label>
+            <input type="number" id="customSplitCount" min="1" value="1" step="1" style="width: 85px;">
+            <span id="splitModeMsg" class="badge-info" style="margin-top: 2px; text-align: center;">⚙️ 合并为1包</span>
+        </div>
+        <div class="mode-hint" id="activeModeHint">
+            <span>📌</span><span id="modeDesc">未映射包号 → 按平均分包数处理</span>
+        </div>
     </div>
-    <div class="footer-note">💡 自动智能匹配列名，可手动调整。若不选择包号列，则所有数据合并为一个包（包号=1）。导出文件为 .xls 格式。</div>
+    <div class="footer-note">
+        💡 智能匹配列名，可手动调整。<strong>规则：</strong>若已选择「包号列」，则严格按照数据中的包号分组（忽略平均分包数）；若未选择包号列，则根据“平均分包数”平均拆分数据（1表示合并为1个文件）。
+    </div>
 </div>
 
 <script>
@@ -67,6 +81,19 @@
     const TRANSFER_CUSTOMER_KEY = 'TransferCustomerName';
     let sourceHeaders = [], sourceData = [], currentMapping = { isbn: '', title: '', price: '', qty: '', packageNo: '' };
     let toastTimer = null;
+
+    // DOM 元素
+    const mapPackageSelect = document.getElementById('mapPackage');
+    const mapIsbnSelect = document.getElementById('mapIsbn');
+    const mapTitleSelect = document.getElementById('mapTitle');
+    const mapPriceSelect = document.getElementById('mapPrice');
+    const mapQtySelect = document.getElementById('mapQty');
+    const customSplitInput = document.getElementById('customSplitCount');
+    const modeDescSpan = document.getElementById('modeDesc');
+    const generateBtn = document.getElementById('generateSplitBtn');
+    const customerNameInput = document.getElementById('customerName');
+    const importBtn = document.getElementById('importSourceBtn');
+    const clearBtn = document.getElementById('clearTransferBtn');
 
     function showTip(message, isError = true, duration = 2000) {
         let tip = document.getElementById('globalTip');
@@ -76,17 +103,19 @@
         if(toastTimer) clearTimeout(toastTimer);
         toastTimer = setTimeout(() => { tip.style.opacity = '0'; }, duration);
     }
+
     function escapeHtml(str){ return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     function escapeAttr(str){ return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
+    // 自动匹配列名
     function autoMapColumn(headers) {
         const map = { isbn: '', title: '', price: '', qty: '', packageNo: '' };
         const lowerHeaders = headers.map(h=>h.toLowerCase());
-        const isbnKw = ['isbn','isbn号','书号','编号'];
-        const titleKw = ['书名','名称','标题'];
-        const priceKw = ['定价','价格','单价'];
-        const qtyKw = ['数量','订数','册数','本数'];
-        const pkgKw = ['包号','批次','件号'];
+        const isbnKw = ['isbn','isbn号','书号','编号','isbn码'];
+        const titleKw = ['书名','名称','标题','货品名称'];
+        const priceKw = ['定价','价格','单价','码洋'];
+        const qtyKw = ['数量','订数','册数','本数','采购数量'];
+        const pkgKw = ['包号','批次','件号','包裹号','分组号'];
 
         for(let kw of isbnKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.isbn=headers[idx]; break; } }
         for(let kw of titleKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.title=headers[idx]; break; } }
@@ -96,6 +125,40 @@
         return map;
     }
 
+    function updateSplitModeHint() {
+        const hasPkgCol = (currentMapping.packageNo && currentMapping.packageNo.trim() !== "");
+        if (hasPkgCol) {
+            modeDescSpan.innerHTML = `📦 按包号列“${escapeHtml(currentMapping.packageNo)}”分组（忽略平均分包数）`;
+            customSplitInput.disabled = true;
+            customSplitInput.style.opacity = "0.7";
+            document.getElementById('splitModeMsg').innerHTML = "⛔ 已启用包号列，此值无效";
+        } else {
+            customSplitInput.disabled = false;
+            customSplitInput.style.opacity = "1";
+            let splitVal = parseInt(customSplitInput.value, 10);
+            if (isNaN(splitVal) || splitVal < 1) splitVal = 1;
+            if (splitVal === 1) {
+                document.getElementById('splitModeMsg').innerHTML = "📄 合并为单一文件 (包号=1)";
+                modeDescSpan.innerHTML = `🧩 无包号列 → 合并所有数据为1个文件`;
+            } else {
+                document.getElementById('splitModeMsg').innerHTML = `✂️ 平均拆分为 ${splitVal} 个文件`;
+                modeDescSpan.innerHTML = `🧩 无包号列 → 平均拆分为 ${splitVal} 包 (顺序分组)`;
+            }
+        }
+    }
+
+    function handleMappingChange(){
+        currentMapping = {
+            isbn: mapIsbnSelect.value,
+            title: mapTitleSelect.value,
+            price: mapPriceSelect.value,
+            qty: mapQtySelect.value,
+            packageNo: mapPackageSelect.value
+        };
+        updateSplitModeHint();
+    }
+
+    // 渲染表格
     function renderSourceTable() {
         const thead = document.getElementById('sourceThead');
         const tbody = document.getElementById('sourceTbody');
@@ -119,6 +182,7 @@
         tbody.innerHTML = html;
     }
 
+    // 更新下拉框选项
     function updateMappingSelects() {
         const selects = ['mapIsbn','mapTitle','mapPrice','mapQty','mapPackage'];
         for(let id of selects){
@@ -127,31 +191,23 @@
             sel.innerHTML = '<option value="">-- 请选择列 --</option>' + sourceHeaders.map(h => `<option value="${escapeAttr(h)}">${escapeHtml(h)}</option>`).join('');
         }
         const auto = autoMapColumn(sourceHeaders);
-        if(auto.isbn) document.getElementById('mapIsbn').value = auto.isbn;
-        if(auto.title) document.getElementById('mapTitle').value = auto.title;
-        if(auto.price) document.getElementById('mapPrice').value = auto.price;
-        if(auto.qty) document.getElementById('mapQty').value = auto.qty;
-        if(auto.packageNo) document.getElementById('mapPackage').value = auto.packageNo;
-
+        if(auto.isbn) mapIsbnSelect.value = auto.isbn;
+        if(auto.title) mapTitleSelect.value = auto.title;
+        if(auto.price) mapPriceSelect.value = auto.price;
+        if(auto.qty) mapQtySelect.value = auto.qty;
+        if(auto.packageNo) mapPackageSelect.value = auto.packageNo;
+        // 刷新当前映射
         currentMapping = {
-            isbn: document.getElementById('mapIsbn').value,
-            title: document.getElementById('mapTitle').value,
-            price: document.getElementById('mapPrice').value,
-            qty: document.getElementById('mapQty').value,
-            packageNo: document.getElementById('mapPackage').value
+            isbn: mapIsbnSelect.value,
+            title: mapTitleSelect.value,
+            price: mapPriceSelect.value,
+            qty: mapQtySelect.value,
+            packageNo: mapPackageSelect.value
         };
+        updateSplitModeHint();
     }
 
-    function handleMappingChange(){
-        currentMapping = {
-            isbn: document.getElementById('mapIsbn').value,
-            title: document.getElementById('mapTitle').value,
-            price: document.getElementById('mapPrice').value,
-            qty: document.getElementById('mapQty').value,
-            packageNo: document.getElementById('mapPackage').value
-        };
-    }
-
+    // 导入Excel
     function importSourceExcel(){
         const input = document.createElement('input');
         input.type = 'file';
@@ -206,12 +262,11 @@
                     updateMappingSelects();
 
                     let fileName = file.name.replace(/\.(xlsx|xls|csv)$/i, '');
-                    const customerInput = document.getElementById('customerName');
-                    if(customerInput && fileName) {
-                        customerInput.value = fileName;
+                    if(customerNameInput && fileName) {
+                        customerNameInput.value = fileName;
                         localStorage.setItem(TRANSFER_CUSTOMER_KEY, fileName);
-                    } else if(customerInput) {
-                        customerInput.value = localStorage.getItem(TRANSFER_CUSTOMER_KEY) || '';
+                    } else if(customerNameInput) {
+                        customerNameInput.value = localStorage.getItem(TRANSFER_CUSTOMER_KEY) || '';
                     }
                     showTip(`导入成功: ${sourceData.length} 行, ${sourceHeaders.length} 列`, false, 3000);
                 } catch(err) {
@@ -237,7 +292,26 @@
         }
     }
 
-    function generateSplitByPackage(){
+    // 辅助函数：平均拆分数组为N组 (保持原有顺序)
+    function splitArrayIntoGroups(arr, groupCount) {
+        if (groupCount <= 1 || arr.length === 0) return [arr];
+        const total = arr.length;
+        let groups = [];
+        let baseSize = Math.floor(total / groupCount);
+        let remainder = total % groupCount;
+        let start = 0;
+        for (let i = 0; i < groupCount; i++) {
+            let size = baseSize + (i < remainder ? 1 : 0);
+            if (size === 0) break;
+            let group = arr.slice(start, start + size);
+            groups.push(group);
+            start += size;
+        }
+        return groups;
+    }
+
+    // 核心生成逻辑（支持平均分包 或 原包号分组）
+    function generateSplitByPackage() {
         if(!sourceData.length || !sourceHeaders.length){
             alert("请先导入供货商Excel数据");
             return;
@@ -247,17 +321,66 @@
             alert("请完整映射书号、书名、定价、数量四列（包号可选）");
             return;
         }
-        const customerName = document.getElementById('customerName').value.trim();
+        const customerName = customerNameInput.value.trim();
         if(!customerName){
             alert("请输入客户名称");
             return;
         }
         localStorage.setItem(TRANSFER_CUSTOMER_KEY, customerName);
 
-        const groups = new Map();
-        const useDefaultPackage = (!pkgCol || pkgCol === "");
-        if(useDefaultPackage) showTip("未映射包号列，所有数据将归入包号 1", false, 2000);
+        const hasPkgCol = (pkgCol && pkgCol.trim() !== "");
+        // 1. 先收集有效数据
+        if (hasPkgCol) {
+            // 按照数据源包号分组模式 (原有逻辑增强)
+            const pkgGroups = new Map(); // key: 包号(string), value: 数组 {isbn, title, price, qty}
+            for(let row of sourceData){
+                let isbn = row[isbnCol] || "", title = row[titleCol] || "";
+                let priceRaw = row[priceCol] || "", qtyRaw = row[qtyCol] || "";
+                let price = parseFloat(priceRaw);
+                if(isNaN(price)) price = 0;
+                let qty = parseInt(qtyRaw);
+                if(isNaN(qty)) qty = 0;
+                if(!isbn || !title || price <= 0 || qty <= 0) continue;
 
+                let pkgValRaw = row[pkgCol] || "";
+                let pkg = (pkgValRaw && pkgValRaw.trim() !== "") ? pkgValRaw.trim() : "1";
+                if(!pkgGroups.has(pkg)) pkgGroups.set(pkg, []);
+                pkgGroups.get(pkg).push({ isbn, title, price, qty });
+            }
+            if(pkgGroups.size === 0){
+                alert("没有有效数据可导出（请检查映射列或数据完整性）");
+                return;
+            }
+            const dateStr = new Date().toISOString().slice(0,19).replace(/:/g,'-');
+            const zip = new JSZip();
+            let fileCount = 0;
+            for(let [pkg, items] of pkgGroups.entries()){
+                const sheetData = [["品种","书号","书名","定价","数量"]];
+                for(let item of items) sheetData.push(["", item.isbn, item.title, item.price, item.qty]);
+                const ws = XLSX.utils.aoa_to_sheet(sheetData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "批销转换结果");
+                const excelData = XLSX.write(wb, { bookType: 'xls', type: 'array' });
+                // 清理包号中的非法文件名字符
+                let safePkg = String(pkg).replace(/[\\/:*?"<>|]/g, '_');
+                zip.file(`${customerName}_${safePkg}_${dateStr}.xls`, excelData);
+                fileCount++;
+            }
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                saveAs(content, `${customerName}_批销打包_${dateStr}.zip`);
+                showTip(`成功生成 ${fileCount} 个文件（按包号列分组），已打包下载`, false, 3000);
+            }).catch(function(err) {
+                alert("打包失败：" + err);
+            });
+            return;
+        } 
+        
+        // ----- 无包号列模式：根据平均分包数处理 -----
+        let rawSplitCount = parseInt(customSplitInput.value, 10);
+        if (isNaN(rawSplitCount) || rawSplitCount < 1) rawSplitCount = 1;
+        
+        // 收集有效数据列表（用于平均分配）
+        let validItems = [];
         for(let row of sourceData){
             let isbn = row[isbnCol] || "", title = row[titleCol] || "";
             let priceRaw = row[priceCol] || "", qtyRaw = row[qtyCol] || "";
@@ -265,26 +388,62 @@
             if(isNaN(price)) price = 0;
             let qty = parseInt(qtyRaw);
             if(isNaN(qty)) qty = 0;
-            if(!isbn || !title || price <= 0 || qty <= 0) continue;
-
-            let pkg = "1";
-            if(!useDefaultPackage) {
-                let rawPkg = row[pkgCol] || "";
-                pkg = (rawPkg && rawPkg.trim() !== "") ? rawPkg.trim() : "1";
+            if(isbn && title && price > 0 && qty > 0) {
+                validItems.push({ isbn, title, price, qty });
             }
-            if(!groups.has(pkg)) groups.set(pkg, []);
-            groups.get(pkg).push({ isbn, title, price, qty });
         }
-
-        if(groups.size === 0){
-            alert("没有有效数据可导出（请检查映射列或数据是否完整）");
+        if(validItems.length === 0){
+            alert("没有有效数据可导出（请检查映射列或数据中定价/数量是否为有效正数）");
             return;
         }
 
+        let splitCount = rawSplitCount;
+        if (splitCount > validItems.length) {
+            splitCount = validItems.length;
+            showTip(`注意: 分包数超过有效数据行数，已自动调整为 ${splitCount} 包（每包至少1条）`, false, 2500);
+            customSplitInput.value = splitCount;
+            updateSplitModeHint();
+        }
+        if (splitCount <= 1) {
+            // 合并为一个包 (包号固定为1)
+            const groupsMap = new Map();
+            groupsMap.set("1", validItems);
+            const dateStr = new Date().toISOString().slice(0,19).replace(/:/g,'-');
+            const zip = new JSZip();
+            let fileCount = 0;
+            for(let [pkg, items] of groupsMap.entries()){
+                const sheetData = [["品种","书号","书名","定价","数量"]];
+                for(let item of items) sheetData.push(["", item.isbn, item.title, item.price, item.qty]);
+                const ws = XLSX.utils.aoa_to_sheet(sheetData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "批销转换结果");
+                const excelData = XLSX.write(wb, { bookType: 'xls', type: 'array' });
+                zip.file(`${customerName}_${pkg}_${dateStr}.xls`, excelData);
+                fileCount++;
+            }
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                saveAs(content, `${customerName}_批销打包_${dateStr}.zip`);
+                showTip(`成功生成 ${fileCount} 个文件 (合并为单包)`, false, 3000);
+            }).catch(err => alert("打包失败：" + err));
+            return;
+        }
+        
+        // 平均拆分模式：splitCount >= 2
+        const groupsArray = splitArrayIntoGroups(validItems, splitCount);
+        const groupsMap = new Map();
+        for (let idx = 0; idx < groupsArray.length; idx++) {
+            const groupItems = groupsArray[idx];
+            if (groupItems && groupItems.length > 0) {
+                groupsMap.set(String(idx + 1), groupItems);
+            }
+        }
+        if(groupsMap.size === 0){
+            alert("分组后无有效数据");
+            return;
+        }
         const dateStr = new Date().toISOString().slice(0,19).replace(/:/g,'-');
         const zip = new JSZip();
-        let fileCount = 0;
-        for(let [pkg, items] of groups.entries()){
+        for(let [pkg, items] of groupsMap.entries()){
             const sheetData = [["品种","书号","书名","定价","数量"]];
             for(let item of items) sheetData.push(["", item.isbn, item.title, item.price, item.qty]);
             const ws = XLSX.utils.aoa_to_sheet(sheetData);
@@ -292,35 +451,51 @@
             XLSX.utils.book_append_sheet(wb, ws, "批销转换结果");
             const excelData = XLSX.write(wb, { bookType: 'xls', type: 'array' });
             zip.file(`${customerName}_${pkg}_${dateStr}.xls`, excelData);
-            fileCount++;
         }
         zip.generateAsync({ type: "blob" }).then(function(content) {
             saveAs(content, `${customerName}_批销打包_${dateStr}.zip`);
-            showTip(`成功生成 ${fileCount} 个文件，已打包为ZIP下载`, false, 3000);
+            showTip(`成功生成 ${groupsMap.size} 个文件（平均分为 ${groupsMap.size} 包，共${validItems.length}条数据）`, false, 3500);
         }).catch(function(err) {
             alert("打包失败：" + err);
         });
     }
 
-    function init(){
-        const customerInput = document.getElementById('customerName');
-        customerInput.value = localStorage.getItem(TRANSFER_CUSTOMER_KEY) || '新华书店';
-        customerInput.onchange = () => localStorage.setItem(TRANSFER_CUSTOMER_KEY, customerInput.value);
-
-        document.getElementById('importSourceBtn').onclick = importSourceExcel;
-        document.getElementById('clearTransferBtn').onclick = clearTransferData;
-        document.getElementById('generateSplitBtn').onclick = generateSplitByPackage;
-        document.getElementById('mapIsbn').onchange = handleMappingChange;
-        document.getElementById('mapTitle').onchange = handleMappingChange;
-        document.getElementById('mapPrice').onchange = handleMappingChange;
-        document.getElementById('mapQty').onchange = handleMappingChange;
-        document.getElementById('mapPackage').onchange = handleMappingChange;
-
-        renderSourceTable();
-        updateMappingSelects();
+    // 监听包号列变化, 动态禁用分包输入框
+    function bindMappingEvents() {
+        mapPackageSelect.addEventListener('change', handleMappingChange);
+        mapIsbnSelect.addEventListener('change', handleMappingChange);
+        mapTitleSelect.addEventListener('change', handleMappingChange);
+        mapPriceSelect.addEventListener('change', handleMappingChange);
+        mapQtySelect.addEventListener('change', handleMappingChange);
+        customSplitInput.addEventListener('input', function() {
+            if (currentMapping.packageNo && currentMapping.packageNo.trim() !== "") {
+                // 若有包号列，输入框无效，但仍可记录值但不影响导出
+                return;
+            }
+            let val = parseInt(customSplitInput.value, 10);
+            if (isNaN(val) || val < 1) customSplitInput.value = 1;
+            updateSplitModeHint();
+        });
     }
 
-    window.handleMappingChange = handleMappingChange;
+    function init(){
+        // 读取客户名称记忆
+        const savedCustomer = localStorage.getItem(TRANSFER_CUSTOMER_KEY);
+        if(savedCustomer) customerNameInput.value = savedCustomer;
+        else customerNameInput.value = '新华书店';
+        customerNameInput.onchange = () => localStorage.setItem(TRANSFER_CUSTOMER_KEY, customerNameInput.value);
+        
+        importBtn.onclick = importSourceExcel;
+        clearBtn.onclick = clearTransferData;
+        generateBtn.onclick = generateSplitByPackage;
+        
+        bindMappingEvents();
+        // 初始渲染
+        renderSourceTable();
+        updateMappingSelects();  // 里面初始化映射并调用 updateSplitModeHint
+        handleMappingChange();   // 确保状态同步
+    }
+    
     init();
 })();
 </script>
