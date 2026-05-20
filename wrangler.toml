@@ -1,0 +1,7 @@
+name = "toolboxs"
+pages_build_output_dir = "./"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "perf-db"
+database_id = "你刚才得到的database_id"
