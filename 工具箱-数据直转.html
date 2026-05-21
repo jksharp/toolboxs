@@ -8,78 +8,270 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; font-size: 13px; }
-        .module { display: flex; flex-direction: column; height: 100vh; background: white; }
-        .module-header { background: linear-gradient(135deg, #1e3c72, #2a4b7a); padding: 8px 20px; color: white; flex-shrink: 0; }
-        .module-header h2 { font-size: 1.1rem; font-weight: 500; }
-        .module-header p { font-size: 0.7rem; opacity: 0.85; margin-top: 2px; }
-        .toolbar { background: #fefefe; padding: 6px 16px; border-bottom: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex-shrink: 0; }
-        button { border: none; background: #eef2f7; padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: 0.1s; }
-        button.primary { background: #2b4c7c; color: white; }
-        button.success { background: #e3f7ec; color: #2b6e3c; }
-        button.danger { background: #fee2e2; color: #b91c1c; }
-        input, select { padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 0.75rem; font-family: inherit; background: white; }
-        input:disabled, select:disabled { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
-        .table-wrap { flex: 2; overflow: auto; padding: 0 12px 6px 12px; min-height: 0; }
-        .transfer-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-        .transfer-table th, .transfer-table td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: center; vertical-align: middle; white-space: nowrap; }
-        .transfer-table th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; }
-        .mapping-panel { background: #f9fafb; padding: 8px 16px; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; flex-shrink: 0; row-gap: 10px; }
-        .mapping-item { display: flex; flex-direction: column; gap: 3px; min-width: 100px; }
-        .mapping-item label { font-size: 0.65rem; font-weight: 600; color: #2c3e66; }
-        .mode-hint { background: #eef2ff; padding: 4px 12px; border-radius: 18px; font-size: 0.7rem; color: #1e3c72; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
-        .footer-note { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; background: #fefefe; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
-        .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; font-size: 1rem; z-index: 2000; pointer-events: none; border-left: 4px solid #f5a623; font-weight: 500; white-space: nowrap; text-align: center; }
-        .badge-info { background: #e6f0ff; border-radius: 12px; padding: 2px 8px; font-size: 0.7rem; color: #1e4a76; }
-        hr { margin: 0 4px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #eef2f7;
+            font-family: 'Segoe UI', 'Roboto', system-ui, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        .module {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: white;
+        }
+
+        .module-header {
+            background: linear-gradient(135deg, #1e3c72, #2a4b7a);
+            padding: 10px 24px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .module-header h2 {
+            font-size: 1.2rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .module-header p {
+            font-size: 0.7rem;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+
+        .toolbar {
+            background: #ffffff;
+            padding: 10px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            flex-shrink: 0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        button {
+            border: none;
+            background: #f1f5f9;
+            padding: 6px 18px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button.primary {
+            background: #2b4c7c;
+            color: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        button.primary:hover { background: #1e3a60; transform: translateY(-1px); }
+
+        button.success {
+            background: #e3f7ec;
+            color: #1f6e43;
+            border: 1px solid #b2dfc2;
+        }
+        button.success:hover { background: #c8f0d6; transform: translateY(-1px); }
+
+        button.danger {
+            background: #fff1f0;
+            color: #c2412c;
+            border: 1px solid #fcc5c1;
+        }
+        button.danger:hover { background: #ffe3e1; }
+
+        input, select {
+            padding: 6px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 28px;
+            font-size: 0.8rem;
+            font-family: inherit;
+            background: white;
+            transition: 0.1s;
+        }
+        input:focus, select:focus { outline: none; border-color: #2b4c7c; box-shadow: 0 0 0 2px rgba(43,76,124,0.1); }
+
+        .table-wrap {
+            flex: 2;
+            overflow: auto;
+            padding: 8px 20px 12px 20px;
+            min-height: 0;
+        }
+
+        .transfer-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .transfer-table th, .transfer-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            text-align: center;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .transfer-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .mapping-panel {
+            background: #fbfdff;
+            padding: 14px 20px;
+            border-top: 1px solid #e9edf2;
+            border-bottom: 1px solid #e9edf2;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+
+        .mapping-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 110px;
+        }
+
+        .mapping-item label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: 0.3px;
+        }
+
+        .split-option {
+            background: #f8fafc;
+            padding: 0 8px 0 0;
+            border-left: 1px solid #e2e8f0;
+            margin-left: 6px;
+            padding-left: 18px;
+        }
+
+        .mode-badge {
+            background: #eef2ff;
+            border-radius: 24px;
+            padding: 4px 14px;
+            font-size: 0.7rem;
+            color: #1e3c72;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .footer-note {
+            padding: 8px 20px;
+            font-size: 0.7rem;
+            color: #475569;
+            background: #fefefe;
+            border-top: 1px solid #ecf3f9;
+            flex-shrink: 0;
+        }
+
+        .toast-tip {
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1e293be6;
+            color: #facc15;
+            padding: 12px 28px;
+            border-radius: 48px;
+            font-size: 0.9rem;
+            z-index: 2000;
+            pointer-events: none;
+            border-left: 4px solid #f5a623;
+            font-weight: 500;
+            white-space: nowrap;
+            backdrop-filter: blur(4px);
+        }
+
+        .inline-hint {
+            font-size: 0.7rem;
+            margin-top: 4px;
+            color: #4b5563;
+        }
+
+        hr {
+            margin: 0 8px;
+        }
     </style>
 </head>
 <body>
 <div class="module">
     <div class="module-header">
-        <h2>🔄 批销直转</h2>
-        <p>导入供货商Excel → 列映射 → 按包号分组或平均分包导出（输出 .xls 文件）</p>
+        <h2>🔄 批销直转 · 智能分包</h2>
+        <p>导入供货商Excel → 列映射 → 自动分组导出标准 .xls 文件（支持按源包号 或 平均分包）</p>
     </div>
     <div class="toolbar">
         <button id="importSourceBtn" class="primary">📂 导入供货商Excel</button>
         <button id="clearTransferBtn" class="danger">🗑 清空数据</button>
-        <div style="margin-left:auto; display:flex; gap:6px; align-items:center;">
-            <span>客户名称：</span>
-            <input type="text" id="customerName" placeholder="例如：新华书店" style="width:180px;">
+        <div style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
+            <span style="font-weight:500;">📌 客户名称：</span>
+            <input type="text" id="customerName" placeholder="新华书店" style="width: 180px;">
         </div>
         <button id="generateSplitBtn" class="success">📦 生成ZIP文件</button>
     </div>
+
     <div class="table-wrap">
         <table class="transfer-table">
             <thead id="sourceThead"><tr><th>暂无数据</th></tr></thead>
             <tbody id="sourceTbody"><tr><td colspan="20">请先导入Excel文件</td></tr></tbody>
         </table>
     </div>
+
     <div class="mapping-panel">
-        <div class="mapping-item"><label>📦 包号列（可选）</label><select id="mapPackage"></select></div>
+        <div class="mapping-item"><label>📦 包号列（可选）</label><select id="mapPackage"><option value="">-- 不分组/平均分包 --</option></select></div>
         <div class="mapping-item"><label>📖 书号列（必选）</label><select id="mapIsbn"></select></div>
         <div class="mapping-item"><label>📚 书名列（必选）</label><select id="mapTitle"></select></div>
         <div class="mapping-item"><label>💰 定价列（必选）</label><select id="mapPrice"></select></div>
         <div class="mapping-item"><label>🔢 数量列（必选）</label><select id="mapQty"></select></div>
-        <div class="mapping-item" id="customSplitWrapper" style="border-left: 1px solid #dce3ec; padding-left: 12px;">
-            <label>🧩 平均分包数 <span style="font-weight:normal;">(无包号列时生效)</span></label>
-            <input type="number" id="customSplitCount" min="1" value="1" step="1" style="width: 85px;">
-            <span id="splitModeMsg" class="badge-info" style="margin-top: 2px; text-align: center;">⚙️ 合并为1包</span>
+        
+        <div class="mapping-item split-option">
+            <label>🧩 生成包数 <span style="font-weight:normal;">(无包号列时生效)</span></label>
+            <input type="number" id="customSplitCount" min="1" value="1" step="1" style="width: 100px;">
+            <div class="inline-hint" id="splitHintMsg">⚡ 未选择包号列 → 数据将按此数量平均拆分</div>
         </div>
-        <div class="mode-hint" id="activeModeHint">
-            <span>📌</span><span id="modeDesc">未映射包号 → 按平均分包数处理</span>
+        <div class="mode-badge" id="activeModeBadge">
+            <span>🔍</span> <span id="modeDesc">等待数据导入</span>
         </div>
     </div>
     <div class="footer-note">
-        💡 智能匹配列名，可手动调整。<strong>规则：</strong>若已选择「包号列」，则严格按照数据中的包号分组（忽略平均分包数）；若未选择包号列，则根据“平均分包数”平均拆分数据（1表示合并为1个文件）。
+        💡 <strong>智能规则：</strong> 若「包号列」已选择有效列，则严格按照数据中的包号分组导出（<span style="color:#c2412c;">忽略右侧“生成包数”</span>）；<br>
+        🧩 若未选包号列，则根据“生成包数”将全部数据平均拆分 (例如 800条数据 → 生成20包 → 每包40条)，生成包数=1表示合并为单文件。
     </div>
 </div>
 
 <script>
 (function(){
     const TRANSFER_CUSTOMER_KEY = 'TransferCustomerName';
-    let sourceHeaders = [], sourceData = [], currentMapping = { isbn: '', title: '', price: '', qty: '', packageNo: '' };
+    let sourceHeaders = [], sourceData = [];
+    let currentMapping = { isbn: '', title: '', price: '', qty: '', packageNo: '' };
     let toastTimer = null;
 
     // DOM 元素
@@ -90,12 +282,13 @@
     const mapQtySelect = document.getElementById('mapQty');
     const customSplitInput = document.getElementById('customSplitCount');
     const modeDescSpan = document.getElementById('modeDesc');
+    const splitHintMsg = document.getElementById('splitHintMsg');
     const generateBtn = document.getElementById('generateSplitBtn');
     const customerNameInput = document.getElementById('customerName');
     const importBtn = document.getElementById('importSourceBtn');
     const clearBtn = document.getElementById('clearTransferBtn');
 
-    function showTip(message, isError = true, duration = 2000) {
+    function showTip(message, isError = false, duration = 2600) {
         let tip = document.getElementById('globalTip');
         if(!tip){ tip = document.createElement('div'); tip.id = 'globalTip'; tip.className = 'toast-tip'; document.body.appendChild(tip); }
         tip.style.opacity = '1';
@@ -107,15 +300,15 @@
     function escapeHtml(str){ return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     function escapeAttr(str){ return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-    // 自动匹配列名
+    // 智能匹配列名
     function autoMapColumn(headers) {
         const map = { isbn: '', title: '', price: '', qty: '', packageNo: '' };
         const lowerHeaders = headers.map(h=>h.toLowerCase());
-        const isbnKw = ['isbn','isbn号','书号','编号','isbn码'];
-        const titleKw = ['书名','名称','标题','货品名称'];
-        const priceKw = ['定价','价格','单价','码洋'];
-        const qtyKw = ['数量','订数','册数','本数','采购数量'];
-        const pkgKw = ['包号','批次','件号','包裹号','分组号'];
+        const isbnKw = ['isbn','isbn号','书号','编号','isbn码','国际标准书号'];
+        const titleKw = ['书名','名称','标题','货品名称','图书名称'];
+        const priceKw = ['定价','价格','单价','码洋','零售价'];
+        const qtyKw = ['数量','订数','册数','本数','采购数量','订单数量'];
+        const pkgKw = ['包号','批次','件号','包裹号','分组号','包编号'];
 
         for(let kw of isbnKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.isbn=headers[idx]; break; } }
         for(let kw of titleKw){ let idx=lowerHeaders.findIndex(h=>h.includes(kw)); if(idx!==-1){ map.title=headers[idx]; break; } }
@@ -125,25 +318,27 @@
         return map;
     }
 
-    function updateSplitModeHint() {
+    // 更新界面提示 (输入框永远可用，只改变提示文字)
+    function updateModeUI() {
         const hasPkgCol = (currentMapping.packageNo && currentMapping.packageNo.trim() !== "");
         if (hasPkgCol) {
-            modeDescSpan.innerHTML = `📦 按包号列“${escapeHtml(currentMapping.packageNo)}”分组（忽略平均分包数）`;
-            customSplitInput.disabled = true;
+            modeDescSpan.innerHTML = `📦 按包号列“${escapeHtml(currentMapping.packageNo)}”分组（忽略生成包数）`;
+            splitHintMsg.innerHTML = `⚠️ 已启用包号列分组，“生成包数”设置无效，将根据数据源包号导出`;
             customSplitInput.style.opacity = "0.7";
-            document.getElementById('splitModeMsg').innerHTML = "⛔ 已启用包号列，此值无效";
+            customSplitInput.style.backgroundColor = "#f9f9fb";
+            customSplitInput.disabled = false;  // 永远不禁用编辑，仅样式提醒
         } else {
-            customSplitInput.disabled = false;
-            customSplitInput.style.opacity = "1";
             let splitVal = parseInt(customSplitInput.value, 10);
             if (isNaN(splitVal) || splitVal < 1) splitVal = 1;
             if (splitVal === 1) {
-                document.getElementById('splitModeMsg').innerHTML = "📄 合并为单一文件 (包号=1)";
-                modeDescSpan.innerHTML = `🧩 无包号列 → 合并所有数据为1个文件`;
+                modeDescSpan.innerHTML = `📄 无包号列 → 合并所有数据为 1 个文件 (不拆分)`;
+                splitHintMsg.innerHTML = `当前“生成包数” = 1，所有有效数据将合并为一个文件`;
             } else {
-                document.getElementById('splitModeMsg').innerHTML = `✂️ 平均拆分为 ${splitVal} 个文件`;
-                modeDescSpan.innerHTML = `🧩 无包号列 → 平均拆分为 ${splitVal} 包 (顺序分组)`;
+                modeDescSpan.innerHTML = `✂️ 无包号列 → 平均拆分为 ${splitVal} 个文件 (顺序分组)`;
+                splitHintMsg.innerHTML = `有效数据将平均分成 ${splitVal} 组，每组依次生成独立文件`;
             }
+            customSplitInput.style.opacity = "1";
+            customSplitInput.style.backgroundColor = "white";
         }
     }
 
@@ -155,10 +350,10 @@
             qty: mapQtySelect.value,
             packageNo: mapPackageSelect.value
         };
-        updateSplitModeHint();
+        updateModeUI();
     }
 
-    // 渲染表格
+    // 渲染预览表格
     function renderSourceTable() {
         const thead = document.getElementById('sourceThead');
         const tbody = document.getElementById('sourceTbody');
@@ -182,7 +377,7 @@
         tbody.innerHTML = html;
     }
 
-    // 更新下拉框选项
+    // 更新下拉选择器
     function updateMappingSelects() {
         const selects = ['mapIsbn','mapTitle','mapPrice','mapQty','mapPackage'];
         for(let id of selects){
@@ -196,7 +391,7 @@
         if(auto.price) mapPriceSelect.value = auto.price;
         if(auto.qty) mapQtySelect.value = auto.qty;
         if(auto.packageNo) mapPackageSelect.value = auto.packageNo;
-        // 刷新当前映射
+        
         currentMapping = {
             isbn: mapIsbnSelect.value,
             title: mapTitleSelect.value,
@@ -204,7 +399,7 @@
             qty: mapQtySelect.value,
             packageNo: mapPackageSelect.value
         };
-        updateSplitModeHint();
+        updateModeUI();
     }
 
     // 导入Excel
@@ -268,7 +463,7 @@
                     } else if(customerNameInput) {
                         customerNameInput.value = localStorage.getItem(TRANSFER_CUSTOMER_KEY) || '';
                     }
-                    showTip(`导入成功: ${sourceData.length} 行, ${sourceHeaders.length} 列`, false, 3000);
+                    showTip(`✅ 导入成功: ${sourceData.length} 行, ${sourceHeaders.length} 列`, false, 2800);
                 } catch(err) {
                     alert("导入失败: " + err.message);
                 }
@@ -288,11 +483,11 @@
             sourceHeaders = [];
             renderSourceTable();
             updateMappingSelects();
-            showTip("已清空所有批销数据", false, 1500);
+            showTip("已清空所有数据", false, 1500);
         }
     }
 
-    // 辅助函数：平均拆分数组为N组 (保持原有顺序)
+    // 平均拆分数组 (顺序拆分)
     function splitArrayIntoGroups(arr, groupCount) {
         if (groupCount <= 1 || arr.length === 0) return [arr];
         const total = arr.length;
@@ -310,7 +505,7 @@
         return groups;
     }
 
-    // 核心生成逻辑（支持平均分包 或 原包号分组）
+    // 核心导出: 分包生成ZIP
     function generateSplitByPackage() {
         if(!sourceData.length || !sourceHeaders.length){
             alert("请先导入供货商Excel数据");
@@ -329,10 +524,10 @@
         localStorage.setItem(TRANSFER_CUSTOMER_KEY, customerName);
 
         const hasPkgCol = (pkgCol && pkgCol.trim() !== "");
-        // 1. 先收集有效数据
+        
+        // 情况1：按数据源包号分组
         if (hasPkgCol) {
-            // 按照数据源包号分组模式 (原有逻辑增强)
-            const pkgGroups = new Map(); // key: 包号(string), value: 数组 {isbn, title, price, qty}
+            const pkgGroups = new Map();
             for(let row of sourceData){
                 let isbn = row[isbnCol] || "", title = row[titleCol] || "";
                 let priceRaw = row[priceCol] || "", qtyRaw = row[qtyCol] || "";
@@ -361,25 +556,22 @@
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "批销转换结果");
                 const excelData = XLSX.write(wb, { bookType: 'xls', type: 'array' });
-                // 清理包号中的非法文件名字符
                 let safePkg = String(pkg).replace(/[\\/:*?"<>|]/g, '_');
                 zip.file(`${customerName}_${safePkg}_${dateStr}.xls`, excelData);
                 fileCount++;
             }
             zip.generateAsync({ type: "blob" }).then(function(content) {
                 saveAs(content, `${customerName}_批销打包_${dateStr}.zip`);
-                showTip(`成功生成 ${fileCount} 个文件（按包号列分组），已打包下载`, false, 3000);
-            }).catch(function(err) {
-                alert("打包失败：" + err);
-            });
+                showTip(`✅ 按数据源包号导出完成，共 ${fileCount} 个文件`, false, 3500);
+            }).catch(err => alert("打包失败：" + err));
             return;
-        } 
+        }
         
-        // ----- 无包号列模式：根据平均分包数处理 -----
-        let rawSplitCount = parseInt(customSplitInput.value, 10);
-        if (isNaN(rawSplitCount) || rawSplitCount < 1) rawSplitCount = 1;
+        // 情况2：无包号列 → 根据生成包数平均拆分
+        let splitCount = parseInt(customSplitInput.value, 10);
+        if (isNaN(splitCount) || splitCount < 1) splitCount = 1;
         
-        // 收集有效数据列表（用于平均分配）
+        // 收集有效数据
         let validItems = [];
         for(let row of sourceData){
             let isbn = row[isbnCol] || "", title = row[titleCol] || "";
@@ -397,20 +589,19 @@
             return;
         }
 
-        let splitCount = rawSplitCount;
+        // 自动修正分包数不超过有效记录数
         if (splitCount > validItems.length) {
             splitCount = validItems.length;
-            showTip(`注意: 分包数超过有效数据行数，已自动调整为 ${splitCount} 包（每包至少1条）`, false, 2500);
             customSplitInput.value = splitCount;
-            updateSplitModeHint();
+            showTip(`⚠️ 生成包数已自动调整为 ${splitCount}（不能大于有效数据条数）`, false, 2600);
+            updateModeUI();
         }
         if (splitCount <= 1) {
-            // 合并为一个包 (包号固定为1)
+            // 合并单包
             const groupsMap = new Map();
             groupsMap.set("1", validItems);
             const dateStr = new Date().toISOString().slice(0,19).replace(/:/g,'-');
             const zip = new JSZip();
-            let fileCount = 0;
             for(let [pkg, items] of groupsMap.entries()){
                 const sheetData = [["品种","书号","书名","定价","数量"]];
                 for(let item of items) sheetData.push(["", item.isbn, item.title, item.price, item.qty]);
@@ -418,17 +609,16 @@
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "批销转换结果");
                 const excelData = XLSX.write(wb, { bookType: 'xls', type: 'array' });
-                zip.file(`${customerName}_${pkg}_${dateStr}.xls`, excelData);
-                fileCount++;
+                zip.file(`${customerName}_1_${dateStr}.xls`, excelData);
             }
             zip.generateAsync({ type: "blob" }).then(function(content) {
                 saveAs(content, `${customerName}_批销打包_${dateStr}.zip`);
-                showTip(`成功生成 ${fileCount} 个文件 (合并为单包)`, false, 3000);
+                showTip(`✅ 合并为单文件 (共${validItems.length}条记录)`, false, 3000);
             }).catch(err => alert("打包失败：" + err));
             return;
         }
         
-        // 平均拆分模式：splitCount >= 2
+        // 真正平均拆分
         const groupsArray = splitArrayIntoGroups(validItems, splitCount);
         const groupsMap = new Map();
         for (let idx = 0; idx < groupsArray.length; idx++) {
@@ -454,46 +644,39 @@
         }
         zip.generateAsync({ type: "blob" }).then(function(content) {
             saveAs(content, `${customerName}_批销打包_${dateStr}.zip`);
-            showTip(`成功生成 ${groupsMap.size} 个文件（平均分为 ${groupsMap.size} 包，共${validItems.length}条数据）`, false, 3500);
-        }).catch(function(err) {
-            alert("打包失败：" + err);
-        });
+            showTip(`✅ 平均拆分为 ${groupsMap.size} 个文件 (总记录 ${validItems.length} 条)`, false, 3600);
+        }).catch(err => alert("打包失败：" + err));
     }
 
-    // 监听包号列变化, 动态禁用分包输入框
-    function bindMappingEvents() {
+    // 监听生成包数变化，实时更新提示
+    function onSplitCountChange() {
+        let val = parseInt(customSplitInput.value, 10);
+        if (isNaN(val) || val < 1) customSplitInput.value = 1;
+        updateModeUI();
+    }
+
+    function bindEvents() {
         mapPackageSelect.addEventListener('change', handleMappingChange);
         mapIsbnSelect.addEventListener('change', handleMappingChange);
         mapTitleSelect.addEventListener('change', handleMappingChange);
         mapPriceSelect.addEventListener('change', handleMappingChange);
         mapQtySelect.addEventListener('change', handleMappingChange);
-        customSplitInput.addEventListener('input', function() {
-            if (currentMapping.packageNo && currentMapping.packageNo.trim() !== "") {
-                // 若有包号列，输入框无效，但仍可记录值但不影响导出
-                return;
-            }
-            let val = parseInt(customSplitInput.value, 10);
-            if (isNaN(val) || val < 1) customSplitInput.value = 1;
-            updateSplitModeHint();
-        });
-    }
-
-    function init(){
-        // 读取客户名称记忆
-        const savedCustomer = localStorage.getItem(TRANSFER_CUSTOMER_KEY);
-        if(savedCustomer) customerNameInput.value = savedCustomer;
-        else customerNameInput.value = '新华书店';
-        customerNameInput.onchange = () => localStorage.setItem(TRANSFER_CUSTOMER_KEY, customerNameInput.value);
-        
+        customSplitInput.addEventListener('input', onSplitCountChange);
         importBtn.onclick = importSourceExcel;
         clearBtn.onclick = clearTransferData;
         generateBtn.onclick = generateSplitByPackage;
+        customerNameInput.onchange = () => localStorage.setItem(TRANSFER_CUSTOMER_KEY, customerNameInput.value);
+    }
+
+    function init(){
+        const savedCustomer = localStorage.getItem(TRANSFER_CUSTOMER_KEY);
+        if(savedCustomer) customerNameInput.value = savedCustomer;
+        else customerNameInput.value = '新华书店';
         
-        bindMappingEvents();
-        // 初始渲染
+        bindEvents();
         renderSourceTable();
-        updateMappingSelects();  // 里面初始化映射并调用 updateSplitModeHint
-        handleMappingChange();   // 确保状态同步
+        updateMappingSelects();   // 初始化下拉及映射
+        handleMappingChange();    // 更新界面模式提示
     }
     
     init();

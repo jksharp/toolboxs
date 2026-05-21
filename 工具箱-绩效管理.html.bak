@@ -620,24 +620,31 @@
     // ======================== 页面渲染 ========================
 
     function renderProjectPage(container) {
+        let maxPossible = getMaxMonthlyScore();
         let h = `<div class="page-title">📐 绩效项目</div>
         <div class="card">
             <div class="category-limits-row">
-                <span>大类单次分值上限：</span>
+                <span>大类单次分值上限（总和不能超过平时满分 ${maxPossible} 分）:</span>
                 <label>德: <input type="number" id="limitVirtue" value="${GlobalConfig.categoryLimits.virtue}" step="1" style="width:60px;"> 分</label>
                 <label>能: <input type="number" id="limitAbility" value="${GlobalConfig.categoryLimits.ability}" step="1" style="width:60px;"> 分</label>
                 <label>勤: <input type="number" id="limitDiligence" value="${GlobalConfig.categoryLimits.diligence}" step="1" style="width:60px;"> 分</label>
                 <button id="saveLimitsBtn" class="small">保存</button>
             </div>
             <div class="flex-between"><h3>项目列表</h3><div><button id="expItems">导出</button><button id="impItemsBtn">导入</button><input type="file" id="impItemsFile" style="display:none"></div></div>
-            <div class="table-wrapper"><table class="data-table"><thead><tr><th>大类</th><th>项目名</th><th>分值范围</th><th>操作</th></tr></thead><tbody>${DB.items.map(i => `</td><td style="background:#f8fafc;">${getCatName(i.cat)}</td><td style="background:#f8fafc;">${i.name}</td><td style="background:#f8fafc;">${i.minScore} ~ ${i.maxScore}</td><td style="background:#f8fafc;"><button class="editItem" data-id="${i.id}" style="background:#f59e0b;">修改</button> <button class="delItem" data-id="${i.id}" style="background:#dc2626;">删除</button></td></tr>`).join('')}</tbody></table></div>
+            <div class="table-wrapper"><table class="data-table"><thead><tr><th>大类</th><th>项目名</th><th>分值范围</th><th>操作</th></table></thead><tbody>${DB.items.map(i => `</td><td style="background:#f8fafc;">${getCatName(i.cat)}</td><td style="background:#f8fafc;">${i.name}</td><td style="background:#f8fafc;">${i.minScore} ~ ${i.maxScore}</td><td style="background:#f8fafc;"><button class="editItem" data-id="${i.id}" style="background:#f59e0b;">修改</button> <button class="delItem" data-id="${i.id}" style="background:#dc2626;">删除</button></td>`).join('')}</tbody></table></div>
             <div style="margin-top:12px"><h4>新增/修改</h4><div style="display:flex; gap:8px; flex-wrap:wrap"><select id="catId"><option value="">大类</option>${DB.cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><input id="itemName" placeholder="项目名"><input id="minScore" type="number" placeholder="最小分"><input id="maxScore" type="number" placeholder="最大分"><button id="addItem">新增</button><button id="updItem" style="background:#f59e0b;">修改</button></div><span id="selId"></span><div class="badge">分值区间：若最小=最大则为固定分，每次录入分值需在区间内。</div></div>
         </div>`;
         container.innerHTML = h;
         document.getElementById('saveLimitsBtn').onclick = () => {
-            let newVirtue = parseInt(document.getElementById('limitVirtue').value) || 20;
-            let newAbility = parseInt(document.getElementById('limitAbility').value) || 30;
-            let newDiligence = parseInt(document.getElementById('limitDiligence').value) || 30;
+            let newVirtue = parseInt(document.getElementById('limitVirtue').value) || 0;
+            let newAbility = parseInt(document.getElementById('limitAbility').value) || 0;
+            let newDiligence = parseInt(document.getElementById('limitDiligence').value) || 0;
+            let total = newVirtue + newAbility + newDiligence;
+            let maxLimit = getMaxMonthlyScore();
+            if (total > maxLimit) {
+                alert(`大类分值上限总和不能超过平时考核满分 ${maxLimit} 分！当前总和为 ${total} 分。`);
+                return;
+            }
             GlobalConfig.categoryLimits = { virtue: newVirtue, ability: newAbility, diligence: newDiligence };
             save();
             alert("大类单次分值上限已保存");
@@ -654,7 +661,7 @@
     }
 
     function renderMonthsConfig(container) {
-        let h = `<div class="page-title">📆 考核月份</div><div class="card"><div class="flex-between"><h3>月份列表</h3></div><div class="table-wrapper"><table class="data-table"><thead><tr><th>月份名称</th><th>年份</th><th>季度</th><th>操作</th></tr></thead><tbody>${DB.monthList.map(m => `<tr><td style="background:#f8fafc;"><input type="text" class="month-name" data-id="${m.id}" value="${m.name}"></td><td style="background:#f8fafc;"><input type="text" class="month-year" data-id="${m.id}" value="${m.year}"></td><td style="background:#f8fafc;"><select class="month-quarter" data-id="${m.id}"><option ${m.quarter==="1"?"selected":""}>1</option><option ${m.quarter==="2"?"selected":""}>2</option><option ${m.quarter==="3"?"selected":""}>3</option><option ${m.quarter==="4"?"selected":""}>4</option></select></td><td style="background:#f8fafc;"><button class="delMonthBtn" data-id="${m.id}" style="background:#dc2626;">删除</button></td></tr>`).join('')}</tbody></table></div><div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end"><div><label>月份名称</label><input id="newMonthName" placeholder="例: 2026-01"></div><div><label>年份</label><input id="newMonthYear" placeholder="例: 2026"></div><div><label>季度</label><select id="newMonthQuarter"><option>1</option><option>2</option><option>3</option><option>4</option></select></div><button id="addMonthBtn">➕新增</button></div><div class="badge">修改后请点击其他位置保存。删除月份会删除所有考核数据。</div></div>`;
+        let h = `<div class="page-title">📆 考核月份</div><div class="card"><div class="flex-between"><h3>月份列表</h3></div><div class="table-wrapper"><table class="data-table"><thead><tr><th>月份名称</th><th>年份</th><th>季度</th><th>操作</th></tr></thead><tbody>${DB.monthList.map(m => `<tr><td style="background:#f8fafc;"><input type="text" class="month-name" data-id="${m.id}" value="${m.name}"></td><td style="background:#f8fafc;"><input type="text" class="month-year" data-id="${m.id}" value="${m.year}"></td><td style="background:#f8fafc;"><select class="month-quarter" data-id="${m.id}"><option ${m.quarter==="1"?"selected":""}>1</option><option ${m.quarter==="2"?"selected":""}>2</option><option ${m.quarter==="3"?"selected":""}>3</option><option ${m.quarter==="4"?"selected":""}>4</option></select></td><td style="background:#f8fafc;"><button class="delMonthBtn" data-id="${m.id}" style="background:#dc2626;">删除</button></td>`).join('')}</tbody></table></div><div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end"><div><label>月份名称</label><input id="newMonthName" placeholder="例: 2026-01"></div><div><label>年份</label><input id="newMonthYear" placeholder="例: 2026"></div><div><label>季度</label><select id="newMonthQuarter"><option>1</option><option>2</option><option>3</option><option>4</option></select></div><button id="addMonthBtn">➕新增</button></div><div class="badge">修改后请点击其他位置保存。删除月份会删除所有考核数据。</div></div>`;
         container.innerHTML = h;
         document.querySelectorAll('.month-name').forEach(inp => inp.onchange = () => { let m = DB.monthList.find(x => x.id === inp.dataset.id); if (m) m.name = inp.value; save(); });
         document.querySelectorAll('.month-year').forEach(inp => inp.onchange = () => { let m = DB.monthList.find(x => x.id === inp.dataset.id); if (m) m.year = inp.value; save(); });
@@ -712,7 +719,7 @@
                         }
                         let score = getMonthlyScore(eid, DB.curMonthId);
                         row += `<td>${score} / ${maxScore}</td>`;
-                        return `<tr>${row}</tr>`;
+                        return `<td>${row}</tr>`;
                     }).join('')}</tbody>
                 </table>
             </div>
@@ -762,7 +769,7 @@
         });
     }
 
-    // 奖惩记录
+    // 奖惩记录（完整功能）
     function renderRewardsPage(container) {
         let monthOpts = `<select id="filterMon"><option value="all">全部月份</option>${DB.monthList.slice().reverse().map(m => `<option value="${m.id}">${m.name}</option>`).join('')}</select>`;
         let filterHtml = `<div class="filter-bar"><span>考核月份：${monthOpts}</span><input type="text" id="filterName" placeholder="员工姓名"><select id="filterGroup"><option value="all">全部组</option>${DB.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}</select><select id="filterPos"><option value="all">全部职位</option><option value="主任">主任</option><option value="员工">员工</option></select><button id="searchBtn">筛选</button> <button id="resetFilter">重置</button><button id="addRew">新增记录</button><button id="expRew">导出Excel</button><button id="impRewBtn">导入</button><input type="file" id="impRewFile" style="display:none"></div>`;
@@ -782,7 +789,7 @@
                 let p = DB.persons.find(pp => pp.id === l.employeeId);
                 let groupName = p ? DB.groups.find(g => g.id === p.groupId)?.name : '';
                 let monthName = DB.monthList.find(m => m.id === l.monthKey)?.name || '';
-                return `<tr><td style="white-space:nowrap;">${l.timestamp}</td><td style="background:#f8fafc;">${l.employeeName}</td><td style="background:#f8fafc;">${groupName||''}</td><td style="background:#f8fafc;">${p?.position||''}</td><td style="background:#f8fafc;">${l.itemName||''}</td><td style="background:#f8fafc;">${l.changeValue>0?`+${l.changeValue}`:l.changeValue}</td><td style="background:#f8fafc;">${l.reason}</td><td style="background:#f8fafc;">${monthName}</td><td style="background:#f8fafc;"><button class="editLogBtn" data-id="${l.id}" style="background:#f59e0b;">编辑</button> <button class="delLogBtn" data-id="${l.id}" style="background:#dc2626;">删除</button></td></tr>`;
+                return `<tr><td style="white-space:nowrap;">${l.timestamp}</td><td style="background:#f8fafc;">${l.employeeName}</td><td style="background:#f8fafc;">${groupName||''}</td><td style="background:#f8fafc;">${p?.position||''}</td><td style="background:#f8fafc;">${l.itemName||''}</td><td style="background:#f8fafc;">${l.changeValue>0?`+${l.changeValue}`:l.changeValue}</td><td style="background:#f8fafc;">${l.reason}</td><td style="background:#f8fafc;">${monthName}</td><td style="background:#f8fafc;"><button class="editLogBtn" data-id="${l.id}" style="background:#f59e0b;">编辑</button> <button class="delLogBtn" data-id="${l.id}" style="background:#dc2626;">删除</button></td>`);
             }).join('')}</tbody></table>`;
             if (flt.length === 0) tbl = `<div class="badge" style="margin:12px;">暂无数据，请点击“新增记录”添加</div>`;
             document.getElementById('rewList').innerHTML = tbl;
@@ -920,7 +927,7 @@
                 row += `<td>${totalMonthlyScore.toFixed(1)} (满分${selected.length*maxMonthlyScore})</td>`;
                 row += `<td>${totalRealSalary.toFixed(2)}</td>`;
                 row += `<td>${totalReserveSalary.toFixed(2)}</td>`;
-                row += `<td>${totalPay.toFixed(2)}<td>`;
+                row += `<td>${totalPay.toFixed(2)}</td>`;
                 tbody += `<tr>${row}</tr>`;
             }
             document.getElementById('statTableWrap').innerHTML = `<table class="data-table">${thead}${tbody}</table>`;
@@ -970,7 +977,7 @@
     }
 
     function renderUsersPage(container) {
-        let h = `<div class="page-title">👥 用户管理</div><div class="card"><div class="flex-between"><h3>系统用户</h3><button id="addUser">➕新增用户</button></div><div class="table-wrapper"><table class="data-table" style="min-width: 600px;"><thead><tr><th style="min-width:100px;">用户编号</th><th style="min-width:100px;">真实姓名</th><th style="min-width:80px;">密码</th><th style="min-width:100px;">角色</th><th style="min-width:120px;">操作</th></tr></thead><tbody>${DB.users.map(u => `<tr><td style="min-width:100px;">${u.no}</td><td style="min-width:100px;">${u.realName}</td><td style="min-width:80px;">${u.pwd}</td><td style="min-width:100px;">${u.role}</td><td style="min-width:120px;"><button class="editUser" data-no="${u.no}" style="background:#f59e0b;">编辑</button> ${u.no !== "admin" ? `<button class="delUser" data-no="${u.no}" style="background:#dc2626;">删除</button>` : ''}</td></td>`).join('')}</tbody></table></div></div>`;
+        let h = `<div class="page-title">👥 用户管理</div><div class="card"><div class="flex-between"><h3>系统用户</h3><button id="addUser">➕新增用户</button></div><div class="table-wrapper"><table class="data-table" style="min-width: 600px;"><thead><tr><th style="min-width:100px;">用户编号</th><th style="min-width:100px;">真实姓名</th><th style="min-width:80px;">密码</th><th style="min-width:100px;">角色</th><th style="min-width:120px;">操作</th></tr></thead><tbody>${DB.users.map(u => `<tr><td style="min-width:100px;">${u.no}</td><td style="min-width:100px;">${u.realName}</td><td style="min-width:80px;">${u.pwd}</td><td style="min-width:100px;">${u.role}</td><td style="min-width:120px;"><button class="editUser" data-no="${u.no}" style="background:#f59e0b;">编辑</button> ${u.no !== "admin" ? `<button class="delUser" data-no="${u.no}" style="background:#dc2626;">删除</button>` : ''}</td>`).join('')}</tbody></table></div></div>`;
         container.innerHTML = h;
         document.querySelectorAll('.editUser').forEach(btn => btn.onclick = () => {
             let no = btn.dataset.no;
