@@ -36,11 +36,11 @@
         .highlight-row { background-color: #fff3bf !important; }
         .search-group { display: flex; gap: 6px; align-items: center; background: #f1f5f9; padding: 2px 16px; border-radius: 32px; margin-left: auto; }
         .footer-note { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; background: #fefefe; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
-        /* 多文件对比样式 (简化保留) */
+        /* 多文件对比样式 (保留原有) */
         .base-file-area, .target-files-container { background: #ffffff; }
         .file-card { flex: 1; min-width: 260px; background: #f9fbfd; border: 1px solid #e2edf7; border-radius: 16px; padding: 10px 16px; }
         .file-card h4 { font-size: 0.85rem; margin-bottom: 8px; }
-        .file-status { font-size: 0.7rem; margin-top: 6px; color: #2c5a2e; }
+        .file-status { font-size: 0.7rem; margin-top: 6px; color: #2c5a2e; display: flex; justify-content: space-between; align-items: center; }
         .target-card { background: #f8fafc; border-radius: 16px; margin-bottom: 16px; padding: 12px 16px; border: 1px solid #e2edf7; }
         .target-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .target-name { font-weight: 600; font-size: 0.8rem; background: #eef2ff; padding: 4px 12px; border-radius: 30px; }
@@ -56,21 +56,31 @@
         .data-card { flex: 1; background: #f9fbfd; border: 1px solid #e2edf7; border-radius: 16px; padding: 12px 16px; }
         .data-card h4 { font-size: 0.85rem; margin-bottom: 8px; }
         .filter-row { display: flex; align-items: center; gap: 12px; margin: 8px 20px 0 20px; flex-wrap: wrap; }
-        .filter-row select, .filter-row button { padding: 4px 12px; border-radius: 30px; border: 1px solid #cbd5e1; background: white; font-size: 0.7rem; }
+        .filter-row select, .filter-row button { padding: 4px 12px; border-radius: 30px; border: 1px solid #cbd5e1; background: white; font-size: 0.7rem; cursor: pointer; }
+        .filter-row button.primary { background: #2b4c7c; color: white; border: none; }
         .stats-info { background: #eef2ff; margin: 8px 20px; padding: 6px 12px; border-radius: 20px; font-size: 0.7rem; display: inline-block; }
-        .summary-table-wrapper { flex: 1; overflow: auto; margin: 0 20px 12px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
-        .summary-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
-        .summary-table th, .summary-table td { padding: 8px 10px; border-bottom: 1px solid #ecf3f9; text-align: left; }
-        .summary-table th { background: #f8fafc; position: sticky; top: 0; }
+        .analysis-wrapper { margin: 8px 20px; display: flex; gap: 20px; flex-wrap: wrap; }
+        .analysis-card { flex: 1; background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid #e2edf7; }
+        .analysis-card h4 { font-size: 0.8rem; margin-bottom: 8px; color: #1e3c72; }
+        .analysis-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+        .analysis-table th, .analysis-table td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+        .match-table-wrapper { flex: 1; overflow: auto; margin: 0 20px 12px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
+        .match-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+        .match-table th, .match-table td { padding: 8px 10px; border-bottom: 1px solid #ecf3f9; text-align: left; vertical-align: top; }
+        .match-table th { background: #f8fafc; position: sticky; top: 0; }
+        .matched-orders { white-space: pre-line; line-height: 1.4; }
         .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; font-size: 1rem; z-index: 2000; pointer-events: none; border-left: 4px solid #f5a623; white-space: nowrap; }
         .empty-placeholder { text-align: center; color: #8ba0bc; padding: 30px; }
+        .mapping-section { background: #fefefe; border-top: 1px solid #e9eef3; padding: 12px 20px; }
+        .mapping-section .section-title { font-weight: 600; font-size: 0.75rem; margin: 0 0 8px 0; }
+        .badge { background: #2b4c7c20; border-radius: 12px; padding: 2px 8px; font-size: 0.65rem; margin-left: 6px; }
     </style>
 </head>
 <body>
 <div class="app-container">
     <div class="global-header">
         <h1>📚 数据复核 · 新华书店工具箱</h1>
-        <p>普通复核 | 多文件对比 | 到货复核 (订单 ↔ 到货匹配)</p>
+        <p>普通复核 | 多文件对比 | 到货复核 (智能分析订单归属)</p>
     </div>
     <div class="mode-bar">
         <div class="mode-radio-group">
@@ -95,7 +105,7 @@
         </div>
     </div>
 
-    <!-- 多文件对比面板 (简化占位) -->
+    <!-- 多文件对比面板 (简化，保留原有接口) -->
     <div id="comparePanel" class="review-panel panel-hidden">
         <div class="base-file-area">
             <div class="file-card">
@@ -116,36 +126,63 @@
         <div class="footer-note">每个被对比文件独立配置组合主键和对比字段，导出四Sheet报告。</div>
     </div>
 
-    <!-- 到货复核面板 -->
+    <!-- 到货复核面板 (升级：订单归属分析，排序一致) -->
     <div id="arrivalPanel" class="review-panel panel-hidden">
         <div class="arrival-area">
             <div class="data-card">
                 <h4>📋 订单文件 (必须包含：书号、客户名称、馆配需求单名称)</h4>
-                <input type="file" id="orderFileInput" accept=".xlsx,.xls,.csv" style="display:none">
-                <button id="uploadOrderBtn" class="primary">选择订单文件</button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="file" id="orderFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+                    <button id="uploadOrderBtn" class="primary">选择订单文件</button>
+                </div>
                 <div id="orderFileStatus" class="file-status">未加载</div>
             </div>
             <div class="data-card">
-                <h4>📦 到货文件 (供应商发货清单，必须包含书号字段)</h4>
-                <input type="file" id="arrivalFileInput" accept=".xlsx,.xls,.csv" style="display:none">
-                <button id="uploadArrivalBtn" class="primary">选择到货文件</button>
+                <h4>📦 到货文件 (供应商清单，自动跳过说明行)</h4>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="file" id="arrivalFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+                    <button id="uploadArrivalBtn" class="primary">选择到货文件</button>
+                </div>
                 <div id="arrivalFileStatus" class="file-status">未加载</div>
             </div>
+        </div>
+        <!-- 字段映射配置 -->
+        <div class="mapping-section">
+            <div class="section-title">🔗 字段映射配置 (至少一组，用于匹配书号)</div>
+            <div class="mapping-row" style="margin-bottom: 8px;">
+                <select id="orderFieldSelect" style="width:150px"><option value="">—订单字段—</option></select>
+                <span>➔</span>
+                <select id="arrivalFieldSelect" style="width:150px"><option value="">—到货字段—</option></select>
+                <button id="addMappingBtn" class="primary">➕ 添加映射</button>
+            </div>
+            <div id="mappingTagsContainer" class="tag-list" style="margin-top: 4px;"></div>
+            <div class="footer-note" style="margin-top:6px; font-size:0.65rem;">提示：至少需要一组书号映射（如订单“书号” ➔ 到货“条码”）。匹配时按所有映射字段组合键进行匹配。</div>
         </div>
         <div class="filter-row">
             <span>🔍 客户筛选：</span>
             <select id="customerFilterSelect"><option value="">— 全部客户 —</option></select>
-            <button id="matchBtn" class="primary">🔗 开始匹配</button>
-            <button id="exportMatchBtn" class="success" disabled>📎 导出结果 (详情+汇总)</button>
+            <button id="matchBtn" class="primary">🔗 开始匹配并分析归属</button>
+            <button id="exportMatchBtn" class="success" disabled>📎 导出匹配结果</button>
         </div>
         <div id="matchStats" class="stats-info"></div>
-        <div class="summary-table-wrapper">
-            <table class="summary-table" id="summaryTable">
-                <thead id="summaryThead"></thead>
-                <tbody id="summaryTbody"></tbody>
+        <!-- 订单归属分析结果 -->
+        <div class="analysis-wrapper" id="analysisWrapper" style="display:none;">
+            <div class="analysis-card">
+                <h4>📊 订单归属分析 (按匹配条目数排序)</h4>
+                <table class="analysis-table" id="analysisTable">
+                    <thead><tr><th>排名</th><th>客户名称</th><th>馆配需求单名称</th><th>匹配条目数</th><th>置信度</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        <!-- 匹配详情表格 -->
+        <div class="match-table-wrapper">
+            <table class="match-table" id="matchResultTable">
+                <thead id="matchThead"></thead>
+                <tbody id="matchTbody"></tbody>
             </table>
         </div>
-        <div class="footer-note">📌 匹配规则：根据到货文件中的书号，匹配订单表的“书号”列。匹配结果显示“客户名称 + 馆配需求单名称”，支持客户筛选。导出Excel包含两个Sheet：匹配详情（每条到货记录对应订单）、匹配汇总（每个订单匹配到的到货数量）。</div>
+        <div class="footer-note">📌 分析逻辑：统计每笔到货匹配到的所有订单，按出现频次排序，展示最可能的订单归属及置信度。下方详情中每笔到货的匹配订单按可能性从高到低排列。</div>
     </div>
 </div>
 
@@ -161,9 +198,6 @@
     }
     function escapeHtml(str){ return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     function escapeAttr(str){ return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-
-    // 智能比对 (保留)
-    function isValueEqual(v1, v2) { return String(v1||"").trim() === String(v2||"").trim(); }
 
     // ---------- 普通复核逻辑 (保留) ----------
     const REVIEW_KEY = 'ReviewData_Final';
@@ -192,22 +226,24 @@
     function loadReview(){ try{ const raw=localStorage.getItem(REVIEW_KEY); if(raw){ const data=JSON.parse(raw); reviewCols=data.cols||[]; reviewRows=data.rows||[]; } else{ reviewCols=[]; reviewRows=[]; } isbnColumn=autoDetectIsbnColumn(reviewCols); }catch(e){ reviewCols=[]; reviewRows=[]; isbnColumn=null; } }
     window.editCell = function(rowIdx, colName){ const td = event.target; const oldVal = reviewRows[rowIdx][colName] || ''; const input = document.createElement('input'); input.value = oldVal; input.style.width = (td.clientWidth - 10) + 'px'; input.style.fontSize = '0.75rem'; td.innerText = ''; td.appendChild(input); input.focus(); input.onblur = () => { const newVal = input.value; reviewRows[rowIdx][colName] = newVal; saveReview(); renderReviewTable(); if(lastSearchKeyword) searchByIsbn(lastSearchKeyword); }; input.onkeypress = (e) => { if(e.key === 'Enter') input.blur(); }; };
     
-    // ---------- 多文件对比 (简化占位) ----------
+    // ---------- 多文件对比 (简化，避免冲突) ----------
+    let baseFileData = null, targetFileItems = [], nextId = 1;
+    function parseExcelFileSimple(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = (e) => { try { const data = new Uint8Array(e.target.result); const wb = XLSX.read(data, { type: 'array' }); const sheet = wb.Sheets[wb.SheetNames[0]]; const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }); if (!raw || raw.length < 2) reject("文件至少需要表头+数据"); let rawHeaders = raw[0].map(cell=>cell===undefined||cell===null?"":String(cell)); let headers = rawHeaders.map((h,idx)=>(h.trim()||`列_${idx+1}`)); let dataRows = raw.slice(1).filter(row=>row.some(cell=>cell!==undefined&&cell!==null&&cell!=="")); const normalized = dataRows.map(row => { const obj = {}; headers.forEach((h, idx) => { obj[h] = (idx < row.length && row[idx] !== undefined && row[idx] !== null) ? String(row[idx]) : ""; }); return obj; }); resolve({ cols: headers, rows: normalized, fileName: file.name }); } catch(err) { reject(err.message); } }; reader.onerror = () => reject("读取失败"); reader.readAsArrayBuffer(file); }); }
     function initCompare() { 
         document.getElementById('uploadBaseBtn').onclick = ()=> document.getElementById('baseFileInput').click();
-        document.getElementById('baseFileInput').onchange = async (e) => { if(e.target.files[0]){ let parsed = await parseExcelFile(e.target.files[0]); document.getElementById('baseFileStatus').innerHTML = `✅ ${parsed.fileName} (${parsed.rows.length}行)`; } };
-        document.getElementById('addTargetFileBtn').onclick = () => { showTip("多文件对比示例功能可扩展", false); };
-        document.getElementById('batchCompareBtn').onclick = () => { showTip("多文件对比完整版请参考之前代码", false); };
+        document.getElementById('baseFileInput').onchange = async (e) => { if(e.target.files[0]){ baseFileData = await parseExcelFileSimple(e.target.files[0]); document.getElementById('baseFileStatus').innerHTML = `✅ ${baseFileData.fileName} (${baseFileData.rows.length}行)`; } };
+        document.getElementById('addTargetFileBtn').onclick = () => { showTip("多文件对比功能演示，可自行扩展", false); };
+        document.getElementById('batchCompareBtn').onclick = () => { showTip("多文件对比示例，完整版请参考之前代码", false); };
     }
     
-    // ---------- 到货复核核心逻辑 ----------
-    let orderData = null;      // 订单数据 { cols, rows }
-    let arrivalData = null;    // 到货数据 { cols, rows }
-    let matchDetail = [];      // 详情：每条到货记录匹配到的订单信息列表 [{ arrivalRow, matchedOrders: [{customer, orderName}] }]
-    let summaryData = [];      // 汇总：{ customer, orderName, count }
+    // ---------- 到货复核核心逻辑 (修复排序一致性) ----------
+    let orderData = null, arrivalData = null;
+    let mappings = [];
+    let matchResult = [];           // 存储每笔到货的匹配订单列表（对象数组）
+    let orderCandidateStats = [];   // 候选订单统计
     
-    // 解析Excel通用
-    async function parseExcelFile(file) {
+    // 智能解析到货文件（跳过说明行）
+    async function parseArrivalFileSmart(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -217,13 +253,34 @@
                     const sheet = wb.Sheets[wb.SheetNames[0]];
                     const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                     if (!raw || raw.length < 2) reject("文件至少需要表头+数据");
-                    let rawHeaders = raw[0].map(cell => cell===undefined||cell===null?"":String(cell));
-                    let headers = rawHeaders.map((h,idx)=>(h.trim()||`列_${idx+1}`));
-                    let dataRows = raw.slice(1).filter(row => row.some(cell=>cell!==undefined&&cell!==null&&cell!==""));
+                    const keywords = ['包号', '条码', '书号', '书名', '出版社', '定价', '数量', '码洋', '批销折扣', '批销实洋'];
+                    let headerRowIndex = -1;
+                    for (let i = 0; i < Math.min(raw.length, 50); i++) {
+                        const row = raw[i];
+                        if (!row || row.length === 0) continue;
+                        const rowStr = row.map(cell => String(cell||"").toLowerCase()).join(' ');
+                        let matchCount = 0;
+                        for (let kw of keywords) if (rowStr.includes(kw.toLowerCase())) matchCount++;
+                        if (matchCount >= 2) { headerRowIndex = i; break; }
+                    }
+                    if (headerRowIndex === -1) headerRowIndex = 0;
+                    let rawHeaders = raw[headerRowIndex].map(cell => cell===undefined||cell===null?"":String(cell).trim());
+                    let headers = [];
+                    const headerCount = {};
+                    for (let h of rawHeaders) {
+                        let base = (h && h.trim() !== "") ? h.trim() : `列_${headers.length+1}`;
+                        let final = base;
+                        let count = headerCount[base] || 0;
+                        if (count > 0) final = `${base}_${count}`;
+                        headerCount[base] = count + 1;
+                        headers.push(final);
+                    }
+                    let dataRows = raw.slice(headerRowIndex+1).filter(row => row.some(cell=>cell!==undefined && cell!==null && cell!==""));
                     const normalized = dataRows.map(row => {
                         const obj = {};
                         headers.forEach((h, idx) => {
-                            obj[h] = (idx < row.length && row[idx] !== undefined && row[idx] !== null) ? String(row[idx]) : "";
+                            let val = (idx < row.length && row[idx] !== undefined && row[idx] !== null) ? String(row[idx]) : "";
+                            obj[h] = val;
                         });
                         return obj;
                     });
@@ -235,155 +292,284 @@
         });
     }
     
-    function detectIsbnField(cols) {
-        const lower = cols.map(c=>c.toLowerCase());
-        for(let i=0;i<cols.length;i++) if(lower[i].includes('isbn') || lower[i].includes('书号')) return cols[i];
-        return null;
+    async function parseOrderFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    if (!raw || raw.length < 2) reject("文件至少需要表头+数据");
+                    let rawHeaders = raw[0].map(cell => cell===undefined||cell===null?"":String(cell).trim());
+                    let headers = [];
+                    const headerCount = {};
+                    for (let h of rawHeaders) {
+                        let base = (h && h.trim() !== "") ? h.trim() : `列_${headers.length+1}`;
+                        let final = base;
+                        let count = headerCount[base] || 0;
+                        if (count > 0) final = `${base}_${count}`;
+                        headerCount[base] = count + 1;
+                        headers.push(final);
+                    }
+                    let dataRows = raw.slice(1).filter(row => row.some(cell=>cell!==undefined && cell!==null && cell!==""));
+                    const normalized = dataRows.map(row => {
+                        const obj = {};
+                        headers.forEach((h, idx) => {
+                            let val = (idx < row.length && row[idx] !== undefined && row[idx] !== null) ? String(row[idx]) : "";
+                            obj[h] = val;
+                        });
+                        return obj;
+                    });
+                    resolve({ cols: headers, rows: normalized, fileName: file.name });
+                } catch(err) { reject(err.message); }
+            };
+            reader.onerror = () => reject("读取失败");
+            reader.readAsArrayBuffer(file);
+        });
     }
     
     function updateCustomerFilter() {
         if(!orderData) return;
-        // 固定列名：客户名称
-        const custField = "客户名称";
-        if(!orderData.cols.includes(custField)) { 
-            document.getElementById('customerFilterSelect').innerHTML = '<option value="">— 未找到"客户名称"列 —</option>'; 
-            return; 
-        }
+        const custField = '客户名称';
+        if(!orderData.cols.includes(custField)) { document.getElementById('customerFilterSelect').innerHTML = '<option value="">— 无客户字段 —</option>'; return; }
         const customers = [...new Set(orderData.rows.map(r => r[custField]).filter(v=>v && v.trim()))];
         let html = '<option value="">— 全部客户 —</option>';
         customers.forEach(c => { html += `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`; });
         document.getElementById('customerFilterSelect').innerHTML = html;
     }
     
-    function performMatch() {
+    function refreshFieldSelects() {
+        const orderCols = orderData ? orderData.cols : [];
+        const arrivalCols = arrivalData ? arrivalData.cols : [];
+        const orderOptions = orderCols.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+        const arrivalOptions = arrivalCols.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+        document.getElementById('orderFieldSelect').innerHTML = orderOptions || '<option value="">—无字段—</option>';
+        document.getElementById('arrivalFieldSelect').innerHTML = arrivalOptions || '<option value="">—无字段—</option>';
+    }
+    
+    function renderMappings() {
+        const container = document.getElementById('mappingTagsContainer');
+        if(!container) return;
+        if(mappings.length === 0){
+            container.innerHTML = '<span style="color:#8ba0bc; font-size:0.7rem;">暂无映射，请添加至少一组（书号匹配）</span>';
+            return;
+        }
+        let html = '';
+        mappings.forEach((m, idx) => {
+            html += `<div class="tag">${escapeHtml(m.orderField)} ➔ ${escapeHtml(m.arrivalField)} <button data-idx="${idx}" class="removeMappingBtn">✖</button></div>`;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.removeMappingBtn').forEach(btn => {
+            btn.onclick = (e) => {
+                let idx = parseInt(btn.dataset.idx);
+                if(!isNaN(idx)) { mappings.splice(idx,1); renderMappings(); }
+            };
+        });
+    }
+    
+    function addMapping() {
+        const orderField = document.getElementById('orderFieldSelect').value;
+        const arrivalField = document.getElementById('arrivalFieldSelect').value;
+        if(!orderField || !arrivalField){ showTip("请完整选择字段对"); return; }
+        if(mappings.some(m => m.orderField === orderField && m.arrivalField === arrivalField)){
+            showTip("该映射已存在"); return;
+        }
+        mappings.push({ orderField, arrivalField });
+        renderMappings();
+    }
+    
+    // 核心匹配与统计分析
+    async function performMatchAndAnalyze() {
         if(!orderData || !arrivalData){
             showTip("请先上传订单文件和到货文件");
             return;
         }
-        // 检查订单表是否包含必需列
-        const requiredCols = ["书号", "客户名称", "馆配需求单名称"];
-        for(let col of requiredCols){
-            if(!orderData.cols.includes(col)){
-                showTip(`订单文件缺少必需列：${col}`);
-                return;
-            }
-        }
-        const isbnFieldArrival = detectIsbnField(arrivalData.cols);
-        if(!isbnFieldArrival){
-            showTip("到货文件中未检测到书号字段");
+        if(mappings.length === 0){
+            showTip("请至少添加一组字段映射");
             return;
         }
         const selectedCustomer = document.getElementById('customerFilterSelect').value;
-        // 构建订单索引 Map<isbn, Array<{customer, orderName}>>
+        const custField = '客户名称';
+        const orderNoField = '馆配需求单名称';
+        if(!orderData.cols.includes(custField)){ showTip("订单文件中缺少“客户名称”列"); return; }
+        if(!orderData.cols.includes(orderNoField)){ showTip("订单文件中缺少“馆配需求单名称”列"); return; }
+        
+        // 构建订单索引
         const orderMap = new Map();
         for(let row of orderData.rows){
-            let isbn = String(row["书号"]||"").trim();
-            if(!isbn) continue;
-            let customer = String(row["客户名称"]||"").trim();
-            let orderName = String(row["馆配需求单名称"]||"").trim();
-            if(selectedCustomer && customer !== selectedCustomer) continue;
-            if(!orderMap.has(isbn)) orderMap.set(isbn, []);
-            orderMap.get(isbn).push({ customer, orderName });
+            let keys = mappings.map(m => String(row[m.orderField]||"").trim());
+            if(keys.some(k => k === "")) continue;
+            let compositeKey = keys.join('|');
+            if(!orderMap.has(compositeKey)) orderMap.set(compositeKey, []);
+            let cust = row[custField] || "";
+            let orderNo = row[orderNoField] || "";
+            if(selectedCustomer && cust !== selectedCustomer) continue;
+            orderMap.get(compositeKey).push({ customer: cust, orderNo: orderNo });
         }
         
-        matchDetail = [];
-        const summaryCount = new Map(); // key: "客户|订单名称" => count
-        
+        // 统计每个候选订单出现的次数
+        const orderCountMap = new Map(); // key: "客户|订单号", value: count
+        matchResult = [];
         for(let row of arrivalData.rows){
-            let isbn = String(row[isbnFieldArrival]||"").trim();
-            let matchedOrders = [];
-            if(isbn && orderMap.has(isbn)){
-                matchedOrders = orderMap.get(isbn);
-                for(let ord of matchedOrders){
-                    let key = `${ord.customer}|${ord.orderName}`;
-                    summaryCount.set(key, (summaryCount.get(key)||0) + 1);
-                }
+            let keys = mappings.map(m => String(row[m.arrivalField]||"").trim());
+            if(keys.some(k => k === "")){
+                matchResult.push({ arrivalRow: row, matchedOrders: [] });
+                continue;
             }
-            matchDetail.push({ arrivalRow: row, matchedOrders });
+            let compositeKey = keys.join('|');
+            let orders = orderMap.get(compositeKey) || [];
+            matchResult.push({ arrivalRow: row, matchedOrders: orders.slice() });
+            for(let ord of orders){
+                let key = `${ord.customer}|${ord.orderNo}`;
+                orderCountMap.set(key, (orderCountMap.get(key)||0) + 1);
+            }
         }
         
-        // 构建汇总列表
-        summaryData = [];
-        for(let [key, count] of summaryCount.entries()){
-            let [customer, orderName] = key.split('|');
-            summaryData.push({ customer, orderName, count });
+        // 计算候选订单统计并排序
+        let totalEntries = arrivalData.rows.length;
+        let candidates = [];
+        for(let [key, count] of orderCountMap.entries()){
+            let [customer, orderNo] = key.split('|');
+            candidates.push({ customer, orderNo, count, confidence: (count / totalEntries * 100).toFixed(1) });
         }
-        summaryData.sort((a,b)=>a.customer.localeCompare(b.customer) || a.orderName.localeCompare(b.orderName));
+        candidates.sort((a,b) => b.count - a.count);
+        orderCandidateStats = candidates;
         
-        renderSummary();
-        const totalArrivals = arrivalData.rows.length;
-        const matchedArrivals = matchDetail.filter(d => d.matchedOrders.length > 0).length;
-        document.getElementById('matchStats').innerHTML = `📊 到货总数: ${totalArrivals} | ✅ 匹配到订单的到货行数: ${matchedArrivals} | ❌ 未匹配行数: ${totalArrivals - matchedArrivals}`;
+        // 渲染分析表格
+        const analysisWrapper = document.getElementById('analysisWrapper');
+        const analysisTbody = document.querySelector('#analysisTable tbody');
+        if(candidates.length > 0){
+            analysisWrapper.style.display = 'flex';
+            analysisTbody.innerHTML = '';
+            candidates.forEach((c, idx) => {
+                let row = `<tr><td style="text-align:center">${idx+1}</td><td>${escapeHtml(c.customer)}</td><td>${escapeHtml(c.orderNo)}</td><td style="text-align:center">${c.count}</td><td style="text-align:center">${c.confidence}%</td></tr>`;
+                analysisTbody.innerHTML += row;
+            });
+        } else {
+            analysisWrapper.style.display = 'none';
+        }
+        
+        // 渲染匹配详情（按全局count排序）
+        renderMatchResultWithRanking();
+        
+        let matchedCount = matchResult.filter(r => r.matchedOrders.length > 0).length;
+        let unmatchedCount = totalEntries - matchedCount;
+        document.getElementById('matchStats').innerHTML = `📊 到货总数: ${totalEntries} | ✅ 匹配到至少一个订单: ${matchedCount} | ❌ 完全未匹配: ${unmatchedCount} | 🏆 最可能订单: ${candidates.length>0 ? candidates[0].customer+' '+candidates[0].orderNo : '无'}`;
         document.getElementById('exportMatchBtn').disabled = false;
-        showTip(`匹配完成，共匹配到 ${summaryData.length} 个不同的订单`, false);
     }
     
-    function renderSummary() {
-        const thead = document.getElementById('summaryThead');
-        const tbody = document.getElementById('summaryTbody');
-        thead.innerHTML = '<tr><th>客户名称</th><th>馆配需求单名称</th><th>匹配到货数量</th></tr>';
-        if(summaryData.length === 0){
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">暂无匹配结果</td></tr>';
-            return;
-        }
+    function renderMatchResultWithRanking() {
+        const thead = document.getElementById('matchThead');
+        const tbody = document.getElementById('matchTbody');
+        if(!arrivalData) return;
+        const arrivalCols = arrivalData.cols;
+        const headers = [...arrivalCols, "匹配到的订单 (按可能性排序: 客户+馆配需求单名称)"];
+        thead.innerHTML = '<tr>'+headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr>';
         let html = '';
-        for(let item of summaryData){
-            html += `<tr><td>${escapeHtml(item.customer)}</td><td>${escapeHtml(item.orderName)}</td><td>${item.count}</td></tr>`;
+        // 构建快速查找 map
+        const orderCountMap = new Map();
+        for(let c of orderCandidateStats){
+            let key = `${c.customer}|${c.orderNo}`;
+            orderCountMap.set(key, c.count);
+        }
+        for(let item of matchResult){
+            let row = item.arrivalRow;
+            let cells = arrivalCols.map(c => `<td>${escapeHtml(row[c]||'')}</td>`);
+            let sortedOrders = item.matchedOrders.slice();
+            sortedOrders.sort((a,b) => {
+                let keyA = `${a.customer}|${a.orderNo}`;
+                let keyB = `${b.customer}|${b.orderNo}`;
+                let countA = orderCountMap.get(keyA) || 0;
+                let countB = orderCountMap.get(keyB) || 0;
+                if(countA !== countB) return countB - countA;
+                return (a.orderNo).localeCompare(b.orderNo);
+            });
+            let orderText = sortedOrders.map(o => `${o.customer} ${o.orderNo}`).join("\n");
+            let matchCell = `<td class="matched-orders" style="white-space:pre-line;">${escapeHtml(orderText || "无匹配")}</td>`;
+            html += '<tr>'+cells.join('')+matchCell+'</tr>';
         }
         tbody.innerHTML = html;
     }
     
     function exportMatchResult() {
-        if(!arrivalData || matchDetail.length === 0){
+        if(!arrivalData || matchResult.length===0){
             showTip("无匹配结果可导出");
             return;
         }
         const wb = XLSX.utils.book_new();
-        
-        // Sheet1: 匹配详情
         const arrivalCols = arrivalData.cols;
-        const detailHeaders = [...arrivalCols, "匹配到的订单 (客户名称 + 馆配需求单名称)"];
-        const detailRows = [];
-        for(let item of matchDetail){
-            let rowVals = arrivalCols.map(c => item.arrivalRow[c]||"");
-            let matchedText = item.matchedOrders.map(o => `${o.customer} ${o.orderName}`).join("\n") || "未匹配";
-            detailRows.push([...rowVals, matchedText]);
+        // Sheet1: 详情 (订单按全局count排序)
+        const headers = [...arrivalCols, "匹配到的订单 (按可能性排序)"];
+        const detailData = [headers];
+        const orderCountMap = new Map();
+        for(let c of orderCandidateStats){
+            let key = `${c.customer}|${c.orderNo}`;
+            orderCountMap.set(key, c.count);
         }
-        const detailSheetData = [detailHeaders, ...detailRows];
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailSheetData), "匹配详情");
-        
-        // Sheet2: 匹配汇总
-        const summaryHeaders = ["客户名称", "馆配需求单名称", "匹配到货数量"];
-        const summaryRows = summaryData.map(s => [s.customer, s.orderName, s.count]);
-        const summarySheetData = [summaryHeaders, ...summaryRows];
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summarySheetData), "匹配汇总");
-        
-        XLSX.writeFile(wb, `到货匹配结果_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.xlsx`);
+        for(let item of matchResult){
+            let row = item.arrivalRow;
+            let rowVals = arrivalCols.map(c => row[c]||"");
+            let sortedOrders = item.matchedOrders.slice();
+            sortedOrders.sort((a,b) => {
+                let keyA = `${a.customer}|${a.orderNo}`;
+                let keyB = `${b.customer}|${b.orderNo}`;
+                let countA = orderCountMap.get(keyA) || 0;
+                let countB = orderCountMap.get(keyB) || 0;
+                if(countA !== countB) return countB - countA;
+                return (a.orderNo).localeCompare(b.orderNo);
+            });
+            let ordersText = sortedOrders.map(o => `${o.customer} ${o.orderNo}`).join("\n");
+            rowVals.push(ordersText);
+            detailData.push(rowVals);
+        }
+        const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
+        XLSX.utils.book_append_sheet(wb, wsDetail, "匹配详情");
+        // Sheet2: 订单归属分析 (已排序)
+        const summaryData = [["客户名称", "馆配需求单名称", "匹配条目数", "置信度"]];
+        for(let c of orderCandidateStats){
+            summaryData.push([c.customer, c.orderNo, c.count, c.confidence+"%"]);
+        }
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, wsSummary, "订单归属分析");
+        XLSX.writeFile(wb, `到货匹配分析_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.xlsx`);
         showTip("导出成功", false);
     }
     
     function initArrival() {
-        document.getElementById('uploadOrderBtn').onclick = () => document.getElementById('orderFileInput').click();
-        document.getElementById('uploadArrivalBtn').onclick = () => document.getElementById('arrivalFileInput').click();
-        document.getElementById('orderFileInput').onchange = async (e) => {
+        const orderFileInput = document.getElementById('orderFileInput');
+        const uploadOrderBtn = document.getElementById('uploadOrderBtn');
+        uploadOrderBtn.onclick = () => orderFileInput.click();
+        orderFileInput.onchange = async (e) => {
             if(e.target.files[0]){
                 try{
-                    orderData = await parseExcelFile(e.target.files[0]);
-                    document.getElementById('orderFileStatus').innerHTML = `✅ ${orderData.fileName} (${orderData.rows.length}行)`;
+                    orderData = await parseOrderFile(e.target.files[0]);
+                    document.getElementById('orderFileStatus').innerHTML = `✅ ${orderData.fileName} (${orderData.rows.length}行) <span style="cursor:pointer; color:#b91c1c;" id="clearOrderStatusBtn">🗑 清空</span>`;
+                    document.getElementById('clearOrderStatusBtn').onclick = () => { orderData = null; document.getElementById('orderFileStatus').innerHTML = '未加载'; orderFileInput.value = ''; refreshFieldSelects(); };
                     updateCustomerFilter();
+                    refreshFieldSelects();
                 } catch(err){ showTip(`订单文件加载失败: ${err}`); }
             }
         };
-        document.getElementById('arrivalFileInput').onchange = async (e) => {
+        const arrivalFileInput = document.getElementById('arrivalFileInput');
+        const uploadArrivalBtn = document.getElementById('uploadArrivalBtn');
+        uploadArrivalBtn.onclick = () => arrivalFileInput.click();
+        arrivalFileInput.onchange = async (e) => {
             if(e.target.files[0]){
                 try{
-                    arrivalData = await parseExcelFile(e.target.files[0]);
-                    document.getElementById('arrivalFileStatus').innerHTML = `✅ ${arrivalData.fileName} (${arrivalData.rows.length}行)`;
+                    arrivalData = await parseArrivalFileSmart(e.target.files[0]);
+                    document.getElementById('arrivalFileStatus').innerHTML = `✅ ${arrivalData.fileName} (${arrivalData.rows.length}行) <span style="cursor:pointer; color:#b91c1c;" id="clearArrivalStatusBtn">🗑 清空</span>`;
+                    document.getElementById('clearArrivalStatusBtn').onclick = () => { arrivalData = null; document.getElementById('arrivalFileStatus').innerHTML = '未加载'; arrivalFileInput.value = ''; refreshFieldSelects(); };
+                    refreshFieldSelects();
                 } catch(err){ showTip(`到货文件加载失败: ${err}`); }
             }
         };
-        document.getElementById('matchBtn').onclick = performMatch;
+        document.getElementById('addMappingBtn').onclick = addMapping;
+        document.getElementById('matchBtn').onclick = performMatchAndAnalyze;
         document.getElementById('exportMatchBtn').onclick = exportMatchResult;
+        refreshFieldSelects();
+        renderMappings();
     }
     
     // 模式切换
@@ -406,14 +592,13 @@
             modeTipSpan.innerText = '多文件对比模式：基准文件 + 多个被对比文件，独立配置组合主键和对比字段';
         } else if(mode === 'arrival'){
             arrivalPanel.classList.remove('panel-hidden');
-            modeTipSpan.innerText = '到货复核模式：上传订单和到货文件，根据书号匹配订单，显示客户+馆配需求单名称汇总';
+            modeTipSpan.innerText = '到货复核模式：上传订单和到货文件，自定义字段映射，分析整批到货最可能的订单归属';
         }
     }
     radioNormal.onchange = () => switchMode('normal');
     radioCompare.onchange = () => switchMode('compare');
     radioArrival.onchange = () => switchMode('arrival');
     
-    // 搜索框全选功能
     function enhanceSearchBox() {
         const searchInput = document.getElementById('searchKeywordInput');
         if(!searchInput) return;
