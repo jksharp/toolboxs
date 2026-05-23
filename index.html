@@ -97,7 +97,8 @@ const DEFAULT_TOOLS = [
 ];
 
 async function load() {
-    let list = DEFAULT_TOOLS;
+    //let list = DEFAULT_TOOLS;
+	let list = '';
     try {
         const r = await fetch('/api/tools', { signal: AbortSignal.timeout(3000) });
         if (r.ok) {
