@@ -1,0 +1,14 @@
+// Cloudflare Pages Functions 对接KV的接口
+export async function onRequestGet(context) {
+    const { MY_KV } = context.env;
+    const data = await MY_KV.get("dynamic_tools_list");
+    const list = data ? JSON.parse(data) : [];
+    return Response.json(list);
+}
+
+export async function onRequestPut(context) {
+    const { MY_KV } = context.env;
+    const toolsList = await context.request.json();
+    await MY_KV.put("dynamic_tools_list", JSON.stringify(toolsList));
+    return Response.json({ success: true });
+}
