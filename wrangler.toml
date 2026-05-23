@@ -1,7 +1,8 @@
 name = "toolboxs"
+compatibility_date = "2026-05-23"
 pages_build_output_dir = "./"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "perf-db"
-database_id = "你刚才得到的database_id"
+[[kv_namespaces]]
+binding = "MY_KV"
+id = "b4e04b3f55904a018aec459dd412cd05"
+preview_id = "b4e04b3f55904a018aec459dd412cd05"

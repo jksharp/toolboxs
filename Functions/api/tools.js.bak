@@ -1,0 +1,12 @@
+export async function onRequestGet(context) {
+  const { MY_KV } = context.env;
+  const data = await MY_KV.get("dynamic_tools_list");
+  return Response.json(data ? JSON.parse(data) : []);
+}
+
+export async function onRequestPut(context) {
+  const { MY_KV } = context.env;
+  const list = await context.request.json();
+  await MY_KV.put("dynamic_tools_list", JSON.stringify(list));
+  return Response.json({ success: true });
+}
