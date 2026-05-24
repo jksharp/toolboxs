@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>武汉市新华书店 · 页面管理</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+      font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+      padding: 2rem;
+      position: relative;
+    }
+    .orb {
+      position: fixed;
+      width: 60vmax;
+      height: 60vmax;
+      border-radius: 50%;
+      filter: blur(80px);
+      animation: float 20s infinite alternate ease-in-out;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb1 { top: -20vh; left: -20vw; background: radial-gradient(circle, rgba(0,200,255,0.2), transparent 80%); }
+    .orb2 { bottom: -30vh; right: -10vw; width: 70vmax; height: 70vmax; background: radial-gradient(circle, rgba(150,0,255,0.15), transparent 70%); animation-duration: 25s; }
+    @keyframes float {
+      0% { transform: translate(0,0) scale(1); opacity: 0.6; }
+      100% { transform: translate(5%,5%) scale(1.1); opacity: 0.9; }
+    }
+    .container { position: relative; z-index: 2; max-width: 1400px; margin: 0 auto; }
+    .hero { text-align: center; margin-bottom: 3rem; }
+    .hero h1 { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #FFF, #A0D8FF, #7AA2F7); background-clip: text; -webkit-background-clip: text; color: transparent; }
+    .hero p { color: #9aaec7; font-size: 1rem; margin-top: 0.5rem; }
+    .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.8rem; margin-bottom: 2rem; }
+    .action-btn {
+      background: rgba(20,30,50,0.8); backdrop-filter: blur(8px);
+      border: 1px solid rgba(0,180,255,0.5); border-radius: 40px;
+      padding: 0.5rem 1.2rem; font-size: 0.8rem; font-weight: 500;
+      color: #cae9ff; cursor: pointer; transition: 0.2s;
+    }
+    .action-btn:hover { background: rgba(0,140,230,0.3); border-color: cyan; transform: translateY(-2px); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem; margin: 2rem 0; }
+    .card {
+      background: rgba(20,28,40,0.65); backdrop-filter: blur(12px);
+      border-radius: 2rem; border: 1px solid rgba(72,187,255,0.3);
+      padding: 1.5rem; transition: 0.3s; cursor: pointer;
+    }
+    .card:hover { transform: translateY(-6px); border-color: #00b4ff; }
+    .icon { font-size: 3rem; margin-bottom: 0.8rem; }
+    .card h3 { font-size: 1.4rem; color: #eef5ff; margin-bottom: 0.5rem; }
+    .card p { color: #b9c8f0; font-size: 0.85rem; flex: 1; margin-bottom: 1rem; }
+    .badge { background: rgba(0,180,255,0.2); border-radius: 40px; padding: 0.2rem 1rem; font-size: 0.7rem; color: #7bc5ff; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
+    .page-num { background: rgba(100,181,246,0.15); border-radius: 40px; padding: 0.1rem 0.8rem; font-size: 0.65rem; color: #90caf9; margin-right: 0.5rem; }
+    .btn-launch { background: rgba(255,255,255,0.08); border: 1px solid rgba(0,212,255,0.5); color: #cae9ff; padding: 0.3rem 1rem; border-radius: 40px; font-size: 0.75rem; cursor: pointer; }
+    .btn-edit,.btn-delete, .btn-share, .btn-download { background: none; border: none; color: #a0b8d4; font-size: 0.7rem; cursor: pointer; margin-left: 8px; }
+    .btn-edit:hover { color: #ffb347; }
+    .btn-delete:hover { color: #ff6b6b; }
+    .btn-share:hover { color: #4cd137; }
+    .btn-download:hover { color: #00d2d3; }
+    .edit-panel {
+      background: rgba(12,18,28,0.95); backdrop-filter: blur(16px);
+      border-radius: 2rem; padding: 1.5rem; margin-top: 1rem;
+      border: 1px solid rgba(0,200,255,0.5);
+    }
+    .form-title { color: #b3e4ff; font-size: 0.9rem; margin-bottom: 1rem; display: flex; justify-content: space-between; }
+    .edit-status { background: #0a1a2c; border-radius: 30px; padding: 0.2rem 0.8rem; font-size: 0.7rem; color: #2dd4ff; }
+    .form-grid { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+    .field { flex: 1; min-width: 160px; }
+    .field label { display: block; font-size: 0.7rem; color: #8db2e0; margin-bottom: 4px; }
+    .field input,.field textarea { width: 100%; background: #111722; border: 1px solid #2a3a5a; border-radius: 2rem; padding: 0.6rem 1rem; color: white; font-size: 0.85rem; }
+    .field textarea { border-radius: 1.2rem; resize: vertical; min-height: 80px; }
+    .html-area { min-height: 200px !important; }
+    .form-actions { display: flex; gap: 0.8rem; margin-top: 1rem; }
+    .primary-btn { background: #2b4c7c; border: none; border-radius: 2rem; padding: 0.6rem 1.4rem; color: white; cursor: pointer; font-weight: bold; }
+    .primary-btn:hover { background: #1e6ab3; }
+    .secondary-btn { background: rgba(50,70,100,0.7); border: 1px solid #4f7aa6; border-radius: 2rem; padding: 0.6rem 1.2rem; color: #d6ecff; cursor: pointer; }
+    .footer-note { text-align: center; color: #62748c; border-top: 1px solid rgba(72,120,184,0.3); padding-top: 2rem; margin-top: 1rem; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+<div class="orb orb1"></div><div class="orb orb2"></div>
+<div class="container">
+  <div class="hero">
+    <h1>📚 武汉市新华书店 · 页面管理</h1>
+    <p>ID 从 1001 开始自增 | 访问链接：/tool1001 | ID 不可重复</p>
+  </div>
+
+  <div class="toolbar">
+    <button class="action-btn" id="refreshBtn">🔄 刷新列表</button>
+    <button class="action-btn" id="clearAllBtn">🗑️ 清空所有页面</button>
+    <button class="action-btn" id="viewBtn">👁️ 纯浏览模式</button>
+    <button class="action-btn" id="genIdBtn">🔢 生成新ID</button>
+  </div>
+
+  <div class="grid" id="pageGrid"></div>
+
+  <div class="edit-panel">
+    <div class="form-title">
+      <span>✏️ 页面配置面板</span>
+      <span class="edit-status" id="editStatus">新增页面</span>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>页面ID（1001/1002…自动生成）</label>
+        <input id="pageId" placeholder="点击生成新ID，格式：1001、1002...">
+      </div>
+      <div class="field">
+        <label>页面名称</label>
+        <input id="pageName" placeholder="例如：英语300句">
+      </div>
+      <div class="field">
+        <label>图标 Emoji</label>
+        <input id="pageIcon" value="📄">
+      </div>
+      <div class="field">
+        <label>页面简短描述（备注）</label>
+        <input id="pageDesc" placeholder="选填，说明页面用途">
+      </div>
+      <div class="field" style="min-width:100%">
+        <label>完整页面 HTML 代码</label>
+        <textarea id="pageHtml" class="html-area"></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="primary-btn" id="saveBtn">💾 保存页面</button>
+      <button class="secondary-btn" id="clearBtn">🧹 清空表单</button>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    💡 保存后访问地址：/tool[ID] 例：/tool1001 | ID重复将禁止保存
+  </div>
+</div>
+
+<script>
+const API = "/api-pages";
+let editingId = null;
+const BASE_URL = location.origin;
+
+// ==============================================
+// 【核心】获取所有已存在的 ID（用于重复校验）
+// ==============================================
+async function getAllIds() {
+  try {
+    const res = await fetch(API);
+    const list = await res.json();
+    return list.map(i => i.id).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+// ==============================================
+// 【核心】自动生成 最大ID + 1
+// ==============================================
+async function generateNewId() {
+  const ids = await getAllIds();
+  if (ids.length === 0) {
+    document.getElementById("pageId").value = "1001";
+    return;
+  }
+  const max = Math.max(...ids.map(x => parseInt(x) || 0));
+  document.getElementById("pageId").value = (max + 1).toString();
+}
+
+// ==============================================
+// 分享 / 下载
+// ==============================================
+function sharePage(id) {
+  const u = `${BASE_URL}/tool${id}`;
+  navigator.clipboard.writeText(u).then(() => alert("✅ 链接已复制：" + u));
+}
+async function downloadPage(id, name) {
+  const html = await fetch(`/tool${id}`).then(r => r.text());
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+  a.download = `${name}_${id}.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  alert("✅ 下载完成");
+}
+
+// ==============================================
+// 加载列表
+// ==============================================
+async function loadPages() {
+  const g = document.getElementById("pageGrid");
+  g.innerHTML = "<div style='padding:2rem;text-align:center;color:#8aa9cc'>⌛ 加载中...</div>";
+  const list = await fetch(API).then(r => r.json());
+  if (!list || list.length === 0) {
+    g.innerHTML = `<div style='padding:3rem;text-align:center;color:#8aa9cc'>📭 暂无页面</div>`;
+    return;
+  }
+  g.innerHTML = list.map(item => `
+    <div class="card" onclick="window.open('/tool${item.id}','_blank')">
+      <div class="icon">${item.icon}</div>
+      <h3>${item.name} <span class="page-num">${item.id}</span></h3>
+      <p>${item.desc || '无描述'}</p>
+      <div class="card-footer">
+        <span class="badge">页面</span>
+        <div>
+          <button class="btn-edit" onclick="event.stopPropagation();edit('${item.id}')">✏️ 编辑</button>
+          <button class="btn-delete" onclick="event.stopPropagation();del('${item.id}')">🗑️ 删除</button>
+          <button class="btn-share" onclick="event.stopPropagation();sharePage('${item.id}')">📤 分享</button>
+          <button class="btn-download" onclick="event.stopPropagation();downloadPage('${item.id}','${item.name}')">📥 下载</button>
+          <button class="btn-launch" onclick="event.stopPropagation();window.open('/tool${item.id}','_blank')">🚀 打开</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ==============================================
+// 保存（带重复ID校验）
+// ==============================================
+async function save() {
+  const id = document.getElementById("pageId").value.trim();
+  const name = document.getElementById("pageName").value.trim();
+  const icon = document.getElementById("pageIcon").value.trim();
+  const desc = document.getElementById("pageDesc").value.trim();
+  const html = document.getElementById("pageHtml").value.trim();
+
+  if (!id || !name || !html) {
+    alert("❌ 必选项不能为空");
+    return;
+  }
+
+  // 重复校验：新增时才检查
+  const ids = await getAllIds();
+  if (editingId === null && ids.includes(id)) {
+    alert(`❌ ID【${id}】已存在！`);
+    return;
+  }
+
+  await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, name, icon, desc, html, overwrite: true })
+  });
+
+  alert("✅ 保存成功！");
+  clearForm();
+  loadPages();
+}
+
+// ==============================================
+// 编辑（ID 设为只读，禁止修改）
+// ==============================================
+async function edit(id) {
+  editingId = id;
+  const list = await fetch(API).then(r => r.json());
+  const item = list.find(i => i.id === id);
+  const html = await fetch(`/tool${id}`).then(r => r.text());
+
+  document.getElementById("pageId").value = item.id;
+  document.getElementById("pageId").readOnly = true;        // 🔴 只读
+  document.getElementById("pageId").style.background = "#222";
+  document.getElementById("pageName").value = item.name;
+  document.getElementById("pageIcon").value = item.icon;
+  document.getElementById("pageDesc").value = item.desc || "";
+  document.getElementById("pageHtml").value = html;
+  document.getElementById("editStatus").textContent = "编辑页面";
+  document.getElementById("saveBtn").textContent = "💾 更新页面";
+}
+
+// ==============================================
+// 删除 / 清空
+// ==============================================
+async function del(id) {
+  if (!confirm("确定删除？")) return;
+  await fetch(API, { method: "DELETE", body: JSON.stringify({ id }) });
+  loadPages();
+}
+function clearForm() {
+  editingId = null;
+  document.getElementById("pageId").value = "";
+  document.getElementById("pageId").readOnly = false;     // 🔴 取消只读
+  document.getElementById("pageId").style.background = "#111722";
+  document.getElementById("pageName").value = "";
+  document.getElementById("pageIcon").value = "📄";
+  document.getElementById("pageDesc").value = "";
+  document.getElementById("pageHtml").value = "";
+  document.getElementById("editStatus").textContent = "新增页面";
+  document.getElementById("saveBtn").textContent = "💾 保存页面";
+  generateNewId(); // 清空后自动填新ID
+}
+
+// ==============================================
+// 绑定事件
+// ==============================================
+document.getElementById("saveBtn").onclick = save;
+document.getElementById("clearBtn").onclick = clearForm;
+document.getElementById("refreshBtn").onclick = loadPages;
+document.getElementById("viewBtn").onclick = () => window.open("/view.html", "_blank");
+document.getElementById("genIdBtn").onclick = generateNewId;
+document.getElementById("clearAllBtn").onclick = async () => {
+  if (!confirm("确定清空所有？不可恢复！")) return;
+  const list = await fetch(API).then(r => r.json());
+  for (const i of list) await fetch(API, { method: "DELETE", body: JSON.stringify({ id: i.id }) });
+  loadPages();
+};
+
+// 页面打开自动生成新ID
+window.onload = () => { generateNewId(); loadPages(); };
+</script>
+</body>
+</html>

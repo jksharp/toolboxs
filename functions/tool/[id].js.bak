@@ -1,0 +1,10 @@
+export async function onRequestGet(context) {
+  try {
+    const { MY_KV } = context.env;
+    const html = await MY_KV.get(`page-${context.params.id}`);
+    if (!html) return new Response("not found", { status: 404 });
+    return new Response(html, { headers: { "Content-Type": "text/html;charset=utf-8" } });
+  } catch (e) {
+    return new Response("error", { status: 500 });
+  }
+}

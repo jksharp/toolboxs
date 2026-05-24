@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>武汉市新华书店 · 工具箱（浏览版）</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      padding: 2rem;
+    }
+    .container { 
+      position: relative; 
+      z-index: 2; 
+      max-width: 1400px; 
+      margin: 0 auto; 
+    }
+    .hero { text-align: center; margin-bottom: 3rem; }
+    .hero h1 { 
+      font-size: 2.5rem; 
+      font-weight: 800; 
+      background: linear-gradient(135deg, #FFFFFF, #A0D8FF); 
+      background-clip: text; 
+      -webkit-background-clip: text; 
+      color: transparent; 
+    }
+    .grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); 
+      gap: 2rem; 
+    }
+    .card {
+      background: rgba(20, 28, 40, 0.65);
+      backdrop-filter: blur(12px);
+      border-radius: 2rem;
+      border: 1px solid rgba(72, 187, 255, 0.3);
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .card:hover { 
+      transform: translateY(-6px); 
+      border-color: #00b4ff; 
+    }
+    .icon { 
+      font-size: 3rem; 
+      margin-bottom: 0.8rem; 
+    }
+    .card h3 { 
+      font-size: 1.4rem; 
+      color: #eef5ff; 
+      margin-bottom: 0.5rem; 
+    }
+    .page-num {
+      background: rgba(100, 181, 246, 0.15);
+      border-radius: 40px;
+      padding: 0.1rem 0.8rem;
+      font-size: 0.65rem;
+      color: #90caf9;
+      margin-left: 0.5rem;
+    }
+    .card p { 
+      color: #b9c8f0; 
+      font-size: 0.85rem; 
+      line-height: 1.5; 
+      margin-bottom: 1rem; 
+    }
+    .card-footer { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-top: 1rem;
+    }
+    .badge { 
+      background: rgba(0, 180, 255, 0.2); 
+      border-radius: 40px; 
+      padding: 0.2rem 1rem; 
+      font-size: 0.7rem; 
+      color: #7bc5ff; 
+    }
+    .tool-btn {
+      display: inline-block;
+      background: #0066ff;
+      color: white;
+      padding: 8px 14px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 14px;
+      margin-left: 8px;
+      cursor: pointer;
+      border: none;
+    }
+    .tool-btn:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>📚 武汉市新华书店 · 工具箱（浏览版）</h1>
+    </div>
+    <div class="grid" id="navList"></div>
+  </div>
+
+  <script>
+    const BASE_URL = location.origin;
+
+    // 分享功能
+    function shareTool(id) {
+      const link = `${BASE_URL}/tool${id}`;
+      navigator.clipboard.writeText(link).then(() => {
+        alert("✅ 链接已复制：" + link);
+      }).catch(() => {
+        alert("❌ 复制失败");
+      });
+    }
+
+    // 下载功能
+    async function downloadTool(id, name) {
+      const res = await fetch(`/tool${id}`);
+      const html = await res.text();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      a.download = `${name}_${id}.html`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // 加载页面
+    async function loadNav() {
+      const res = await fetch("/api-pages");
+      const list = await res.json();
+      const nav = document.getElementById("navList");
+
+      nav.innerHTML = list.map(item => `
+        <div class="card" onclick="window.open('/tool${item.id}','_blank')">
+          <div class="icon">${item.icon || '📄'}</div>
+          <h3>${item.name} <span class="page-num">${item.id}</span></h3>
+          <p>${item.desc || '无描述'}</p>
+          <div class="card-footer">
+            <span class="badge">页面</span>
+            <div>
+              <button class="tool-btn" onclick="event.stopPropagation();shareTool('${item.id}')">分享</button>
+              <button class="tool-btn" onclick="event.stopPropagation();downloadTool('${item.id}','${item.name}')">下载</button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    loadNav();
+  </script>
+</body>
+</html>

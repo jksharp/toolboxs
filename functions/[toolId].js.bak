@@ -1,0 +1,29 @@
+export async function onRequestGet(context) {
+  try {
+    const { MY_KV } = context.env;
+    const toolId = context.params.toolId;
+
+    // -----------------------
+    // 只处理 tool 开头的，其他【直接放过】，不拦截！
+    // -----------------------
+    if (!toolId.startsWith("tool")) {
+      // 👇 这里不 return 404！而是交给系统处理其他页面！
+      return context.next(); 
+    }
+
+    // 提取 ID：tool100 → 100
+    const realId = toolId.replace(/^tool/, "");
+    const html = await MY_KV.get(`page-${realId}`);
+
+    if (!html) {
+      return new Response("页面不存在", { status: 404 });
+    }
+
+    return new Response(html, {
+      headers: { "Content-Type": "text/html;charset=utf-8" }
+    });
+
+  } catch (e) {
+    return new Response("服务器错误", { status: 500 });
+  }
+}
