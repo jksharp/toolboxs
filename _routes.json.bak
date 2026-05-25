@@ -2,8 +2,7 @@
   "version": 1,
   "include": [
     "/tool*",
-    "/api-pages",
-    "/api/tools"
+    "/api-pages"
   ],
   "exclude": []
 }
