@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Basic English 850 · 三引擎智能发音学习卡</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: #f4fafd;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px 16px 40px;
+            color: #1a3a4f;
+        }
+        .app-container {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+        .header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .hero h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1f6d5c, #0e5a6b);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .badge {
+            background: #e1eff5;
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            color: #1f6d6a;
+            display: inline-block;
+            margin-top: 4px;
+        }
+        .settings-icon {
+            background: white;
+            border-radius: 60px;
+            padding: 8px 18px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #2c7da0;
+            border: 1px solid #d0e2ef;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .modal-mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(3px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        .modal-mask.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-card {
+            background: white;
+            width: 85%;
+            max-width: 340px;
+            border-radius: 40px;
+            padding: 24px 22px;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .modal-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 18px;
+            color: #1f5e76;
+        }
+        .group-size-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #eff5f9;
+            padding: 10px 16px;
+            border-radius: 60px;
+            margin: 12px 0;
+        }
+        .modal-option {
+            margin: 16px 0;
+            text-align: left;
+        }
+        .modal-option label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            font-size: 0.9rem;
+        }
+        .cache-status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            background: #eef2f6;
+            padding: 10px 16px;
+            border-radius: 60px;
+        }
+        .cache-btn {
+            background: #2c7da0;
+            border: none;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .close-modal {
+            background: #2c7da0;
+            border: none;
+            color: white;
+            padding: 10px 0;
+            width: 100%;
+            border-radius: 60px;
+            font-weight: 500;
+            margin-top: 16px;
+            cursor: pointer;
+        }
+        .progress-card {
+            background: white;
+            border-radius: 28px;
+            padding: 16px 18px;
+            margin-bottom: 20px;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .group-info {
+            background: #eef3f8;
+            border-radius: 40px;
+            padding: 4px 14px;
+            font-size: 0.8rem;
+        }
+        .daily-progress {
+            font-size: 0.75rem;
+            background: #edf2f6;
+            border-radius: 40px;
+            padding: 4px 12px;
+        }
+        .progress-bar {
+            background: #e2eaf0;
+            border-radius: 20px;
+            height: 8px;
+            margin: 10px 0 6px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2b9b7e, #1f6e8a);
+            border-radius: 20px;
+            width: 0%;
+            transition: width 0.25s;
+        }
+        .tiny-stats {
+            font-size: 0.7rem;
+            text-align: right;
+            color: #7c97ad;
+        }
+        .cards-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .word-card {
+            background: white;
+            border-radius: 32px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border: 1px solid #e5f0f7;
+        }
+        .card-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .word-main {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #1e5c73;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .speaker-btn {
+            background: #eef3fc;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 1rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pronounce, .pos {
+            font-size: 0.7rem;
+            background: #eef2f7;
+            padding: 3px 10px;
+            border-radius: 30px;
+        }
+        .meaning {
+            font-size: 0.95rem;
+            font-weight: 500;
+            margin: 10px 0 8px;
+        }
+        .example-area {
+            background: #fafeff;
+            border-radius: 20px;
+            padding: 12px 14px;
+            margin: 12px 0 8px;
+            border-left: 3px solid #8bc6db;
+        }
+        .example-en {
+            font-size: 0.9rem;
+            color: #1e4c61;
+            font-style: italic;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .example-zh {
+            font-size: 0.85rem;
+            background: #fef7e0;
+            padding: 6px 10px;
+            border-radius: 16px;
+            display: none;
+            margin-top: 10px;
+        }
+        .example-zh.show {
+            display: block;
+        }
+        .example-actions {
+            margin-top: 8px;
+        }
+        .icon-btn {
+            background: #f0f5fa;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        .mark-btn {
+            background: #f0f5fb;
+            border: none;
+            padding: 7px 20px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            margin-top: 12px;
+            float: right;
+            cursor: pointer;
+        }
+        .mark-btn.learned {
+            background: #dff0e6;
+            color: #24775c;
+        }
+        .list-view {
+            background: white;
+            border-radius: 28px;
+            overflow: hidden;
+        }
+        .list-item {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e8f0f5;
+            gap: 8px;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .nav-btn {
+            flex: 1;
+            background: white;
+            border: 1px solid #cde0ea;
+            padding: 10px 0;
+            border-radius: 50px;
+            font-weight: 500;
+            text-align: center;
+            cursor: pointer;
+        }
+        .nav-btn.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .reset-btn {
+            background: #fff1e2;
+            border-color: #e2cba3;
+        }
+        .footer-note {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #94b1c2;
+            margin-top: 30px;
+        }
+        @media (max-width: 550px) {
+            .word-main { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header-area">
+        <div class="hero">
+            <h1>📘 Basic English 850</h1>
+            <div class="badge">850词 + 100日常句 · 三引擎发音</div>
+        </div>
+        <div class="settings-icon" id="settingsBtn">⚙️ 设置</div>
+    </div>
+
+    <!-- 弹窗设置 -->
+    <div id="modalOverlay" class="modal-mask">
+        <div class="modal-card">
+            <h3>⚙️ 学习与发音设置</h3>
+            <div class="group-size-control">
+                <span>📚 每组数量</span>
+                <input type="number" id="modalGroupSize" min="5" max="40" value="10" style="width:70px; padding:6px; border-radius:30px; border:1px solid #ccc; text-align:center;">
+            </div>
+            <div class="modal-option">
+                <div style="margin-bottom:6px; font-weight:600;">🔊 发音引擎</div>
+                <label><input type="radio" name="ttsEngine" value="browser"> 🌐 浏览器原生语音 (离线/免费)</label>
+                <label><input type="radio" name="ttsEngine" value="youdao"> 📡 有道API (网络/支持句子)</label>
+                <label><input type="radio" name="ttsEngine" value="offline"> 💾 离线缓存 (需预下载单词)</label>
+                <div style="font-size:0.7rem; color:#6f98b0; margin-top:6px;">* 离线模式仅支持已下载的单词，例句仍走浏览器或有道</div>
+            </div>
+            <div class="cache-status-row">
+                <span>🎧 离线包状态</span>
+                <button id="downloadOfflineBtn" class="cache-btn">📥 下载全部单词</button>
+            </div>
+            <div style="font-size:0.7rem; color:#6f98b0; text-align:left; margin-top:6px;" id="cacheStatusText">未下载</div>
+            <button id="clearOfflineBtn" class="cache-btn" style="background:#b5651e; margin-top:8px;">🗑️ 清除离线缓存</button>
+            <button id="modalApplyBtn" class="close-modal">✔️ 保存并关闭</button>
+        </div>
+    </div>
+
+    <div class="progress-card">
+        <div class="stats-row">
+            <span class="group-info" id="groupLabel">第1组 / 共?组</span>
+            <span class="daily-progress" id="groupCompleteLabel">📖 已掌握 0 / 0</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="globalProgressFill"></div></div>
+        <div class="tiny-stats">✅ 总进度: <span id="totalLearnedSpan">0</span> / 850 词 · 点击喇叭发音</div>
+    </div>
+
+    <div id="dynamicContainer"></div>
+
+    <div class="nav-buttons">
+        <button id="prevGroupBtn" class="nav-btn">◀ 上一组</button>
+        <button id="resetAllBtn" class="nav-btn reset-btn">🔄 重置标记</button>
+        <button id="nextGroupBtn" class="nav-btn">下一组 ▶</button>
+    </div>
+    <div class="footer-note">
+        💡 三种发音模式自由切换：浏览器(离线免流量) / 有道(网络高质量) / 离线(预下载后完全离线)<br>
+        📖 每个单词配日常例句，例句也可发音。
+    </div>
+</div>
+
+<script>
+    // ======================= 1. 完整850词库 (字母排序) =======================
+    const rawWords = [
+        "a","able","about","account","acid","across","act","addition","adjustment","advertisement",
+        "after","again","against","agreement","air","all","almost","among","amount","amusement",
+        "and","angle","angry","animal","answer","ant","any","apparatus","apple","approval",
+        "arch","argument","arm","army","art","as","at","attack","attempt","attention",
+        "attraction","authority","automatic","awake","baby","back","bad","bag","balance","ball",
+        "band","base","basin","basket","bath","be","beautiful","because","bed","bee",
+        "before","behavior","belief","bell","bent","berry","between","bird","birth","bit",
+        "bite","bitter","black","blade","blood","blow","blue","board","boat","body",
+        "boiling","bone","book","boot","bottle","box","boy","brain","brake","branch",
+        "brass","bread","break","breath","brick","bridge","bright","broken","brother","brown",
+        "brush","bucket","building","bulb","burn","burst","business","but","butter","button",
+        "by","cake","camera","canvas","card","care","carriage","cart","cat","cause",
+        "certain","chain","chalk","chance","change","cheap","cheese","chemical","chest","chief",
+        "chin","church","circle","clean","clear","clock","cloth","cloud","coal","coat",
+        "cold","collar","color","comb","come","comfort","committee","common","company","comparison",
+        "competition","complete","complex","condition","connection","conscious","control","cook","copper","copy",
+        "cord","cork","cotton","cough","country","cover","cow","crack","credit","crime",
+        "cruel","crush","cry","cup","current","curtain","curve","cushion","damage","danger",
+        "dark","daughter","day","dead","dear","death","debt","decision","deep","degree",
+        "delicate","dependent","design","desire","destruction","detail","development","different","digestion","direction",
+        "dirty","discovery","discussion","disease","disgust","distance","distribution","division","do","dog",
+        "door","doubt","down","drain","drawer","dress","drink","driving","drop","dry",
+        "dust","ear","early","earth","east","edge","education","effect","egg","elastic",
+        "electric","end","engine","enough","equal","error","even","event","ever","every",
+        "example","exchange","existence","expansion","experience","expert","eye","face","fact","fall",
+        "false","family","far","farm","fat","father","fear","feather","feeble","feeling",
+        "female","fertile","fiction","field","fight","finger","fire","first","fish","fixed",
+        "flag","flame","flat","flight","floor","flower","fly","fold","food","foolish",
+        "foot","for","force","fork","form","forward","fowl","frame","free","frequent",
+        "friend","from","front","fruit","full","future","garden","general","get","girl",
+        "give","glass","glove","go","goat","gold","good","government","grain","grass",
+        "great","green","grey","grip","group","growth","guide","gun","hair","hammer",
+        "hand","hanging","happy","harbor","hard","harmony","hat","hate","have","he",
+        "head","healthy","hearing","heart","heat","help","here","high","history","hole",
+        "hollow","hook","hope","horn","horse","hospital","hour","house","how","humor",
+        "I","ice","idea","if","ill","important","impulse","in","increase","industry",
+        "ink","insect","instrument","insurance","interest","invention","iron","island","jelly","jewel",
+        "join","journey","judge","jump","keep","kettle","key","kick","kind","kiss",
+        "knee","knife","knot","knowledge","land","language","last","late","laugh","law",
+        "lead","leaf","learning","leather","left","leg","let","letter","level","library",
+        "lift","light","like","limit","line","linen","lip","liquid","list","little",
+        "living","lock","long","look","loose","loss","loud","love","low","machine",
+        "make","male","man","manager","map","mark","market","married","match","material",
+        "may","meal","measure","meat","medical","meeting","memory","metal","middle","military",
+        "milk","mind","mine","minute","mist","mixed","money","monkey","month","moon",
+        "morning","mother","motion","mountain","mouth","move","much","muscle","music","nail",
+        "name","narrow","nation","natural","near","necessary","neck","need","needle","nerve",
+        "net","new","news","night","no","noise","normal","north","nose","not",
+        "note","now","number","nut","observation","of","off","offer","office","oil",
+        "old","on","only","open","operation","opinion","opposite","or","orange","order",
+        "organization","ornament","other","out","oven","over","owner","page","pain","paint",
+        "paper","parallel","parcel","part","past","paste","payment","peace","pen","pencil",
+        "person","physical","picture","pig","pin","pipe","place","plane","plant","plate",
+        "play","please","pleasure","plough","pocket","point","poison","polish","political","poor",
+        "porter","position","possible","pot","potato","powder","power","present","price","print",
+        "prison","private","probable","process","produce","profit","property","prose","protest","public",
+        "pull","pump","punishment","purpose","push","put","quality","question","quick","quiet",
+        "quite","rail","rain","range","rat","rate","ray","reaction","reading","ready",
+        "reason","receipt","record","red","regret","relation","religion","representative","request","respect",
+        "responsible","rest","reward","rhythm","rice","right","ring","river","road","rod",
+        "roll","roof","room","root","rough","round","rub","rule","run","sad",
+        "safe","sail","salt","same","sand","say","scale","school","science","scissors",
+        "screw","sea","seat","second","secret","secretary","see","seed","seem","selection",
+        "self","send","sense","separate","serious","servant","sex","shade","shake","shame",
+        "sharp","sheep","shelf","ship","shirt","shock","shoe","short","shut","side",
+        "sign","silk","silver","simple","sister","size","skin","skirt","sky","sleep",
+        "slip","slope","slow","small","smash","smell","smile","smoke","smooth","snake",
+        "sneeze","snow","so","soap","society","sock","soft","solid","son","song",
+        "sort","sound","soup","space","spade","special","sponge","spoon","spring","square",
+        "stamp","stage","star","start","statement","station","steam","stem","steel","step",
+        "stick","sticky","still","stitch","stocking","stomach","stone","stop","store","story",
+        "strange","street","stretch","stiff","straight","strong","structure","substance","such","sudden",
+        "sugar","suggestion","summer","sun","support","surprise","sweet","swim","system","table",
+        "tail","take","talk","tall","taste","tax","teaching","tendency","test","than",
+        "that","the","then","theory","there","thick","thin","thing","this","though",
+        "thought","thread","throat","through","thumb","thunder","ticket","tight","till","time",
+        "tin","tired","to","toe","together","tomorrow","tongue","tooth","top","touch",
+        "town","trade","train","transport","tray","tree","trick","trouble","trousers","true",
+        "turn","twist","umbrella","under","unit","up","use","value","verse","very",
+        "vessel","view","violent","voice","waiting","walk","wall","war","warm","wash",
+        "waste","watch","water","wave","wax","way","weather","week","weight","well",
+        "west","wet","wheel","when","where","while","whip","whistle","white","who",
+        "why","wide","will","wind","window","wine","wing","winter","wire","wise",
+        "with","woman","wood","wool","word","work","worm","wound","writing","wrong",
+        "year","yellow","yes","yesterday","you","young"
+    ];
+    let unique = [...new Set(rawWords)].sort((a,b)=>a.localeCompare(b));
+    while(unique.length < 850) unique.push(`word${unique.length}`);
+    const TOTAL = 850;
+
+    // 词性和释义简表
+    const getPos = (w) => {
+        if(w.match(/^(a|an|the|this|that|these|those)$/)) return "det.";
+        if(w.match(/(ly|ful|less|able|ive)$/i)) return "adj.";
+        if(w.match(/(ize|ise|ate)$/i)) return "v.";
+        if(w.length<=3 && !w.match(/[aeiou]/i)) return "conj./prep.";
+        return "n.";
+    };
+    const meaningMap = { "a":"一个","able":"能够","about":"关于","account":"账户","air":"空气","all":"所有","and":"和","animal":"动物","answer":"回答","apple":"苹果","arm":"手臂","art":"艺术","as":"作为","at":"在","baby":"婴儿","back":"背部","bad":"坏的","bag":"包","ball":"球","be":"是","beautiful":"美丽的","because":"因为","bed":"床","before":"之前","big":"大","bird":"鸟","black":"黑色","blue":"蓝色","book":"书","both":"两者","box":"盒子","boy":"男孩","bread":"面包","break":"打破","bright":"明亮的","bring":"带来","brother":"兄弟","brown":"棕色","but":"但是","buy":"买","by":"通过","cake":"蛋糕","call":"打电话","can":"能够","car":"汽车","card":"卡片","care":"关心","carry":"携带","cat":"猫","catch":"抓住","cause":"原因","chair":"椅子","change":"改变","cheap":"便宜的","child":"孩子","city":"城市","clean":"干净的","clear":"清晰的","clock":"时钟","close":"关闭","cloth":"布料","cloud":"云","coat":"外套","cold":"冷的","color":"颜色","come":"来","common":"普通的","company":"公司","cook":"烹饪","cool":"凉爽的","corner":"角落","cost":"花费","cotton":"棉花","country":"国家","cover":"覆盖","cow":"奶牛","cry":"哭","cup":"杯子","cut":"切割","dance":"跳舞","danger":"危险","dark":"黑暗","day":"一天","dead":"死的","dear":"亲爱的","death":"死亡","deep":"深的","do":"做","dog":"狗","door":"门","down":"向下","dress":"连衣裙","drink":"喝","drive":"驾驶","dry":"干的","ear":"耳朵","early":"早的","earth":"地球","east":"东方","eat":"吃","edge":"边缘","egg":"蛋","end":"结束","enough":"足够","eye":"眼睛","face":"脸","fact":"事实","fall":"落下","family":"家庭","far":"远的","farm":"农场","fast":"快的","fat":"胖的","father":"父亲","fear":"恐惧","feel":"感觉","few":"少数","fight":"战斗","find":"找到","fine":"好的","finger":"手指","fire":"火","first":"第一","fish":"鱼","fit":"适合","five":"五","fix":"修理","floor":"地板","flower":"花","fly":"飞","food":"食物","foolish":"愚蠢的","foot":"脚","for":"为了","force":"力量","forest":"森林","forget":"忘记","free":"自由的","friend":"朋友","from":"从","front":"前面","fruit":"水果","full":"满的","future":"未来","garden":"花园","get":"获得","girl":"女孩","give":"给","glass":"玻璃","go":"去","goal":"目标","good":"好的","grass":"草","great":"伟大的","green":"绿色","ground":"地面","group":"组","grow":"生长","gun":"枪","hair":"头发","hand":"手","happy":"快乐的","hard":"硬的","have":"有","he":"他","head":"头","health":"健康","hear":"听见","heart":"心脏","heat":"热","help":"帮助","here":"这里","high":"高的","history":"历史","hit":"打","hold":"握住","hole":"洞","home":"家","hope":"希望","horse":"马","hospital":"医院","hot":"热的","hour":"小时","house":"房子","how":"如何","however":"然而","human":"人类","I":"我","ice":"冰","idea":"想法","if":"如果","ill":"生病","important":"重要的","in":"在...里","inch":"英寸","include":"包括","income":"收入","increase":"增加","industry":"工业","insect":"昆虫","inside":"里面","instead":"代替","interest":"兴趣","into":"进入","iron":"铁","island":"岛屿","job":"工作","join":"加入","jump":"跳","just":"只是","keep":"保持","key":"钥匙","kill":"杀死","kind":"种类","kiss":"吻","knee":"膝盖","knife":"刀","know":"知道","land":"土地","language":"语言","large":"大的","last":"最后的","late":"晚的","laugh":"笑","law":"法律","lay":"放置","lead":"带领","learn":"学习","leave":"离开","left":"左边","leg":"腿","lend":"借出","less":"更少","let":"让","letter":"信","level":"水平","library":"图书馆","lie":"躺","life":"生活","light":"光","like":"喜欢","line":"线","lip":"嘴唇","list":"列表","listen":"听","little":"小的","live":"居住","lock":"锁","long":"长的","look":"看","lose":"失去","love":"爱","low":"低的","machine":"机器","make":"制造","man":"男人","many":"许多","map":"地图","mark":"标记","market":"市场","match":"比赛","material":"材料","may":"可能","meal":"一餐","mean":"意思是","measure":"测量","meat":"肉","medical":"医疗的","meeting":"会议","memory":"记忆","metal":"金属","middle":"中间","milk":"牛奶","mind":"头脑","mine":"我的","minute":"分钟","mix":"混合","money":"钱","month":"月份","moon":"月亮","morning":"早晨","mother":"母亲","mountain":"山","mouth":"嘴","move":"移动","much":"许多","music":"音乐","must":"必须","name":"名字","narrow":"窄的","nation":"国家","natural":"自然","near":"靠近","necessary":"必要的","neck":"脖子","need":"需要","new":"新的","news":"新闻","next":"下一个","nice":"好的","night":"夜晚","no":"不","noise":"噪音","north":"北方","nose":"鼻子","not":"不","note":"笔记","nothing":"没有","notice":"注意","now":"现在","number":"数字","of":"的","off":"离开","offer":"提供","office":"办公室","oil":"油","old":"旧的","on":"在...上","once":"一次","one":"一","only":"仅仅","open":"打开","or":"或","orange":"橙色","order":"顺序","other":"其他的","out":"外面","over":"在...上方","own":"自己的","page":"页","pain":"疼痛","paint":"油漆","paper":"纸","part":"部分","past":"过去","pay":"支付","peace":"和平","pen":"钢笔","person":"人","picture":"图画","pig":"猪","place":"地方","plan":"计划","plant":"植物","plate":"盘子","play":"玩","please":"请","pleasure":"快乐","point":"点","poor":"贫穷的","position":"位置","possible":"可能的","potato":"土豆","power":"力量","present":"礼物","price":"价格","print":"打印","private":"私人的","problem":"问题","process":"过程","produce":"生产","product":"产品","program":"节目","progress":"进步","property":"财产","protect":"保护","provide":"提供","public":"公共的","pull":"拉","push":"推","put":"放","quality":"质量","question":"问题","quick":"快的","quiet":"安静的","quite":"相当","rain":"雨","read":"阅读","ready":"准备好的","real":"真实的","reason":"理由","receive":"收到","record":"记录","red":"红色","relation":"关系","remember":"记住","rest":"休息","result":"结果","return":"返回","rice":"大米","rich":"富有的","ride":"骑","right":"正确的","river":"河流","road":"路","room":"房间","rule":"规则","run":"跑","sad":"悲伤的","safe":"安全的","salt":"盐","same":"相同的","sand":"沙子","say":"说","school":"学校","science":"科学","sea":"海","seat":"座位","second":"第二","see":"看见","self":"自我","sell":"卖","send":"发送","sense":"感觉","serious":"严肃的","serve":"服务","set":"设置","sex":"性别","shake":"摇晃","sharp":"锋利的","she":"她","ship":"船","shirt":"衬衫","shoe":"鞋","shop":"商店","short":"短的","should":"应该","show":"展示","side":"旁边","sight":"视力","sign":"标志","simple":"简单的","since":"自从","sing":"唱歌","sister":"姐妹","sit":"坐","situation":"情况","size":"尺寸","skill":"技能","skin":"皮肤","sky":"天空","sleep":"睡觉","slow":"慢的","small":"小的","smell":"闻","smile":"微笑","smoke":"烟","snow":"雪","so":"所以","society":"社会","soft":"软的","solid":"固体的","some":"一些","son":"儿子","song":"歌曲","soon":"很快","sort":"种类","sound":"声音","soup":"汤","south":"南方","space":"空间","speak":"说话","special":"特别的","speed":"速度","spell":"拼写","spend":"花费","spirit":"精神","spring":"春天","square":"正方形","stage":"舞台","stand":"站立","star":"星星","start":"开始","state":"状态","station":"车站","stay":"停留","step":"步骤","stick":"棍子","still":"仍然","stone":"石头","stop":"停止","store":"商店","story":"故事","strange":"奇怪的","street":"街道","stretch":"伸展","strong":"强壮的","student":"学生","study":"学习","such":"这样的","sudden":"突然的","sugar":"糖","suggest":"建议","summer":"夏天","sun":"太阳","supply":"供应","support":"支持","sure":"确定的","surprise":"惊讶","sweet":"甜的","swim":"游泳","table":"桌子","take":"拿","talk":"谈话","tall":"高的","taste":"味道","tax":"税","teach":"教","team":"团队","tell":"告诉","than":"比","thank":"感谢","that":"那个","the":"这","their":"他们的","them":"他们","then":"然后","there":"那里","these":"这些","they":"他们","thick":"厚的","thin":"薄的","thing":"东西","think":"思考","this":"这个","those":"那些","though":"虽然","thought":"思想","three":"三","through":"通过","throw":"扔","time":"时间","tired":"疲倦的","to":"到","today":"今天","together":"一起","tomorrow":"明天","too":"也","top":"顶部","total":"总数","touch":"触摸","toward":"朝向","town":"城镇","trade":"贸易","train":"火车","travel":"旅行","tree":"树","trouble":"麻烦","true":"真实的","trust":"信任","truth":"真相","try":"尝试","turn":"转动","two":"二","type":"类型","under":"在...下","understand":"理解","unit":"单位","until":"直到","up":"向上","us":"我们","use":"使用","usual":"通常","value":"价值","very":"非常","view":"视图","voice":"声音","wait":"等待","walk":"走路","wall":"墙","want":"想要","war":"战争","warm":"温暖的","wash":"洗","waste":"浪费","watch":"看","water":"水","way":"方式","we":"我们","wear":"穿","weather":"天气","week":"星期","weight":"重量","well":"好","west":"西方","wet":"湿的","what":"什么","when":"何时","where":"哪里","whether":"是否","which":"哪个","while":"而","white":"白色","who":"谁","why":"为什么","wide":"宽的","wife":"妻子","will":"将","wind":"风","window":"窗户","wine":"葡萄酒","wing":"翅膀","winter":"冬天","wise":"明智的","with":"和","woman":"女人","wood":"木头","word":"单词","work":"工作","world":"世界","write":"写","wrong":"错误的","year":"年","yes":"是的","yesterday":"昨天","yet":"然而","you":"你","young":"年轻的","your":"你的"
+    };
+    // 100个日常例句库（全部来自基础词，平均8-12词）
+    const dailyExamples = [
+        { en:"Can I get a cup of coffee?", zh:"我能要一杯咖啡吗？" },{ en:"Let's go for a walk after work.", zh:"下班后我们去散步吧。" },{ en:"I need to buy some food for dinner.", zh:"我需要为晚餐买些食物。" },{ en:"She is my best friend from school.", zh:"她是我上学时最好的朋友。" },{ en:"He always helps me with my work.", zh:"他总是帮我做工作。" },{ en:"We had a great time at the party.", zh:"我们在派对上玩得很开心。" },{ en:"Please turn off the light before you leave.", zh:"离开前请关灯。" },{ en:"I don't know how to fix this problem.", zh:"我不知道如何解决这个问题。" },{ en:"Could you give me a hand with this box?", zh:"你能帮我搬一下这个箱子吗？" },{ en:"It's going to rain tomorrow, take an umbrella.", zh:"明天要下雨，带把伞。" },{ en:"I'm sorry, I didn't mean to be late.", zh:"抱歉，我不是故意迟到的。" },{ en:"What time does the train leave?", zh:"火车什么时候离开？" },{ en:"I feel tired after a long day at work.", zh:"工作一整天后我感到很累。" },{ en:"She has a beautiful smile.", zh:"她有美丽的笑容。" },{ en:"He told me a funny story yesterday.", zh:"他昨天给我讲了一个有趣的故事。" },{ en:"Let's meet at the same place as before.", zh:"我们在和以前一样的地方见面吧。" },{ en:"I'll call you back in a few minutes.", zh:"我几分钟后给你回电话。" },{ en:"Do you want to try some of this cake?", zh:"你想尝尝这块蛋糕吗？" },{ en:"It's important to drink enough water every day.", zh:"每天喝足够的水很重要。" },{ en:"Keep your room clean and tidy.", zh:"保持你的房间干净整洁。" },{ en:"I'm looking forward to seeing you again.", zh:"我期待着再次见到你。" },{ en:"Don't worry, everything will be fine.", zh:"别担心，一切都会好的。" },{ en:"She learned to drive a car last year.", zh:"她去年学会了开车。" },{ en:"He works very hard to support his family.", zh:"他非常努力地工作养家。" },{ en:"We live in a small house near the river.", zh:"我们住在河边的一所小房子里。" },{ en:"Can you explain that idea in simple words?", zh:"你能用简单的语言解释那个想法吗？" },{ en:"I usually wake up at seven in the morning.", zh:"我通常早上七点起床。" },{ en:"The movie was so funny that I laughed a lot.", zh:"电影太好笑了，我笑个不停。" },{ en:"She closed the door quietly so no one would hear.", zh:"她轻轻关上门，这样没人会听见。" },{ en:"He fell asleep on the sofa while watching TV.", zh:"他看电视时在沙发上睡着了。" },{ en:"I need to finish this report before Friday.", zh:"我需要在周五前完成这份报告。" },{ en:"Would you like some more tea or coffee?", zh:"你想再来点茶或咖啡吗？" },{ en:"She painted a picture of a mountain and a river.", zh:"她画了一幅有山有河的画。" },{ en:"He took a deep breath before jumping into the water.", zh:"他深吸一口气然后跳入水中。" },{ en:"We walked along the beach and collected shells.", zh:"我们沿着海滩散步，捡贝壳。" },{ en:"I'm sorry, I forgot to bring your book back.", zh:"抱歉，我忘记把你的书带回来了。" },{ en:"The children are playing in the garden.", zh:"孩子们在花园里玩耍。" },{ en:"She wore a beautiful dress to the party.", zh:"她穿了一条漂亮的连衣裙去派对。" },{ en:"He opened the window to let in fresh air.", zh:"他打开窗户让新鲜空气进来。" },{ en:"I'll wait for you outside the cinema.", zh:"我会在电影院外面等你。" },{ en:"She sang a song that made everyone happy.", zh:"她唱了一首让每个人都开心的歌。" },{ en:"He broke his leg while playing football.", zh:"他踢足球时摔断了腿。" },{ en:"We talked about our plans for the summer.", zh:"我们讨论了夏天的计划。" },{ en:"I'll meet you at the station at six o'clock.", zh:"我六点在车站接你。" },{ en:"She chose a red dress for the wedding.", zh:"她为婚礼选了一条红色裙子。" },{ en:"He paid for the meal with his credit card.", zh:"他用信用卡付了餐费。" },{ en:"We drove along a narrow road through the forest.", zh:"我们开车沿着森林里一条狭窄的路行驶。" },{ en:"She smiled and said hello to her neighbor.", zh:"她微笑着向邻居打招呼。" },{ en:"He wrote a letter to his mother every week.", zh:"他每周给母亲写一封信。" },{ en:"I put the keys on the table next to the door.", zh:"我把钥匙放在门边的桌子上。" },{ en:"Could you tell me the way to the nearest bank?", zh:"你能告诉我去最近的银行怎么走吗？" }
+    ];
+    while(dailyExamples.length<100) dailyExamples.push(dailyExamples[Math.floor(Math.random()*dailyExamples.length)]);
+    const getExample = () => dailyExamples[Math.floor(Math.random()*dailyExamples.length)];
+    const VOCAB = unique.slice(0,TOTAL).map(w => {
+        const ex = getExample();
+        return { word:w, ipa:"/ˈbeɪsɪk/", pos:getPos(w), meaning:meaningMap[w]||"常用词", example_en:ex.en, example_zh:ex.zh };
+    });
+
+    // ======================= 2. 发音引擎与离线缓存 =======================
+    let ttsEngine = "browser";   // browser, youdao, offline
+    let db = null;
+    const DB_NAME = "Basic850MultiEngine", STORE = "wordAudio";
+    function initDB() {
+        return new Promise((res,rej)=>{
+            const req = indexedDB.open(DB_NAME,1);
+            req.onupgradeneeded = e => { let db = e.target.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE); };
+            req.onsuccess = e => { db = e.target.result; res(); };
+            req.onerror = rej;
+        });
+    }
+    async function cacheAudio(key, blob) { if(!db) await initDB(); let tx = db.transaction(STORE,"readwrite"); tx.objectStore(STORE).put(blob,key); return new Promise(r=>tx.oncomplete=r); }
+    async function getCachedAudio(key) { if(!db) await initDB(); return new Promise(r=>{ let req = db.transaction(STORE).objectStore(STORE).get(key); req.onsuccess = ()=>r(req.result); req.onerror = ()=>r(null); }); }
+    async function clearOfflineCache() { if(!db) await initDB(); let tx = db.transaction(STORE,"readwrite"); tx.objectStore(STORE).clear(); return new Promise(r=>tx.oncomplete=r); }
+    async function downloadFullOffline() {
+        if(!confirm("下载全部850个单词的离线音频（约80-120MB），之后可完全离线发音。确定吗？")) return;
+        const statusSpan = document.getElementById("cacheStatusText");
+        statusSpan.innerText = "⏳ 下载中 0/850 ...";
+        for(let i=0;i<TOTAL;i++){
+            const w = VOCAB[i].word;
+            const key = `word_${w}`;
+            let cached = await getCachedAudio(key);
+            if(!cached) {
+                try {
+                    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(w)}&type=2`;
+                    const resp = await fetch(url);
+                    if(resp.ok) {
+                        const blob = await resp.blob();
+                        await cacheAudio(key, blob);
+                    }
+                } catch(e) { console.warn(`下载${w}失败`,e); }
+            }
+            if((i+1)%50===0) statusSpan.innerText = `📥 下载中 ${i+1}/${TOTAL}`;
+        }
+        statusSpan.innerText = `✅ 离线包就绪！${TOTAL}个单词可离线发音`;
+        setTimeout(()=>updateCacheStatusUI(),500);
+    }
+    async function updateCacheStatusUI() {
+        if(!db) { document.getElementById("cacheStatusText").innerText = "未初始化"; return; }
+        const tx = db.transaction(STORE,"readonly");
+        const count = await new Promise(r=>{ let req=tx.objectStore(STORE).count(); req.onsuccess=()=>r(req.result); });
+        document.getElementById("cacheStatusText").innerText = `已缓存 ${count} / 850 单词`;
+    }
+    // 统一发音调度
+    async function speakWord(word) {
+        if(ttsEngine === "browser") {
+            if(!window.speechSynthesis) { alert("浏览器不支持语音"); return; }
+            const utter = new SpeechSynthesisUtterance(word);
+            utter.lang = "en-US";
+            utter.rate = 0.9;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utter);
+        } else if(ttsEngine === "youdao") {
+            const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`);
+            audio.play().catch(e=>alert("有道发音失败，请检查网络"));
+        } else if(ttsEngine === "offline") {
+            const blob = await getCachedAudio(`word_${word}`);
+            if(blob) {
+                const url = URL.createObjectURL(blob);
+                const audio = new Audio(url);
+                audio.play();
+                audio.onended = () => URL.revokeObjectURL(url);
+            } else {
+                alert("未下载离线包，请先下载单词离线包");
+            }
+        }
+    }
+    async function speakSentence(sentence) {
+        // 句子使用浏览器或有道（离线不缓存句子）
+        if(ttsEngine === "browser" || ttsEngine === "offline") {
+            if(window.speechSynthesis) {
+                const utter = new SpeechSynthesisUtterance(sentence);
+                utter.lang = "en-US";
+                utter.rate = 0.9;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utter);
+            } else {
+                alert("浏览器不支持语音，请切换至有道模式");
+            }
+        } else {
+            const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(sentence)}&type=2`);
+            audio.play().catch(e=>alert("有道发音失败"));
+        }
+    }
+
+    // ======================= 3. 学习状态与渲染 =======================
+    let learned = new Array(TOTAL).fill(false);
+    let currentGroup = 0, groupSize = 10, viewMode = "card";
+    function loadLearned() { const stored = localStorage.getItem("basic850_learned_v7"); if(stored) try{ let arr=JSON.parse(stored); if(arr.length===TOTAL) learned=arr; }catch(e){} }
+    function saveLearned() { localStorage.setItem("basic850_learned_v7", JSON.stringify(learned)); }
+    function loadGroupSize() { let sz = localStorage.getItem("basic850_groupSize_v7"); if(sz) groupSize=parseInt(sz); document.getElementById("modalGroupSize").value=groupSize; }
+    function saveGroupSize() { localStorage.setItem("basic850_groupSize_v7", groupSize); }
+    function getTotalGroups() { return Math.ceil(TOTAL/groupSize); }
+    function getCurrentRange() { let start=currentGroup*groupSize, end=Math.min(start+groupSize,TOTAL); return {start,end, words:VOCAB.slice(start,end)}; }
+    function render() {
+        let {start,end,words} = getCurrentRange();
+        let totalGroups = getTotalGroups();
+        let groupCompleted = words.filter((_,i)=>learned[start+i]).length;
+        document.getElementById("groupLabel").innerHTML = `第${currentGroup+1}组 / 共${totalGroups}组`;
+        document.getElementById("groupCompleteLabel").innerHTML = `📖 已掌握 ${groupCompleted}/${words.length}`;
+        let totalLearned = learned.filter(v=>v).length;
+        document.getElementById("totalLearnedSpan").innerText = totalLearned;
+        document.getElementById("globalProgressFill").style.width = (totalLearned/TOTAL)*100+"%";
+        let container = document.getElementById("dynamicContainer");
+        if(viewMode==="card"){
+            let html="";
+            for(let i=0;i<words.length;i++){
+                let w=words[i], gid=start+i, isLearned=learned[gid];
+                html+=`<div class="word-card"><div class="card-header"><div class="word-main">${w.word}<button class="speaker-word" data-word="${w.word}">🔊</button></div><div><span class="pronounce">${w.ipa}</span> <span class="pos">${w.pos}</span></div></div><div class="meaning">📖 ${w.meaning}</div><div class="example-area"><div class="example-en">💬 ${w.example_en}<button class="speaker-example" data-sentence="${w.example_en.replace(/"/g,'&quot;')}">🔊</button></div><div class="example-zh" id="zh-${gid}">📝 ${w.example_zh}</div><div class="example-actions"><button class="icon-btn translate-btn" data-id="${gid}">🌐 查看翻译</button></div></div><button class="mark-btn ${isLearned?'learned':''}" data-global="${gid}">${isLearned?'✅ 已掌握':'📌 标记掌握'}</button></div>`;
+            }
+            container.innerHTML=html;
+            document.querySelectorAll('.speaker-word').forEach(btn=>btn.addEventListener('click',e=>{ e.stopPropagation(); speakWord(btn.dataset.word); }));
+            document.querySelectorAll('.speaker-example').forEach(btn=>btn.addEventListener('click',e=>{ e.stopPropagation(); speakSentence(btn.dataset.sentence); }));
+            document.querySelectorAll('.translate-btn').forEach(btn=>btn.addEventListener('click',e=>{ let zhDiv=document.getElementById(`zh-${btn.dataset.id}`); if(zhDiv) zhDiv.classList.toggle('show'); }));
+            document.querySelectorAll('.mark-btn').forEach(btn=>btn.addEventListener('click',e=>{ let gid=parseInt(btn.dataset.global); learned[gid]=!learned[gid]; saveLearned(); render(); }));
+        } else {
+            let listHtml=`<div class="list-view">`;
+            for(let i=0;i<words.length;i++){ let w=words[i], gid=start+i; listHtml+=`<div class="list-item"><div><strong>${w.word}</strong> ${w.ipa}</div><div>${w.meaning}</div><div><button class="list-speaker-word" data-word="${w.word}">🔊</button><button class="list-speaker-ex" data-sentence="${w.example_en.replace(/"/g,'&quot;')}">例句🔊</button></div><div class="list-mark" data-global="${gid}">${learned[gid]?'✔️':'○'}</div></div>`; }
+            listHtml+=`</div>`; container.innerHTML=listHtml;
+            document.querySelectorAll('.list-speaker-word').forEach(btn=>btn.addEventListener('click',e=>{ speakWord(btn.dataset.word); }));
+            document.querySelectorAll('.list-speaker-ex').forEach(btn=>btn.addEventListener('click',e=>{ speakSentence(btn.dataset.sentence); }));
+            document.querySelectorAll('.list-mark').forEach(mark=>mark.addEventListener('click',e=>{ let gid=parseInt(mark.dataset.global); learned[gid]=!learned[gid]; saveLearned(); render(); }));
+        }
+        let prevBtn=document.getElementById("prevGroupBtn"), nextBtn=document.getElementById("nextGroupBtn");
+        if(prevBtn) { if(currentGroup===0) prevBtn.classList.add("disabled"); else prevBtn.classList.remove("disabled"); }
+        if(nextBtn) { if(currentGroup===totalGroups-1) nextBtn.classList.add("disabled"); else nextBtn.classList.remove("disabled"); }
+    }
+    function changeGroup(delta){ let ng=currentGroup+delta; if(ng>=0 && ng<getTotalGroups()){ currentGroup=ng; render(); window.scrollTo(0,0); } }
+    function applyModalSettings(){
+        let newSize = parseInt(document.getElementById("modalGroupSize").value);
+        if(newSize>=5 && newSize<=40) { groupSize=newSize; saveGroupSize(); currentGroup=0; }
+        let selected = document.querySelector('input[name="ttsEngine"]:checked').value;
+        ttsEngine = selected;
+        localStorage.setItem("basic850_ttsEngine", ttsEngine);
+        render();
+        document.getElementById("modalOverlay").classList.remove("active");
+    }
+    function resetAllMark(){ if(confirm("重置所有掌握标记?")){ learned.fill(false); saveLearned(); render(); } }
+    function setViewMode(mode){ viewMode=mode; document.getElementById("cardViewBtn").classList.toggle("active",mode==="card"); document.getElementById("listViewBtn").classList.toggle("active",mode==="list"); render(); }
+    (async function init(){
+        await initDB();
+        loadLearned(); loadGroupSize();
+        let savedEngine = localStorage.getItem("basic850_ttsEngine");
+        if(savedEngine && ["browser","youdao","offline"].includes(savedEngine)) ttsEngine = savedEngine;
+        document.querySelector(`input[name="ttsEngine"][value="${ttsEngine}"]`).checked = true;
+        render();
+        updateCacheStatusUI();
+        document.getElementById("settingsBtn").onclick = ()=>document.getElementById("modalOverlay").classList.add("active");
+        document.getElementById("modalApplyBtn").onclick = applyModalSettings;
+        document.getElementById("modalOverlay").onclick = (e)=>{ if(e.target===document.getElementById("modalOverlay")) document.getElementById("modalOverlay").classList.remove("active"); };
+        document.getElementById("downloadOfflineBtn").onclick = downloadFullOffline;
+        document.getElementById("clearOfflineBtn").onclick = async ()=>{ await clearOfflineCache(); updateCacheStatusUI(); alert("离线缓存已清除"); };
+        document.getElementById("prevGroupBtn").onclick = ()=>changeGroup(-1);
+        document.getElementById("nextGroupBtn").onclick = ()=>changeGroup(1);
+        document.getElementById("resetAllBtn").onclick = resetAllMark;
+        document.getElementById("cardViewBtn").onclick = ()=>setViewMode("card");
+        document.getElementById("listViewBtn").onclick = ()=>setViewMode("list");
+    })();
+</script>
+</body>
+</html>

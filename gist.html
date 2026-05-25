@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>全能代码便签</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{max-width:900px;margin:30px auto;padding:0 20px;background:#f7f8fa;font-family:system-ui}
+.card{background:white;padding:20px;border-radius:12px;margin-bottom:20px;}
+input,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px}
+textarea{height:200px}
+button{padding:12px 20px;background:#0070f3;color:white;border:none;border-radius:8px;cursor:pointer;margin-right:10px}
+.item{padding:12px;border-bottom:1px solid #eee}
+a{color:#0070f3}
+</style>
+
+<div class="card">
+  <h2>创建代码便签</h2>
+  <input id="title" placeholder="标题">
+  <textarea id="content" placeholder="代码/内容"></textarea>
+  <button onclick="create()">保存</button>
+  <button onclick="loadList()">刷新</button>
+  <button onclick="backup()">导出Excel</button>
+</div>
+
+<div class="card">
+  <h2>便签列表</h2>
+  <div id="list"></div>
+</div>
+
+<script>
+async function loadList(){
+  const res = await fetch('/gist');
+  const list = await res.json();
+  listBox.innerHTML = list.map(i=>`
+    <div class="item">
+      <a href="/gist?id=${i.id}" target="_blank">${i.title}</a>
+      <div>${i.nickname} · ${i.cate} · ${i.create_time}</div>
+    </div>
+  `).join('')
+}
+
+async function create(){
+  const title = document.getElementById('title').value;
+  const content = document.getElementById('content').value;
+  if(!title||!content)return alert('请填写完整');
+  const res = await fetch('/gist',{method:'POST',body:JSON.stringify({title,content})});
+  const data = await res.json();
+  alert('创建成功：'+data.id);
+  location.reload();
+}
+
+function backup(){window.open('/gist?act=backup')}
+window.onload = loadList;
+</script>

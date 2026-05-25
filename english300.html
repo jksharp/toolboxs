@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>俞敏洪·高考英语300句 | 每日五句卡牌学习</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #f5f7fb;
+            font-family: system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Helvetica Neue', Helvetica, sans-serif;
+            padding: 20px 16px 40px;
+            color: #1a2c3e;
+        }
+
+        .app-container {
+            max-width: 620px;
+            margin: 0 auto;
+        }
+
+        /* 头部 */
+        .hero {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .hero h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(145deg, #1e5a7a, #0e3a52);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.2px;
+        }
+        .hero p {
+            color: #54708f;
+            font-size: 0.85rem;
+            background: #eef2f7;
+            display: inline-block;
+            padding: 5px 14px;
+            border-radius: 40px;
+            margin-top: 8px;
+        }
+        .badge {
+            font-size: 0.7rem;
+            background: #e5ebf0;
+            padding: 4px 12px;
+            border-radius: 50px;
+            display: inline-block;
+            margin-top: 8px;
+            color: #2b5f7a;
+        }
+
+        /* 进度卡片 */
+        .progress-card {
+            background: white;
+            border-radius: 28px;
+            padding: 18px 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.03), 0 2px 6px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .day-info {
+            font-weight: 700;
+            background: #eaf1f8;
+            padding: 5px 16px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            color: #1b5b7e;
+        }
+        .daily-complete {
+            font-size: 0.8rem;
+            background: #f0f4f9;
+            padding: 5px 12px;
+            border-radius: 30px;
+            color: #2c6282;
+        }
+        .progress-bar-bg {
+            background: #e3eaf0;
+            border-radius: 20px;
+            height: 8px;
+            margin: 12px 0 6px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #3f99cf, #1f6ea0);
+            border-radius: 20px;
+            transition: width 0.25s ease;
+        }
+        .tiny-note {
+            font-size: 0.7rem;
+            text-align: right;
+            color: #7b95ae;
+        }
+
+        /* 卡片列表 */
+        .cards-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-bottom: 28px;
+        }
+        .study-card {
+            background: #ffffff;
+            border-radius: 28px;
+            padding: 20px 18px;
+            box-shadow: 0 10px 22px -12px rgba(0,0,0,0.12);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #eaf0f5;
+        }
+        .study-card:active {
+            transform: scale(0.99);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .sentence-num {
+            background: #eef3fc;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 30px;
+            color: #2b6c97;
+        }
+        .status-tag {
+            font-size: 0.7rem;
+            background: #f0f2f6;
+            padding: 4px 10px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+        .status-tag.learned {
+            background: #dff9e6;
+            color: #1f7840;
+        }
+        .english-sentence {
+            font-size: 1rem;
+            line-height: 1.5;
+            font-weight: 500;
+            color: #0a2942;
+            margin: 10px 0 8px;
+            word-break: break-word;
+            letter-spacing: -0.2px;
+        }
+        .chinese-trans {
+            font-size: 0.85rem;
+            color: #617e9c;
+            margin: 8px 0 12px;
+            border-left: 3px solid #bdd8ef;
+            padding-left: 12px;
+            background: #fafdff;
+            border-radius: 0 12px 12px 0;
+        }
+        .mark-btn {
+            background: #f5f9ff;
+            border: none;
+            font-size: 0.8rem;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-weight: 500;
+            color: #2c6a8f;
+            cursor: pointer;
+            transition: 0.2s;
+            width: fit-content;
+            margin-top: 6px;
+        }
+        .mark-btn.completed {
+            background: #e2f3e2;
+            color: #196f3d;
+            border: 1px solid #b7dcb5;
+        }
+        .mark-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* 导航按钮 */
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            margin-top: 6px;
+            margin-bottom: 20px;
+        }
+        .nav-btn {
+            flex: 1;
+            background: white;
+            border: 1px solid #cde0eb;
+            padding: 12px 0;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #2c6d94;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .nav-btn:active {
+            background: #eef2f7;
+            transform: scale(0.97);
+        }
+        .nav-btn.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            background: #f6f8fa;
+        }
+        .reset-btn {
+            background: #fff3e0;
+            border-color: #f0cf9b;
+            color: #b6621a;
+        }
+        .footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #8ba4b8;
+            border-top: 1px solid #e2edf5;
+            padding-top: 20px;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 16px 12px 32px; }
+            .study-card { padding: 16px; }
+            .english-sentence { font-size: 0.95rem; }
+        }
+        .toast-msg {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e2f3cee;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            z-index: 1200;
+            backdrop-filter: blur(6px);
+            pointer-events: none;
+            white-space: nowrap;
+            max-width: 85vw;
+            white-space: normal;
+            text-align: center;
+            transition: opacity 0.2s;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="hero">
+        <h1>📖 俞敏洪 · 英语300句</h1>
+        <p>🎓 高考核心句型 · 每日五句 突破英语 🎓</p>
+        <div class="badge">🔥 小红书同款方法论 | 先背50句 逐步精通</div>
+    </div>
+
+    <div class="progress-card">
+        <div class="stats-row">
+            <span class="day-info" id="dayLabel">第1天 / 共10天</span>
+            <span class="daily-complete" id="dailyCompleteLabel">📘 今日掌握 0 / 5</span>
+        </div>
+        <div class="progress-bar-bg">
+            <div class="progress-fill" id="totalProgressFill" style="width:0%"></div>
+        </div>
+        <div class="tiny-note">✅ 总进度 <span id="totalCountSpan">0</span> / 50 句 · 每句扎实背熟 高考无忧</div>
+    </div>
+
+    <div class="cards-grid" id="cardsContainer"></div>
+
+    <div class="nav-buttons">
+        <button class="nav-btn" id="prevDayBtn">◀ 前一天</button>
+        <button class="nav-btn reset-btn" id="resetBtn">🔄 重置进度</button>
+        <button class="nav-btn" id="nextDayBtn">后一天 ▶</button>
+    </div>
+    <div class="footer">
+        💡 点击「标记掌握」记录学习进度 | 深度回译法：先译中文，再回译英文，对比原文 | 每天5句，持之以恒
+    </div>
+</div>
+
+<script>
+    // --------------------------------------------------------------
+    // 俞敏洪高考英语300句 · 精选50句（涵盖高频词汇、语法、经典句型）
+    // 完全基于历年高考核心考点及俞敏洪老师倡导的"句子突破法"设计
+    // 每句包含英文原句 + 中文翻译，便于理解与背诵
+    // 后续可继续扩展至300句（数组直接添加即可）
+    // --------------------------------------------------------------
+    const SENTENCE_SET = [
+        { en: "It is universally acknowledged that practice makes perfect.", zh: "众所周知，熟能生巧。" },
+        { en: "Only by working hard can we achieve our dreams.", zh: "只有通过努力，我们才能实现梦想。" },
+        { en: "What impressed me most was his determination to succeed.", zh: "最让我印象深刻的是他成功的决心。" },
+        { en: "The more you read, the better your English will become.", zh: "你读得越多，你的英语就会变得越好。" },
+        { en: "It's high time that we took effective measures to protect the environment.", zh: "是我们采取有效措施保护环境的时候了。" },
+        { en: "So precious is time that we can't afford to waste it.", zh: "时间如此宝贵，我们浪费不起。" },
+        { en: "There is no doubt that perseverance leads to success.", zh: "毫无疑问，坚持会带来成功。" },
+        { en: "He insisted that he had never cheated in the exam.", zh: "他坚持说自己从未在考试中作弊。" },
+        { en: "With the help of my teacher, I made rapid progress in English.", zh: "在老师的帮助下，我的英语进步飞快。" },
+        { en: "Not until he failed did he realize the importance of studying.", zh: "直到失败后，他才意识到学习的重要性。" },
+        { en: "She is so energetic that she can work 12 hours a day.", zh: "她精力充沛，每天能工作12个小时。" },
+        { en: "It is no use crying over spilt milk.", zh: "覆水难收，后悔无用。" },
+        { en: "Had I known your address, I would have written to you.", zh: "如果我知道你的地址，我早就给你写信了。" },
+        { en: "The reason why he was late was that he missed the first bus.", zh: "他迟到的原因是他错过了第一班公交车。" },
+        { en: "Whether you can succeed depends on how hard you try.", zh: "你能否成功取决于你有多努力。" },
+        { en: "I would rather fail than give up halfway.", zh: "我宁愿失败也不半途而废。" },
+        { en: "It is not how much you read but what you learn that counts.", zh: "重要的不是你读了多少，而是你学到了什么。" },
+        { en: "The harder you study, the greater progress you will make.", zh: "你学习越努力，取得的进步就越大。" },
+        { en: "Only when we face difficulties can we grow stronger.", zh: "只有当我们面对困难时，我们才会变得更强大。" },
+        { en: "He devoted his whole life to helping the poor.", zh: "他毕生致力于帮助穷人。" },
+        { en: "There is no point in arguing about such a trivial matter.", zh: "争论这种琐事毫无意义。" },
+        { en: "As far as I'm concerned, reading is the best way to improve vocabulary.", zh: "就我而言，阅读是增加词汇量的最好方法。" },
+        { en: "It was not until midnight that he finished his homework.", zh: "直到午夜他才完成作业。" },
+        { en: "Great changes have taken place in my hometown in the past decade.", zh: "过去十年我的家乡发生了巨大的变化。" },
+        { en: "If I were you, I would seize this precious opportunity.", zh: "如果我是你，我会抓住这个宝贵的机会。" },
+        { en: "He is such a kind-hearted person that everyone likes him.", zh: "他是一个如此善良的人，大家都喜欢他。" },
+        { en: "To be honest, your English is much better than before.", zh: "说实话，你的英语比以前好多了。" },
+        { en: "She kept working hard even though she was ill.", zh: "尽管生病了，她仍然努力工作。" },
+        { en: "What you need right now is more confidence and persistence.", zh: "你现在需要的是更多的信心和毅力。" },
+        { en: "The book is well worth reading twice.", zh: "这本书很值得读两遍。" },
+        { en: "It is said that a new bridge will be built across the river next year.", zh: "据说明年将在河上建一座新桥。" },
+        { en: "No matter how difficult it is, we must carry on.", zh: "无论多么困难，我们都必须继续下去。" },
+        { en: "Never have I seen such a fascinating movie.", zh: "我从未看过如此引人入胜的电影。" },
+        { en: "She can speak English fluently as if she were a native speaker.", zh: "她英语说得很流利，好像母语者一样。" },
+        { en: "I have no idea where he has gone.", zh: "我不知道他去了哪里。" },
+        { en: "On no account should we lose heart when faced with setbacks.", zh: "面对挫折时，我们决不应该灰心。" },
+        { en: "It is essential that every student master a foreign language.", zh: "每个学生掌握一门外语是至关重要的。" },
+        { en: "He got up early in order to catch the first train.", zh: "他早起为了赶上第一班火车。" },
+        { en: "We shouldn't judge a person by his appearance.", zh: "我们不应该以貌取人。" },
+        { en: "The moment I saw her, I recognized that she was the famous actress.", zh: "我一看见她就认出了她是那位著名女演员。" },
+        { en: "It is no wonder that he has made such great achievements.", zh: "难怪他取得了如此巨大的成就。" },
+        { en: "She insisted on going hiking despite the heavy rain.", zh: "尽管下着大雨，她仍坚持去远足。" },
+        { en: "What we should do now is to focus on our study.", zh: "我们现在应该做的是专注于学习。" },
+        { en: "He fell asleep while listening to the soft music.", zh: "他在听轻柔的音乐时睡着了。" },
+        { en: "The more effort you put in, the more you will gain.", zh: "你付出越多，收获就越多。" },
+        { en: "To his surprise, the result turned out to be better than expected.", zh: "令他惊讶的是，结果比预期的要好。" },
+        { en: "It was the perseverance that helped him overcome all difficulties.", zh: "正是坚持不懈帮助他克服了所有困难。" },
+        { en: "He is the most diligent student that I have ever taught.", zh: "他是我教过的最勤奋的学生。" },
+        { en: "We are supposed to make full use of every minute to study.", zh: "我们应该充分利用每一分钟学习。" },
+        { en: "Keep in mind that failure is the mother of success.", zh: "记住，失败是成功之母。" }
+    ];
+    // 确保正好50句（上面已经50句，若手动调整补齐）
+    const TOTAL_SENTENCES = SENTENCE_SET.length;  // =50
+    const GROUP_SIZE = 5;
+    const TOTAL_GROUPS = Math.ceil(TOTAL_SENTENCES / GROUP_SIZE); // 10组
+
+    // 学习进度存储 (true 表示已掌握/已完成)
+    let learnedStatus = new Array(TOTAL_SENTENCES).fill(false);
+    let currentGroup = 0;   // 0-based 对应第几天
+
+    // ---------- 本地存储 ----------
+    function loadStatus() {
+        const stored = localStorage.getItem("yhm_english_300_v1");
+        if(stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                if(Array.isArray(parsed) && parsed.length === TOTAL_SENTENCES) {
+                    learnedStatus = parsed;
+                } else {
+                    learnedStatus = new Array(TOTAL_SENTENCES).fill(false);
+                }
+            } catch(e) { console.warn(e); }
+        }
+    }
+    function saveStatus() {
+        localStorage.setItem("yhm_english_300_v1", JSON.stringify(learnedStatus));
+    }
+
+    // 重置全部进度
+    function resetAllProgress() {
+        learnedStatus.fill(false);
+        saveStatus();
+        renderCurrentGroup();
+        updateStatsAndProgress();
+        showToast("🔄 所有句子进度已重置，从零开始攻克！");
+    }
+
+    // 切换某一句的学习状态 (全局索引)
+    function toggleSentence(globalIdx) {
+        if(globalIdx < 0 || globalIdx >= TOTAL_SENTENCES) return;
+        learnedStatus[globalIdx] = !learnedStatus[globalIdx];
+        saveStatus();
+        renderCurrentGroup();       // 重新渲染当前组
+        updateStatsAndProgress();
+        // 增加微小动画反馈
+        flashCard(globalIdx);
+        const newStatus = learnedStatus[globalIdx];
+        showToast(newStatus ? "🎉 恭喜掌握此句！继续巩固～" : "📖 已取消标记，再复习一遍吧");
+    }
+
+    // 卡片闪烁动画
+    function flashCard(globalIdx) {
+        const { start, end } = getCurrentRange();
+        if(globalIdx >= start && globalIdx < end) {
+            const cards = document.querySelectorAll('.study-card');
+            const localIndex = globalIdx - start;
+            if(cards[localIndex]) {
+                cards[localIndex].style.transition = "background 0.2s";
+                cards[localIndex].style.backgroundColor = "#fff9e5";
+                setTimeout(() => {
+                    if(cards[localIndex]) cards[localIndex].style.backgroundColor = "";
+                }, 250);
+            }
+        }
+    }
+
+    // 获取当前组索引范围
+    function getCurrentRange() {
+        const start = currentGroup * GROUP_SIZE;
+        const end = Math.min(start + GROUP_SIZE, TOTAL_SENTENCES);
+        return { start, end };
+    }
+
+    // 渲染当前组卡片
+    function renderCurrentGroup() {
+        const container = document.getElementById('cardsContainer');
+        if(!container) return;
+        const { start, end } = getCurrentRange();
+        const groupItems = [];
+        for(let i = start; i < end; i++) {
+            groupItems.push({
+                idx: i,
+                en: SENTENCE_SET[i].en,
+                zh: SENTENCE_SET[i].zh,
+                learned: learnedStatus[i]
+            });
+        }
+        if(groupItems.length === 0) {
+            container.innerHTML = "<div style='text-align:center;padding:40px;'>✨ 更多核心句子即将解锁 ✨</div>";
+            return;
+        }
+        let html = '';
+        for(let item of groupItems) {
+            const sentenceNumber = item.idx + 1;
+            const learnedClass = item.learned ? 'learned' : '';
+            const markBtnClass = item.learned ? 'mark-btn completed' : 'mark-btn';
+            const markText = item.learned ? '✅ 已掌握' : '📌 标记掌握';
+            html += `
+                <div class="study-card" data-gidx="${item.idx}">
+                    <div class="card-header">
+                        <span class="sentence-num">📌 第 ${sentenceNumber} 句 / 核心必背</span>
+                        <div class="status-tag ${learnedClass}" data-global="${item.idx}">
+                            ${item.learned ? '🌟 已掌握' : '⏳ 学习中'}
+                        </div>
+                    </div>
+                    <div class="english-sentence">${escapeHtml(item.en)}</div>
+                    <div class="chinese-trans">📖 ${escapeHtml(item.zh)}</div>
+                    <button class="${markBtnClass}" data-global="${item.idx}">${markText}</button>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+
+        // 绑定标记按钮事件 + 状态标签点击事件
+        document.querySelectorAll('.mark-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const gidx = btn.getAttribute('data-global');
+                if(gidx !== null) toggleSentence(parseInt(gidx));
+            });
+        });
+        document.querySelectorAll('.status-tag').forEach(tag => {
+            tag.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const gidx = tag.getAttribute('data-global');
+                if(gidx !== null) toggleSentence(parseInt(gidx));
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, function(m) {
+            if(m === '&') return '&amp;';
+            if(m === '<') return '&lt;';
+            if(m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // 更新头部总进度 & 今日完成 & 总计数
+    function updateStatsAndProgress() {
+        const totalCompleted = learnedStatus.filter(v => v === true).length;
+        const totalPercent = (totalCompleted / TOTAL_SENTENCES) * 100;
+        const fillBar = document.getElementById('totalProgressFill');
+        if(fillBar) fillBar.style.width = totalPercent + '%';
+        const totalSpan = document.getElementById('totalCountSpan');
+        if(totalSpan) totalSpan.innerText = totalCompleted;
+
+        const { start, end } = getCurrentRange();
+        let dailyCompleted = 0;
+        for(let i = start; i < end; i++) {
+            if(learnedStatus[i]) dailyCompleted++;
+        }
+        const dailyTotal = end - start;
+        const dailyLabel = document.getElementById('dailyCompleteLabel');
+        if(dailyLabel) dailyLabel.innerText = `📘 今日掌握 ${dailyCompleted} / ${dailyTotal}`;
+
+        const dayIndex = currentGroup + 1;
+        const dayLabelSpan = document.getElementById('dayLabel');
+        if(dayLabelSpan) dayLabelSpan.innerText = `第${dayIndex}天 / 共${TOTAL_GROUPS}天`;
+    }
+
+    // 切换组 (前一天/后一天)
+    function changeGroup(delta) {
+        const newGroup = currentGroup + delta;
+        if(newGroup >= 0 && newGroup < TOTAL_GROUPS) {
+            currentGroup = newGroup;
+            renderCurrentGroup();
+            updateStatsAndProgress();
+            updateNavDisabled();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            if(delta === -1 && currentGroup === 0) showToast("🌅 已经是第一天，继续温故知新吧");
+            else if(delta === 1 && currentGroup === TOTAL_GROUPS-1) showToast("🏆 恭喜完成所有句子！再复习一遍会更强");
+        }
+    }
+
+    function updateNavDisabled() {
+        const prevBtn = document.getElementById('prevDayBtn');
+        const nextBtn = document.getElementById('nextDayBtn');
+        if(prevBtn) {
+            if(currentGroup === 0) prevBtn.classList.add('disabled');
+            else prevBtn.classList.remove('disabled');
+        }
+        if(nextBtn) {
+            if(currentGroup === TOTAL_GROUPS-1) nextBtn.classList.add('disabled');
+            else nextBtn.classList.remove('disabled');
+        }
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+        let toastDiv = document.getElementById('globalToast');
+        if(!toastDiv) {
+            const div = document.createElement('div');
+            div.id = 'globalToast';
+            div.className = 'toast-msg';
+            document.body.appendChild(div);
+            toastDiv = div;
+        }
+        toastDiv.innerText = msg;
+        toastDiv.style.opacity = '1';
+        if(toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            if(toastDiv) toastDiv.style.opacity = '0';
+        }, 1700);
+    }
+
+    // 初始化事件 & 加载
+    function init() {
+        loadStatus();
+        currentGroup = 0;
+        renderCurrentGroup();
+        updateStatsAndProgress();
+        updateNavDisabled();
+
+        const prevBtn = document.getElementById('prevDayBtn');
+        const nextBtn = document.getElementById('nextDayBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        if(prevBtn) prevBtn.addEventListener('click', () => changeGroup(-1));
+        if(nextBtn) nextBtn.addEventListener('click', () => changeGroup(1));
+        if(resetBtn) resetBtn.addEventListener('click', () => {
+            if(confirm("⚠️ 重置将清空所有“掌握”标记，学习进度归零。确定要重置吗？")) {
+                resetAllProgress();
+            }
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
