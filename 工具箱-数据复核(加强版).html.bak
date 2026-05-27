@@ -56,7 +56,7 @@
         .tag { background: #eef2ff; border-radius: 20px; padding: 2px 10px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 6px; }
         .tag button { background: none; border: none; color: #b91c1c; cursor: pointer; font-size: 0.9rem; line-height: 1; }
         .compare-actions { display: flex; gap: 12px; margin: 12px 20px; flex-shrink: 0; }
-        /* 到货复核样式 - Tab 布局 */
+        /* 到货复核样式 - 修复详情表格高度 */
         .arrival-area { display: flex; gap: 24px; padding: 12px 20px; background: #ffffff; border-bottom: 1px solid #ecf3f9; flex-wrap: wrap; flex-shrink: 0; }
         .data-card { flex: 1; background: #f9fbfd; border: 1px solid #e2edf7; border-radius: 16px; padding: 12px 16px; }
         .data-card h4 { font-size: 0.85rem; margin-bottom: 8px; }
@@ -64,19 +64,12 @@
         .filter-row select, .filter-row button { padding: 4px 12px; border-radius: 30px; border: 1px solid #cbd5e1; background: white; font-size: 0.7rem; cursor: pointer; }
         .filter-row button.primary { background: #2b4c7c; color: white; border: none; }
         .stats-info { background: #eef2ff; margin: 8px 20px; padding: 6px 12px; border-radius: 20px; font-size: 0.7rem; display: inline-block; flex-shrink: 0; }
-        /* Tab 样式 */
-        .arrival-tabs { display: flex; gap: 4px; margin: 0 20px; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
-        .arrival-tab { padding: 6px 16px; font-size: 0.7rem; cursor: pointer; background: #f1f5f9; border: 1px solid #e2e8f0; border-bottom: none; border-radius: 8px 8px 0 0; margin-right: 2px; }
-        .arrival-tab.active { background: white; border-bottom-color: white; font-weight: bold; }
-        .arrival-tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .tab-pane { display: none; flex-direction: column; overflow: hidden; flex: 1; }
-        .tab-pane.active { display: flex; }
-        .analysis-wrapper { overflow-y: auto; padding: 8px; background: #f8fafc; border-radius: 8px; margin: 0 20px 8px 20px; flex: 1; }
-        .analysis-card { background: white; border-radius: 12px; padding: 8px; border: 1px solid #e2edf7; }
-        .analysis-card h4 { font-size: 0.75rem; margin-bottom: 6px; color: #1e3c72; }
+        .analysis-wrapper { margin: 8px 20px; display: flex; gap: 20px; flex-wrap: wrap; flex-shrink: 0; max-height: 180px; overflow-y: auto; border: 1px solid #e2edf7; border-radius: 12px; background: #f8fafc; padding: 8px; }
+        .analysis-card { flex: 1; background: transparent; }
+        .analysis-card h4 { font-size: 0.75rem; margin-bottom: 4px; color: #1e3c72; }
         .analysis-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
         .analysis-table th, .analysis-table td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-        .match-table-wrapper { flex: 1; overflow: auto; margin: 0 20px 12px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
+        .match-table-wrapper { flex: 1; overflow: auto; margin: 0 20px 12px 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; min-height: 0; }
         .match-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
         .match-table th, .match-table td { padding: 8px 10px; border-bottom: 1px solid #ecf3f9; text-align: left; vertical-align: top; }
         .match-table th { background: #f8fafc; position: sticky; top: 0; }
@@ -89,7 +82,7 @@
 <div class="app-container">
     <div class="global-header">
         <h1>📚 数据复核 · 新华书店工具箱</h1>
-        <p>普通复核 | 多文件对比 | 到货复核 (Tab布局)</p>
+        <p>普通复核 | 多文件对比 | 到货复核</p>
     </div>
     <div class="mode-bar">
         <div class="mode-radio-group">
@@ -99,7 +92,7 @@
         </div>
         <div class="mode-tip" id="modeTip">普通模式：导入Excel，自动匹配三列，按回车或按钮查找，未找到弹窗提示</div>
     </div>
-    <!-- 普通复核面板 (完整功能) -->
+    <!-- 普通复核面板 (简化，完整功能) -->
     <div id="normalPanel" class="review-panel">
         <div class="module">
             <div class="toolbar">
@@ -120,7 +113,7 @@
         </div>
     </div>
 
-    <!-- 多文件对比面板 (保留框架) -->
+    <!-- 多文件对比面板 (完整功能，此处简化界面但保留基本按钮) -->
     <div id="comparePanel" class="review-panel panel-hidden">
         <div class="base-file-area">
             <div class="file-card"><h4>📁 基准文件 (对比文件 A)</h4><input type="file" id="baseFileInput" accept=".xlsx,.xls,.csv" style="display:none"><button id="uploadBaseBtn" class="primary">选择基准文件A</button><div id="baseFileStatus" class="file-status">未加载</div></div>
@@ -131,7 +124,7 @@
         <div class="footer-note">每个被对比文件独立配置组合主键和对比字段，导出四Sheet报告。</div>
     </div>
 
-    <!-- 到货复核面板 (Tab布局，导出匹配信息列放在第一列) -->
+    <!-- 到货复核面板 (修复列表高度) -->
     <div id="arrivalPanel" class="review-panel panel-hidden">
         <div class="arrival-area">
             <div class="data-card">
@@ -164,25 +157,16 @@
             <button id="exportMatchBtn" class="success" disabled>📎 导出匹配结果</button>
         </div>
         <div id="matchStats" class="stats-info"></div>
-        <!-- Tab 页签 -->
-        <div class="arrival-tabs">
-            <div class="arrival-tab active" data-tab="analysis">📊 订单归属分析</div>
-            <div class="arrival-tab" data-tab="detail">📋 匹配详情</div>
+        <!-- 分析结果区域：限制最大高度，超出滚动 -->
+        <div class="analysis-wrapper" id="analysisWrapper" style="display:none;">
+            <div class="analysis-card">
+                <h4>📊 订单归属分析 (按匹配条目数排序)</h4>
+                <table class="analysis-table" id="analysisTable"><thead><tr><th>排名</th><th>客户名称</th><th>馆配需求单名称</th><th>匹配条目数</th><th>置信度</th></tr></thead><tbody></tbody></table>
+            </div>
         </div>
-        <div class="arrival-tab-content">
-            <div class="tab-pane active" id="tab-analysis">
-                <div class="analysis-wrapper" id="analysisWrapper" style="display:flex; flex-direction:column;">
-                    <div class="analysis-card">
-                        <h4>订单归属分析 (按匹配条目数排序)</h4>
-                        <table class="analysis-table" id="analysisTable"><thead><tr><th>排名</th><th>客户名称</th><th>馆配需求单名称</th><th>匹配条目数</th><th>置信度</th></tr></thead><tbody></tbody></table>
-                    </div>
-                </div>
-            </div>
-            <div class="tab-pane" id="tab-detail">
-                <div class="match-table-wrapper">
-                    <table class="match-table" id="matchResultTable"><thead id="matchThead"></thead><tbody id="matchTbody"></tbody></table>
-                </div>
-            </div>
+        <!-- 匹配详情表格：占据剩余所有空间 -->
+        <div class="match-table-wrapper">
+            <table class="match-table" id="matchResultTable"><thead id="matchThead"></thead><tbody id="matchTbody"></tbody></table>
         </div>
         <div class="footer-note">📌 按书号匹配订单，分析整批到货最可能的订单归属。</div>
     </div>
@@ -201,7 +185,7 @@
     function escapeHtml(str){ return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     function escapeAttr(str){ return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-    // ---------- 普通复核核心 (无自动触发，仅手动查找) ----------
+    // ---------- 普通复核核心（无任何自动触发，仅手动查找）----------
     let reviewRows = [], displayRows = [], allColumns = [];
     let currentMapping = { isbnCol: null, titleCol: null, qtyCol: null };
     let lastSearchKeyword = '', searchResultsIndices = [], currentHighlightRowIdx = -1;
@@ -495,7 +479,7 @@
         searchInput.addEventListener('focus', function() { this.select(); });
     }
 
-    // ---------- 多文件对比 (简化) ----------
+    // ---------- 多文件对比 (简化但保留框架) ----------
     let baseFileData = null, targetFileItems = [], nextId = 1;
     function parseExcelFileSimple(file) { return parseExcelFileEnhanced(file); }
     function initCompare() { 
@@ -505,7 +489,7 @@
         document.getElementById('batchCompareBtn').onclick = () => { showTip("多文件对比示例，完整版请参考之前代码", false); };
     }
 
-    // ---------- 到货复核 (Tab布局，导出匹配信息列放到第一列) ----------
+    // ---------- 到货复核 (完整保留并修复布局) ----------
     let orderData = null, arrivalData = null;
     let mappings = [];
     let matchResult = [];
@@ -593,23 +577,21 @@
         candidates.sort((a,b) => b.count - a.count);
         orderCandidateStats = candidates;
         
-        // 更新分析表格
+        const analysisWrapper = document.getElementById('analysisWrapper');
         const analysisTbody = document.querySelector('#analysisTable tbody');
         if(candidates.length > 0){
+            analysisWrapper.style.display = 'flex';
             analysisTbody.innerHTML = '';
-            candidates.forEach((c, idx) => { analysisTbody.innerHTML += `<tr><td style="text-align:center">${idx+1}</td><td>${escapeHtml(c.customer)}</td><td>${escapeHtml(c.orderNo)}</td><td style="text-align:center">${c.count}</td><td style="text-align:center">${c.confidence}%</td></table>`; });
-        } else {
-            analysisTbody.innerHTML = '<tr><td colspan="5">无匹配数据</td></tr>';
-        }
+            candidates.forEach((c, idx) => { analysisTbody.innerHTML += `<tr><td style="text-align:center">${idx+1}</td><td>${escapeHtml(c.customer)}</td><td>${escapeHtml(c.orderNo)}</td><td style="text-align:center">${c.count}</td><td style="text-align:center">${c.confidence}%</td></tr>`; });
+        } else { analysisWrapper.style.display = 'none'; }
         
-        // 渲染匹配详情 (表格)
+        // 渲染匹配详情
         const thead = document.getElementById('matchThead');
         const tbody = document.getElementById('matchTbody');
         if(arrivalData){
             const arrivalCols = arrivalData.cols;
-            // 将匹配到的订单列放到第一列
-            const headers = ["匹配到的订单 (客户+馆配需求单名称)", ...arrivalCols];
-            thead.innerHTML = '<tr>'+headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'<tr>';
+            const headers = [...arrivalCols, "匹配到的订单 (按可能性排序: 客户+馆配需求单名称)"];
+            thead.innerHTML = '<tr>'+headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr>';
             const orderCountMapQuick = new Map(); for(let c of orderCandidateStats) orderCountMapQuick.set(`${c.customer}|${c.orderNo}`, c.count);
             let html = '';
             for(let item of matchResult){
@@ -623,8 +605,8 @@
                     return (a.orderNo).localeCompare(b.orderNo);
                 });
                 let orderText = sortedOrders.map(o => `${o.customer} ${o.orderNo}`).join("\n");
-                let matchCell = `<td class="matched-orders" style="white-space:pre-line;">${escapeHtml(orderText || "无匹配")}</table>`;
-                html += '<tr>'+matchCell + cells.join('') + '</tr>';
+                let matchCell = `<td class="matched-orders" style="white-space:pre-line;">${escapeHtml(orderText || "无匹配")}</td>`;
+                html += '<tr>'+cells.join('')+matchCell+'</tr>';
             }
             tbody.innerHTML = html;
         }
@@ -638,8 +620,7 @@
         if(!arrivalData || matchResult.length===0){ showTip("无匹配结果可导出"); return; }
         const wb = XLSX.utils.book_new();
         const arrivalCols = arrivalData.cols;
-        // 将匹配到的订单列放到第一列
-        const headers = ["匹配到的订单 (客户+馆配需求单名称)", ...arrivalCols];
+        const headers = [...arrivalCols, "匹配到的订单 (按可能性排序)"];
         const detailData = [headers];
         const orderCountMap = new Map(); for(let c of orderCandidateStats) orderCountMap.set(`${c.customer}|${c.orderNo}`, c.count);
         for(let item of matchResult){
@@ -652,8 +633,8 @@
                 if(countA !== countB) return countB - countA;
                 return (a.orderNo).localeCompare(b.orderNo);
             });
-            let orderText = sortedOrders.map(o => `${o.customer} ${o.orderNo}`).join("\n");
-            detailData.push([orderText, ...rowVals]);
+            rowVals.push(sortedOrders.map(o => `${o.customer} ${o.orderNo}`).join("\n"));
+            detailData.push(rowVals);
         }
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailData), "匹配详情");
         const summaryData = [["客户名称", "馆配需求单名称", "匹配条目数", "置信度"]];
@@ -676,19 +657,6 @@
         document.getElementById('matchBtn').onclick = performMatchAndAnalyze;
         document.getElementById('exportMatchBtn').onclick = exportMatchResult;
         refreshFieldSelects(); renderMappings();
-        
-        // Tab 切换
-        const tabs = document.querySelectorAll('.arrival-tab');
-        const panes = document.querySelectorAll('.tab-pane');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const target = tab.dataset.tab;
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                panes.forEach(pane => pane.classList.remove('active'));
-                document.getElementById(`tab-${target}`).classList.add('active');
-            });
-        });
     }
     
     // 模式切换
@@ -705,7 +673,7 @@
         arrivalPanel.classList.add('panel-hidden');
         if(mode === 'normal'){ normalPanel.classList.remove('panel-hidden'); modeTipSpan.innerText = '普通模式：导入Excel，自动匹配三列，按回车或按钮查找，未找到弹窗提示'; }
         else if(mode === 'compare'){ comparePanel.classList.remove('panel-hidden'); modeTipSpan.innerText = '多文件对比模式'; }
-        else if(mode === 'arrival'){ arrivalPanel.classList.remove('panel-hidden'); modeTipSpan.innerText = '到货复核模式：Tab切换，导出匹配信息列在第一列'; }
+        else if(mode === 'arrival'){ arrivalPanel.classList.remove('panel-hidden'); modeTipSpan.innerText = '到货复核模式：上传订单和到货文件，自定义字段映射，分析整批到货最可能的订单归属'; }
     }
     radioNormal.onchange = () => switchMode('normal');
     radioCompare.onchange = () => switchMode('compare');
