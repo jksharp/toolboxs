@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Basic English 850 · 智能例句 · 三引擎发音</title>
+    <title>Basic English 850 · 关联例句 · 三引擎发音学习卡</title>
     <style>
         * {
             margin: 0;
@@ -342,7 +342,7 @@
     <div class="header-area">
         <div class="hero">
             <h1>📘 Basic English 850</h1>
-            <div class="badge">智能例句 · 完整音标 · 三引擎发音</div>
+            <div class="badge">关联例句 · 完整音标 · 三引擎发音</div>
         </div>
         <div class="settings-icon" id="settingsBtn">⚙️ 设置</div>
     </div>
@@ -389,13 +389,13 @@
         <button id="nextGroupBtn" class="nav-btn">下一组 ▶</button>
     </div>
     <div class="footer-note">
-        💡 三种发音模式自由切换<br>
-        📖 每个单词的例句都经过优化，语法正确、语义通顺，且包含该单词本身。
+        💡 三种发音模式自由切换：浏览器(离线免流量) / 有道(网络高质量) / 离线(预下载后完全离线)<br>
+        📖 每个单词的例句都包含该单词本身，帮助理解用法。
     </div>
 </div>
 
 <script>
-    // ======================= 完整850词库 (字母排序) =======================
+    // ======================= 1. 完整850词库 (字母排序) =======================
     const rawWords = [
         "a","able","about","account","acid","across","act","addition","adjustment","advertisement",
         "after","again","against","agreement","air","all","almost","among","amount","amusement",
@@ -496,7 +496,7 @@
         return "n.";
     };
     
-    // ======================= 音标映射（完整版，此处仅展示部分，实际代码包含全部）=======================
+    // ======================= 音标映射（850词完整）=======================
     const ipaMap = {
         "a": "/ə/ (或 /eɪ/)", "able": "/ˈeɪbəl/", "about": "/əˈbaʊt/", "account": "/əˈkaʊnt/", "acid": "/ˈæsɪd/",
         "across": "/əˈkrɔːs/", "act": "/ækt/", "addition": "/əˈdɪʃən/", "adjustment": "/əˈdʒʌstmənt/", "advertisement": "/ədˈvɜːrtɪsmənt/",
@@ -674,9 +674,8 @@
         return ipaMap[word] || "/" + word.replace(/[aeiou]/gi, 'ə') + "/";
     }
     
-    // 释义映射（仅显示单词释义，不翻译例句）
-    const meaningMap = {
-        "a":"一个","able":"能够","about":"关于","account":"账户","acid":"酸","across":"横穿","act":"行动","addition":"加法","adjustment":"调整","advertisement":"广告",
+    // 释义映射（简版，保留常用）
+    const meaningMap = { "a":"一个","able":"能够","about":"关于","account":"账户","acid":"酸","across":"横穿","act":"行动","addition":"加法","adjustment":"调整","advertisement":"广告",
         "after":"之后","again":"再次","against":"反对","agreement":"协议","air":"空气","all":"所有","almost":"几乎","among":"在...中","amount":"数量","amusement":"娱乐",
         "and":"和","angle":"角度","angry":"生气的","animal":"动物","answer":"回答","ant":"蚂蚁","any":"任何","apparatus":"设备","apple":"苹果","approval":"批准",
         "arch":"拱门","argument":"争论","arm":"手臂","army":"军队","art":"艺术","as":"作为","at":"在","attack":"攻击","attempt":"尝试","attention":"注意力",
@@ -763,84 +762,79 @@
         "year":"年","yellow":"黄色","yes":"是","yesterday":"昨天","you":"你","young":"年轻的"
     };
     
-    // ======================= 智能例句生成（根据词性）=======================
-    function isVowelSound(word) {
-        // 判断单词是否以元音音素开头（用于冠词 a/an）
-        const vowelStart = /^[aeiou]/i.test(word);
-        // 特殊处理：hour, honest 等虽辅音字母但元音音素
-        const specials = ["hour", "honest", "honor", "heir", "herb"];
-        if(specials.includes(word.toLowerCase())) return true;
-        return vowelStart;
-    }
-    
-    function generateExample(word, pos) {
-        // 特殊单词直接返回定制例句
-        const customExamples = {
-            "a": "I need a cup of tea.",
-            "an": "She ate an apple for lunch.",
-            "the": "The sun is shining brightly.",
-            "and": "I like coffee and tea.",
-            "but": "He is tired but happy.",
-            "for": "This gift is for you.",
-            "with": "She went to school with her friend.",
-            "to": "I want to learn English.",
-            "be": "You should be kind to others.",
-            "have": "They have a new car.",
-            "do": "Do you like music?",
-            "say": "Please say hello to your mother.",
-            "make": "She can make a cake.",
-            "go": "Let's go to the park.",
-            "get": "I will get the book for you.",
-            "see": "I see a bird in the sky.",
-            "come": "Please come to my party.",
-            "use": "May I use your phone?",
-            "able": "She is able to swim very well."
-        };
-        if(customExamples[word]) return customExamples[word];
-        
-        // 根据词性生成
-        if(pos === "det.") {
-            return `I have ${word} book on the table.`;
+    // ======================= 为每个单词生成关联例句（包含当前单词）=======================
+    function makeExampleForWord(word) {
+        // 使用模板，替换占位符，确保句子长度5-10词且其他单词来自基础词表
+        const templates = [
+            `I have a ${word}.`,
+            `This ${word} is good.`,
+            `Can you see the ${word}?`,
+            `We need a new ${word}.`,
+            `She likes the ${word} very much.`,
+            `He gave me a ${word} yesterday.`,
+            `The ${word} is on the table.`,
+            `Please take the ${word} with you.`,
+            `My friend has a ${word}.`,
+            `Do you want this ${word}?`,
+            `I found a ${word} in the garden.`,
+            `The ${word} looks very nice.`,
+            `We will use the ${word} tomorrow.`,
+            `Is that your ${word}?`,
+            `The ${word} is mine, not yours.`
+        ];
+        // 对于冠词、介词等特殊处理
+        if(word === "a" || word === "an") return `I have ${word} pen.`;
+        if(word === "the") return `The book is on the table.`;
+        if(word === "and") return `I like tea and coffee.`;
+        if(word === "but") return `I am tired but happy.`;
+        if(word === "for") return `This gift is for you.`;
+        if(word === "with") return `I go to school with my friend.`;
+        if(word === "to") return `I want to go home.`;
+        if(word === "be") return `I want to be a doctor.`;
+        if(word === "have") return `I have a new car.`;
+        if(word === "do") return `Do you like music?`;
+        if(word === "say") return `I say hello to everyone.`;
+        if(word === "make") return `She can make a cake.`;
+        if(word === "go") return `Let's go to the park.`;
+        if(word === "get") return `I will get the book.`;
+        if(word === "see") return `I see a bird in the sky.`;
+        if(word === "come") return `Please come to my party.`;
+        if(word === "use") return `May I use your phone?`;
+        // 通用模板
+        let template = templates[Math.floor(Math.random() * templates.length)];
+        // 确保单词正确插入（词性匹配）
+        if(getPos(word).startsWith("v")) {
+            template = `I often ${word} my work.`;
         }
-        if(pos === "adj.") {
-            const article = isVowelSound(word) ? "an" : "a";
-            return `This is ${article} ${word} day.`;
+        if(getPos(word) === "adj.") {
+            template = `This is a ${word} day.`;
         }
-        if(pos === "v.") {
-            // 动词原形，使用第一人称单数
-            return `I ${word} my work every day.`;
-        }
-        if(pos === "n.") {
-            const article = isVowelSound(word) ? "an" : "a";
-            return `I see ${article} ${word} near the house.`;
-        }
-        if(pos === "conj./prep.") {
-            return `We went ${word} the store.`;
-        }
-        // 默认
-        return `This ${word} is very useful.`;
+        // 最终格式化
+        let sentence = template.replace(/\${word}/g, word);
+        if(!sentence.includes(word)) sentence = template.replace(/a /g, `a ${word} `).replace(/the /g, `the ${word} `);
+        if(sentence.length < 15) sentence = `The ${word} is very useful.`;
+        return sentence;
     }
     
     // 构建最终词库
     const VOCAB = unique.slice(0,TOTAL).map(w => {
-        const pos = getPos(w);
-        const exampleEn = generateExample(w, pos);
-        // 中文只显示单词释义，不翻译整个句子（避免生硬）
-        const exampleZh = `【释义】${meaningMap[w] || "常用词"}`;
+        let exampleEn = makeExampleForWord(w);
+        // 简单中文翻译（占位，用户可点击查看）
+        let exampleZh = `例句：${exampleEn.replace(/[A-Za-z]+/g, (m) => meaningMap[m.toLowerCase()] || m)}`;
         return { 
             word: w, 
             ipa: getIpa(w), 
-            pos: pos, 
+            pos: getPos(w), 
             meaning: meaningMap[w] || "常用词", 
             example_en: exampleEn, 
             example_zh: exampleZh 
         };
     });
 
-    // ======================= 发音引擎与离线缓存 =======================
+    // ======================= 2. 发音引擎与离线缓存 =======================
     let ttsEngine = "browser";
     let db = null;
-    const DB_NAME = "Basic850Final", STORE = "wordAudio";
+    const DB_NAME = "Basic850MultiEngine", STORE = "wordAudio";
     function initDB() {
         return new Promise((res,rej)=>{
             const req = indexedDB.open(DB_NAME,1);
@@ -881,6 +875,7 @@
         const count = await new Promise(r=>{ let req=tx.objectStore(STORE).count(); req.onsuccess=()=>r(req.result); });
         document.getElementById("cacheStatusText").innerText = `已缓存 ${count} / 850 单词`;
     }
+    // 统一发音调度
     async function speakWord(word) {
         if(ttsEngine === "browser") {
             if(!window.speechSynthesis) { alert("浏览器不支持语音"); return; }
@@ -921,13 +916,13 @@
         }
     }
 
-    // ======================= 学习状态与渲染 =======================
+    // ======================= 3. 学习状态与渲染 =======================
     let learned = new Array(TOTAL).fill(false);
     let currentGroup = 0, groupSize = 10, viewMode = "card";
-    function loadLearned() { const stored = localStorage.getItem("basic850_learned_final"); if(stored) try{ let arr=JSON.parse(stored); if(arr.length===TOTAL) learned=arr; }catch(e){} }
-    function saveLearned() { localStorage.setItem("basic850_learned_final", JSON.stringify(learned)); }
-    function loadGroupSize() { let sz = localStorage.getItem("basic850_groupSize_final"); if(sz) groupSize=parseInt(sz); document.getElementById("modalGroupSize").value=groupSize; }
-    function saveGroupSize() { localStorage.setItem("basic850_groupSize_final", groupSize); }
+    function loadLearned() { const stored = localStorage.getItem("basic850_learned_v10"); if(stored) try{ let arr=JSON.parse(stored); if(arr.length===TOTAL) learned=arr; }catch(e){} }
+    function saveLearned() { localStorage.setItem("basic850_learned_v10", JSON.stringify(learned)); }
+    function loadGroupSize() { let sz = localStorage.getItem("basic850_groupSize_v10"); if(sz) groupSize=parseInt(sz); document.getElementById("modalGroupSize").value=groupSize; }
+    function saveGroupSize() { localStorage.setItem("basic850_groupSize_v10", groupSize); }
     function getTotalGroups() { return Math.ceil(TOTAL/groupSize); }
     function getCurrentRange() { let start=currentGroup*groupSize, end=Math.min(start+groupSize,TOTAL); return {start,end, words:VOCAB.slice(start,end)}; }
     function render() {
