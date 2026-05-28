@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>客户归属复核 · 新华书店工具箱</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; font-size: 13px; }
+        .app-container { display: flex; flex-direction: column; height: 100vh; background: white; }
+        .global-header { background: linear-gradient(135deg, #1e3c72, #2a4b7a); color: white; padding: 8px 20px; flex-shrink: 0; }
+        .global-header h1 { font-size: 1.2rem; }
+        .global-header p { font-size: 0.7rem; opacity: 0.85; }
+        .toolbar { background: #fefefe; padding: 6px 16px; border-bottom: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        button { border: none; background: #eef2f7; padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; cursor: pointer; }
+        button.primary { background: #2b4c7c; color: white; }
+        button.success { background: #e3f7ec; color: #2b6e3c; }
+        .footer-note { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; background: #fefefe; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
+        .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; z-index: 2000; white-space: nowrap; }
+        .file-card { background: #f9fbfd; border: 1px solid #e2edf7; border-radius: 16px; padding: 10px 16px; margin-bottom: 12px; }
+        .flex-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+        .query-input-group { display: flex; gap: 12px; align-items: center; background: #f8fafc; padding: 12px 16px; border-radius: 48px; margin: 12px 20px; }
+        .query-input-group input { flex: 3; padding: 8px 16px; border-radius: 40px; border: 1px solid #cbd5e1; }
+        .batch-stats { background: #eef2ff; padding: 8px 12px; border-radius: 24px; font-size: 0.7rem; display: inline-block; margin: 0 20px 12px; }
+        .prob-bar { background: #eef2ff; border-radius: 12px; height: 6px; width: 100%; overflow: hidden; margin-top: 4px; }
+        .prob-fill { background: #2b4c7c; height: 100%; }
+        .customer-tag { display: inline-block; background: #eef2ff; border-radius: 20px; padding: 2px 8px; margin: 2px 4px 2px 0; font-size: 0.7rem; }
+        .insight { font-size: 0.65rem; color: #4b5563; }
+        .result-table-wrapper { flex: 1; overflow: auto; margin: 12px 20px; border: 1px solid #e2e8f0; border-radius: 16px; }
+        .review-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .review-table th, .review-table td { padding: 6px 10px; border-bottom: 1px solid #ecf3f9; vertical-align: top; text-align: left; }
+        .review-table th { background: #f1f5f9; position: sticky; top: 0; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="global-header"><h1>🎯 客户归属复核 · 新华书店工具箱</h1><p>订单+到货文件 | 智能识别书号/单号 | 每本书归属概率</p></div>
+    <div style="padding:12px 20px; display:flex; gap:16px; flex-wrap:wrap;">
+        <div class="file-card" style="flex:1;"><h4>📋 订单文件 (必需)</h4><input type="file" id="custOrderInput" style="display:none"><button id="uploadCustOrderBtn" class="primary">上传订单明细</button><span id="orderFileStatusCust">未加载</span><div class="insight">需包含：书号、客户名称、订数</div></div>
+        <div class="file-card" style="flex:1;"><h4>📦 到货文件 (必需)</h4><input type="file" id="custArrivalInput" style="display:none"><button id="uploadCustArrivalBtn" class="primary">上传到货清单</button><span id="arrivalFileStatusCust">未加载</span><div class="insight">需包含：书号、原始单据号、书名(可选)</div></div>
+    </div>
+    <div class="query-input-group"><span>🔍 智能查询：</span><input type="text" id="smartQueryInput" placeholder="书号 或 到货单号(9000...)"><button id="smartQueryBtn" class="primary">查询归属</button><span class="insight">*9000开头自动识别为单据号(自动补零)</span></div>
+    <div id="batchSummary" class="batch-stats" style="display:none;"></div>
+    <div class="result-table-wrapper"><table class="review-table"><thead><tr><th>书号</th><th>书名</th><th>可能客户(概率)</th><th>概率分布/依据</th><th>推荐客户</th></tr></thead><tbody id="customerResultBody"><tr><td colspan="5">👈 请上传订单和到货文件后查询</td></tr></tbody>}</div>
+    <div class="footer-note">🎯 基于订单匹配，计算每本书的客户概率；单据号查询时增加批次一致性修正。</div>
+</div>
+
+<script>
+(function(){
+    let toastTimer;
+    const showTip = (msg, isErr=true, dur=2500) => {
+        let tip = document.getElementById('globalTip');
+        if(!tip){ tip = document.createElement('div'); tip.id='globalTip'; tip.className='toast-tip'; document.body.appendChild(tip); }
+        tip.style.opacity='1'; tip.innerText=msg;
+        if(toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(()=>tip.style.opacity='0', dur);
+    };
+    const escapeHtml = s => String(s).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+    const escapeAttr = s => String(s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+    
+    const parseExcel = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const raw = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
+                if(!raw.length) reject("文件为空");
+                let headerIdx = 0;
+                for(let i=0; i<Math.min(raw.length,30); i++){
+                    const rowStr = (raw[i]||[]).map(c=>String(c||"").toLowerCase()).join(' ');
+                    if(rowStr.includes('书号') || (rowStr.includes('isbn') && rowStr.includes('书名'))) { headerIdx=i; break; }
+                }
+                const headers = raw[headerIdx].map((c,i)=> (c && c.trim()) ? c.trim() : `列_${i+1}`);
+                const dataRows = raw.slice(headerIdx+1).filter(r => r.some(cell => cell!==undefined && String(cell).trim() !== ""));
+                const excludeSum = ['合计','汇总','总计','记录数','码洋','实洋'];
+                const rows = dataRows.filter(row => !excludeSum.some(kw => row.map(c=>String(c||"").toLowerCase()).join(' ').includes(kw)));
+                const jsonRows = rows.map(row => {
+                    const obj = {};
+                    headers.forEach((h,idx) => obj[h] = (idx<row.length && row[idx]!==undefined) ? String(row[idx]).trim() : "");
+                    return obj;
+                });
+                resolve({ cols: headers, rows: jsonRows, fileName: file.name });
+            } catch(err) { reject(err.message); }
+        };
+        reader.onerror = () => reject("读取失败");
+        reader.readAsArrayBuffer(file);
+    });
+
+    // 数据存储
+    let orderCust=[], arrivalCust=[], isbn2orders=new Map(), no2books=new Map();
+    
+    const buildOrderCust = () => {
+        isbn2orders.clear();
+        orderCust.forEach(row=>{
+            let isbn = row['书号'] || row['isbn'] || row['ISBN'] || '';
+            let cust = row['客户名称'] || row['客户'] || '';
+            let qty = parseFloat(row['订数'] || row['数量'] || row['qty'] || 0);
+            if(isbn && cust) isbn2orders.set(isbn, [...(isbn2orders.get(isbn)||[]), {customer:cust, qty:isNaN(qty)?0:qty}]);
+        });
+    };
+    
+    const buildArrivalCust = () => {
+        no2books.clear();
+        arrivalCust.forEach(row=>{
+            let isbn = row['书号'] || row['isbn'] || row['ISBN'] || '';
+            let noRaw = row['原始单据号'] || row['单据号'] || row['到货单号'] || '';
+            let title = row['书名'] || row['品名'] || '';
+            if(isbn && noRaw){
+                let norm = noRaw.replace(/^0+/, '');
+                no2books.set(norm, [...(no2books.get(norm)||[]), {isbn, title}]);
+            }
+        });
+    };
+    
+    const detectType = s => /^9[0]{3,}/.test(s.trim()) ? {type:'orderno', val:s.trim().replace(/^0+/,'')} : {type:'isbn', val:s.trim()};
+    
+    const predictBooks = (items, batchSet=null) => {
+        if(!orderCust.length) return [];
+        let batchScores = new Map();
+        if(batchSet && batchSet.size>1){
+            for(let isbn of batchSet){
+                (isbn2orders.get(isbn)||[]).forEach(o => batchScores.set(o.customer, (batchScores.get(o.customer)||0)+1));
+            }
+            let max = Math.max(...batchScores.values(),1);
+            for(let [c,s] of batchScores) batchScores.set(c, s/max);
+        }
+        return items.map(({isbn,title})=>{
+            let orders = isbn2orders.get(isbn)||[];
+            if(!orders.length) return {isbn,title, predictions:[{customer:"无订单记录",prob:100,reasons:"无订单"}], top:"无"};
+            let custMap = new Map();
+            orders.forEach(o=>{
+                let v = custMap.get(o.customer) || {totalQty:0, count:0};
+                v.totalQty += o.qty;
+                v.count++;
+                custMap.set(o.customer, v);
+            });
+            let totalQty = Array.from(custMap.values()).reduce((s,v)=>s+v.totalQty,0);
+            let scores = Array.from(custMap.entries()).map(([cust,info])=>{
+                let score = 100 + (totalQty? (info.totalQty/totalQty)*30 : 0) + Math.min(info.count*5, 20);
+                let batchBonus = (batchScores.get(cust)||0)*40;
+                if(batchBonus) score += batchBonus;
+                let reasons = [`订数占比${Math.round((info.totalQty/totalQty)*100)}%`, `出现${info.count}次`];
+                if(batchBonus) reasons.push(`批次+${Math.round(batchBonus)}%`);
+                return {cust, score, reasons};
+            });
+            let total = scores.reduce((s,{score})=>s+score,0);
+            let pred = scores.map(({cust,score,reasons})=>({customer:cust, prob:(score/total*100).toFixed(1), reasons:reasons.join("; ")})).sort((a,b)=>b.prob-a.prob).slice(0,3);
+            return {isbn,title, predictions:pred, top:pred[0].customer};
+        });
+    };
+    
+    const queryOrderNo = async (no) => {
+        let books = no2books.get(no);
+        if(!books?.length){ showTip("未找到该单据号对应的书籍"); return null; }
+        let items = books.map(b=>({isbn:b.isbn, title:b.title||''}));
+        let batchSet = new Set(items.map(i=>i.isbn));
+        let res = predictBooks(items, batchSet);
+        let custCount = new Map();
+        res.forEach(r=>{ if(r.top!=='无') custCount.set(r.top, (custCount.get(r.top)||0)+1); });
+        let totalMatched = res.filter(r=>r.top!=='无').length;
+        let topCust = [...custCount.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0] || '不确定';
+        let summary = `📌 整单共 ${books.length} 种书，匹配${totalMatched}种。最可能客户: ${topCust} (占比${totalMatched?Math.round(custCount.get(topCust)/totalMatched*100):0}%的匹配书)`;
+        return {results:res, summary};
+    };
+    
+    const queryIsbn = async (isbn) => {
+        let res = predictBooks([{isbn, title:''}]);
+        if(!res.length) return null;
+        return {results:res, summary:`单书查询: ${isbn}`, isSingle:true};
+    };
+    
+    const renderCustResult = (qr) => {
+        let tbody = document.getElementById('customerResultBody'), summaryDiv = document.getElementById('batchSummary');
+        if(!qr?.results?.length){ tbody.innerHTML='<tr><td colspan="5">无匹配结果</td></tr>'; summaryDiv.style.display='none'; return; }
+        tbody.innerHTML = qr.results.map(r=>{
+            let custHtml = r.predictions.map(p=>`<span class="customer-tag"><strong>${escapeHtml(p.customer)}</strong> ${p.prob}%</span>`).join('');
+            let probHtml = r.predictions.map(p=>`<div><div>${escapeHtml(p.customer)} ${p.prob}%</div><div class="prob-bar"><div class="prob-fill" style="width:${p.prob}%;"></div></div><div class="insight">${escapeHtml(p.reasons||'')}</div></div>`).join('');
+            return `<tr><td>${escapeHtml(r.isbn)}</td><td>${escapeHtml(r.title)}</td><td>${custHtml}</td><td>${probHtml}</td><td><strong>${escapeHtml(r.top)}</strong></td></tr>`;
+        }).join('');
+        if(qr.summary && !qr.isSingle){ summaryDiv.style.display='block'; summaryDiv.innerHTML=qr.summary; } else summaryDiv.style.display='none';
+    };
+    
+    const smartQuery = async () => {
+        let raw = document.getElementById('smartQueryInput').value.trim();
+        if(!raw) return showTip("请输入书号或单据号");
+        if(!orderCust.length) return showTip("请先上传订单文件");
+        if(!arrivalCust.length) return showTip("请先上传到货文件");
+        let {type,val} = detectType(raw);
+        let res = type==='orderno' ? await queryOrderNo(val) : await queryIsbn(val);
+        renderCustResult(res);
+    };
+    
+    // 文件上传
+    document.getElementById('uploadCustOrderBtn').onclick = ()=>document.getElementById('custOrderInput').click();
+    document.getElementById('custOrderInput').onchange = async e=>{
+        if(e.target.files[0]){ 
+            try{
+                let data = await parseExcel(e.target.files[0]); 
+                orderCust = data.rows; 
+                buildOrderCust(); 
+                document.getElementById('orderFileStatusCust').innerHTML = `✅ ${data.fileName} (${orderCust.length}行)`; 
+                showTip("订单加载完成",false);
+            }catch(e){ showTip("订单解析失败:"+e.message); }
+        }
+    };
+    document.getElementById('uploadCustArrivalBtn').onclick = ()=>document.getElementById('custArrivalInput').click();
+    document.getElementById('custArrivalInput').onchange = async e=>{
+        if(e.target.files[0]){ 
+            try{
+                let data = await parseExcel(e.target.files[0]); 
+                arrivalCust = data.rows; 
+                buildArrivalCust(); 
+                document.getElementById('arrivalFileStatusCust').innerHTML = `✅ ${data.fileName} (${arrivalCust.length}行)`; 
+                showTip("到货加载完成",false);
+            }catch(e){ showTip("到货解析失败:"+e.message); }
+        }
+    };
+    document.getElementById('smartQueryBtn').onclick = smartQuery;
+})();
+</script>
+</body>
+</html>
