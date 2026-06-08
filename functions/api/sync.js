@@ -28,7 +28,7 @@ export async function onRequest(context) {
             return new Response(JSON.stringify({ success: true, message: 'API OK', db: !!DB }), { headers });
         }
 
-        // 上传订单
+        // 上传订单（移除 BEGIN/COMMIT）
         if (request.method === 'POST' && action === 'uploadOrders') {
             let rawBody;
             try {
@@ -53,10 +53,10 @@ export async function onRequest(context) {
             if (data.length > 3000) return sendError('单次上传不能超过3000条，请分批上传');
 
             let inserted = 0, updated = 0;
-            await DB.prepare('BEGIN').run();
 
             try {
                 if (mode === 'full') {
+                    // 先清空
                     await DB.prepare('DELETE FROM orders').run();
                     for (const item of data) {
                         await DB.prepare(`
@@ -104,10 +104,8 @@ export async function onRequest(context) {
                         }
                     }
                 }
-                await DB.prepare('COMMIT').run();
                 return new Response(JSON.stringify({ success: true, inserted, updated, mode, total: data.length }), { headers });
             } catch (err) {
-                await DB.prepare('ROLLBACK').run();
                 console.error('数据库操作失败:', err);
                 return sendError(`数据库操作失败: ${err.message}`, 500);
             }
