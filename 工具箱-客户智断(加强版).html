@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>客户归属复核 · 含批销人和时间</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        .app-container { display: flex; flex-direction: column; height: 100vh; background: white; overflow: hidden; }
+        .header { background: linear-gradient(135deg, #1e3c72, #2a4b7a); color: white; padding: 8px 20px; flex-shrink: 0; }
+        .header h1 { font-size: 1.2rem; }
+        .header p { font-size: 0.7rem; opacity: 0.85; }
+        .file-area { background: #f8fafc; padding: 8px 20px; display: flex; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
+        .file-card { background: white; border: 1px solid #e2edf7; border-radius: 16px; padding: 8px 12px; flex: 1; min-width: 200px; }
+        .file-card h4 { font-size: 0.8rem; margin-bottom: 6px; }
+        .file-status { font-size: 0.7rem; margin-top: 4px; color: #2c5a2e; white-space: pre-line; }
+        button { border: none; background: #eef2f7; padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; cursor: pointer; }
+        button.primary { background: #2b4c7c; color: white; }
+        .tabs { display: flex; gap: 4px; padding: 6px 20px 0 20px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
+        .tab { padding: 6px 16px; font-size: 0.75rem; cursor: pointer; background: #f1f5f9; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; border-bottom: none; margin-right: 2px; }
+        .tab.active { background: white; border-bottom-color: white; font-weight: bold; color: #1e3c72; }
+        .tab-content { display: none; padding: 12px 20px; background: white; flex-shrink: 0; }
+        .tab-content.active { display: block; }
+        .batch-input { width: 100%; min-height: 100px; font-family: monospace; font-size: 0.7rem; border: 1px solid #cbd5e1; border-radius: 12px; padding: 8px; }
+        .flex-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+        .insight { font-size: 0.65rem; color: #4b5563; margin-top: 4px; }
+        .result-stats { background: #eef2ff; margin: 0 20px 12px; padding: 6px 12px; border-radius: 20px; font-size: 0.7rem; display: inline-block; flex-shrink: 0; }
+        .table-wrapper { flex: 1; overflow: auto; margin: 0 20px 12px 20px; border: 1px solid #e2e8f0; border-radius: 16px; background: white; }
+        .review-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .review-table th, .review-table td { padding: 8px 10px; border-bottom: 1px solid #ecf3f9; text-align: left; vertical-align: top; }
+        .review-table th { background: #f1f5f9; position: sticky; top: 0; z-index: 10; }
+        .footer { padding: 4px 16px; font-size: 0.65rem; color: #5b6e8c; border-top: 1px solid #ecf3f9; flex-shrink: 0; }
+        .toast-tip { position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%); background: #333333ee; color: #ffdd99; padding: 12px 24px; border-radius: 40px; z-index: 2000; white-space: nowrap; }
+        .batch-order-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+        .batch-order-tab { padding: 6px 16px; font-size: 0.7rem; cursor: pointer; background: #f1f5f9; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; border-bottom: none; margin-right: 2px; }
+        .batch-order-tab.active { background: white; border-bottom-color: white; font-weight: bold; color: #1e3c72; }
+        .batch-order-pane { display: none; padding: 12px 0; }
+        .batch-order-pane.active { display: block; }
+        .batch-recommend { background: #eef2ff; padding: 8px 12px; border-radius: 16px; margin-bottom: 12px; font-size: 0.75rem; }
+        .summary-stat { background: #f0fdf4; padding: 8px 12px; border-radius: 16px; margin: 0 0 12px 0; border-left: 4px solid #2b6e3c; }
+        .price-warning { color: #d97706; font-weight: bold; margin-left: 4px; }
+        .batch-order-scroll { height: calc(100vh - 450px); overflow: auto; }
+        .repeat-badge { background: #eef2ff; font-size: 0.65rem; padding: 2px 6px; border-radius: 20px; margin-left: 6px; color: #1e3c72; }
+        .rec-highlight { background: #e6f0ff; font-weight: bold; font-size: 1.05em; color: #1e3c72; border-radius: 8px; text-align: center; }
+        .global-recommend { background: #e8f5e9; font-size: 1.2rem; font-weight: bold; color: #2e7d32; padding: 4px 12px; border-radius: 20px; display: inline-block; }
+        .cand-list { display: flex; flex-direction: column; gap: 6px; }
+        .cand-item { background: #f1f5f9; padding: 4px 8px; border-radius: 16px; font-size: 0.7rem; }
+        .cand-item strong { color: #1e3c72; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <h1>客户归属复核 · 含批销人和时间</h1>
+        <p>订单文件 + 到货文件 + 批销文件（可选）| 显示批销册数、批销人、批销时间</p>
+    </div>
+    <div class="file-area">
+        <div class="file-card">
+            <h4>订单文件 (必需)</h4>
+            <input type="file" id="orderFileInput" style="display:none" accept=".xlsx,.xls,.csv">
+            <button id="uploadOrderBtn" class="primary">上传订单明细</button>
+            <div id="orderStatus" class="file-status">未加载</div>
+        </div>
+        <div class="file-card">
+            <h4>到货文件 (整批单据号查询时需要)</h4>
+            <input type="file" id="arrivalFileInput" style="display:none" accept=".xlsx,.xls,.csv">
+            <button id="uploadArrivalBtn" class="primary">上传到货清单</button>
+            <div id="arrivalStatus" class="file-status">未加载</div>
+        </div>
+        <div class="file-card">
+            <h4>批销文件 (可选)</h4>
+            <input type="file" id="salesFileInput" style="display:none" accept=".xlsx,.xls,.csv">
+            <button id="uploadSalesBtn" class="primary">上传批销记录</button>
+            <div id="salesStatus" class="file-status">未加载</div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="single">单号/书号智能查询</div>
+        <div class="tab" data-tab="batchIsbn">批量书号查询</div>
+        <div class="tab" data-tab="batchOrderNo">批量单据号查询</div>
+    </div>
+
+    <div id="singleTab" class="tab-content active">
+        <div class="flex-row">
+            <span style="font-weight:500;">输入书号或单据号：</span>
+            <input type="text" id="smartInput" placeholder="例如：9787522629544 (书号) 或 900184242 (单据号)" style="flex:2; padding:8px; border-radius:40px; border:1px solid #cbd5e1;">
+            <button id="smartQueryBtn" class="primary">智能查询</button>
+        </div>
+        <div class="insight">单据号：以900开头且长度为9位数字（如900184242）；书号：其他任意字符。单据号查询需要上传到货文件。</div>
+    </div>
+
+    <div id="batchIsbnTab" class="tab-content">
+        <textarea id="batchIsbnText" class="batch-input" placeholder="每行一个书号，支持重复（保持顺序）"></textarea>
+        <div class="flex-row">
+            <input type="file" id="batchIsbnExcel" accept=".xlsx,.xls,.csv" style="display:none">
+            <button id="uploadBatchIsbnBtn" class="primary">上传Excel书号列表</button>
+            <button id="analyzeBatchIsbnBtn" class="primary">批量分析书号</button>
+        </div>
+    </div>
+
+    <div id="batchOrderNoTab" class="tab-content">
+        <textarea id="batchOrderNoText" class="batch-input" placeholder="每行一个原始单据号"></textarea>
+        <div class="flex-row">
+            <input type="file" id="batchOrderNoExcel" accept=".xlsx,.xls,.csv" style="display:none">
+            <button id="uploadBatchOrderNoBtn" class="primary">上传Excel单据号列表</button>
+            <button id="analyzeBatchOrderNoBtn" class="primary">批量分析单据号</button>
+        </div>
+        <div id="batchOrderResult" style="margin-top:12px;" class="batch-order-scroll"></div>
+    </div>
+
+    <div id="statsInfo" class="result-stats" style="display:none;"></div>
+    <div class="table-wrapper" id="resultTableWrapper">
+        <table class="review-table">
+            <thead id="resultThead"></thead>
+            <tbody id="resultTbody"></tbody>
+        </table>
+    </div>
+    <div class="footer">推荐归属列在第一列，可能客户列表显示（含百分比、订数、批销册数），批销人和批销时间显示最近一次批销信息。</div>
+</div>
+
+<script>
+(function(){
+    var toastTimer;
+    function showTip(msg, isErr, dur) {
+        if(isErr === undefined) isErr = true;
+        if(dur === undefined) dur = 2800;
+        var tip = document.getElementById('globalTip');
+        if(!tip){
+            tip = document.createElement('div');
+            tip.id = 'globalTip';
+            tip.className = 'toast-tip';
+            document.body.appendChild(tip);
+        }
+        tip.style.opacity = '1';
+        tip.innerText = msg;
+        if(toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function(){ tip.style.opacity = '0'; }, dur);
+    }
+    function escapeHtml(s){
+        if(s === undefined || s === null) s = '';
+        return String(s).replace(/[&<>]/g, function(m){
+            if(m === '&') return '&amp;';
+            if(m === '<') return '&lt;';
+            if(m === '>') return '&gt;';
+            return m;
+        });
+    }
+    function formatPrice(p){
+        if(p !== undefined && p !== null && !isNaN(parseFloat(p))){
+            return parseFloat(p).toFixed(2);
+        }
+        return '-';
+    }
+
+    var orderRows = [];
+    var arrivalRows = [];
+    var salesRows = [];
+    var orderIndex = new Map();
+    var arrivalIndex = new Map();
+    var orderTitleMap = new Map();
+    var salesIndex = new Map(); // key -> { totalQty, lastPerson, lastDate }
+
+    function trimStr(s){ return String(s).trim(); }
+    function isSpecialCustomer(customer){
+        var c = trimStr(customer);
+        return c.indexOf('湖北省图书馆') !== -1 || c.indexOf('少儿') !== -1 || c.indexOf('中南民族大学') !== -1;
+    }
+    function getSalesKey(isbn, customer, demand){
+        if(isSpecialCustomer(customer)){
+            return trimStr(isbn) + '|' + trimStr(customer) + '|' + trimStr(demand);
+        } else {
+            return trimStr(isbn) + '|' + trimStr(customer);
+        }
+    }
+    function getSalesInfo(isbn, customer, demand){
+        var key = getSalesKey(isbn, customer, demand);
+        var info = salesIndex.get(key);
+        if(info) return { qty: info.totalQty, person: info.lastPerson, date: info.lastDate };
+        return { qty: 0, person: '', date: '' };
+    }
+
+    function parseExcel(file) {
+        return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+                    var sheet = wb.Sheets[wb.SheetNames[0]];
+                    var raw = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
+                    if(!raw.length) reject("文件为空");
+                    var headerIdx = 0;
+                    for(var i=0; i<Math.min(raw.length,30); i++){
+                        var rowStr = (raw[i]||[]).map(function(c){ return String(c||"").toLowerCase(); }).join(' ');
+                        if(rowStr.indexOf('书号') !== -1 || rowStr.indexOf('条形码') !== -1 || rowStr.indexOf('isbn') !== -1 || (rowStr.indexOf('品名') !== -1 && rowStr.indexOf('客户') !== -1)){
+                            headerIdx = i;
+                            break;
+                        }
+                    }
+                    var headers = raw[headerIdx].map(function(c,i){ return (c && c.trim()) ? c.trim() : "列_"+(i+1); });
+                    var dataRows = raw.slice(headerIdx+1).filter(function(r){ return r.some(function(cell){ return cell !== undefined && String(cell).trim() !== ""; }); });
+                    var excludeSum = ['合计','汇总','总计','记录数','码洋','实洋'];
+                    var rows = dataRows.filter(function(row){
+                        var rowStr = row.map(function(c){ return String(c||"").toLowerCase(); }).join(' ');
+                        for(var j=0; j<excludeSum.length; j++){
+                            if(rowStr.indexOf(excludeSum[j]) !== -1) return false;
+                        }
+                        return true;
+                    });
+                    var jsonRows = rows.map(function(row){
+                        var obj = {};
+                        headers.forEach(function(h,idx){
+                            obj[h] = (idx < row.length && row[idx] !== undefined) ? String(row[idx]).trim() : "";
+                        });
+                        return obj;
+                    });
+                    resolve({ cols: headers, rows: jsonRows, fileName: file.name });
+                } catch(err) { reject(err.message); }
+            };
+            reader.onerror = function() { reject("读取失败"); };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function autoMapColumns(cols, type) {
+        var isbnCol = null, customerCol = null, demandCol = null, orderQtyCol = null, titleCol = null, orderPriceCol = null;
+        var orderNoCol = null, actualQtyCol = null, arrivalDateCol = null, arrivalPriceCol = null;
+        var salesQtyCol = null, salesCustomerCol = null, salesDemandCol = null, salesPersonCol = null, salesDateCol = null;
+        for(var i=0; i<cols.length; i++){
+            var c = cols[i];
+            var l = c.toLowerCase();
+            if(type === 'order'){
+                if(!isbnCol && (l.indexOf('书号') !== -1 || l.indexOf('条形码') !== -1 || l.indexOf('isbn') !== -1)) isbnCol = c;
+                if(!customerCol && (l.indexOf('客户名称') !== -1 || l.indexOf('客户') !== -1)) customerCol = c;
+                if(!demandCol && (l.indexOf('馆配需求单名称') !== -1 || l.indexOf('需求单') !== -1 || l.indexOf('需求单名称') !== -1)) demandCol = c;
+                if(!orderQtyCol && (l.indexOf('订数') !== -1 || l.indexOf('数量') !== -1 || l.indexOf('册数') !== -1)) orderQtyCol = c;
+                if(!titleCol && (l.indexOf('书名') !== -1 || l.indexOf('品名') !== -1 || l.indexOf('名称') !== -1)) titleCol = c;
+                if(!orderPriceCol && (l.indexOf('定价') !== -1 || l.indexOf('价格') !== -1 || l.indexOf('售价') !== -1)) orderPriceCol = c;
+            } else if(type === 'arrival'){
+                if(!orderNoCol && (l.indexOf('原始单据号') !== -1 || l.indexOf('单据号') !== -1 || l.indexOf('到货单号') !== -1)) orderNoCol = c;
+                if(!isbnCol && (l.indexOf('条形码') !== -1 || l.indexOf('书号') !== -1 || l.indexOf('isbn') !== -1)) isbnCol = c;
+                if(!actualQtyCol && (l.indexOf('实收数') !== -1 || l.indexOf('实收数量') !== -1 || l.indexOf('实收') !== -1)) actualQtyCol = c;
+                if(!arrivalDateCol && (l.indexOf('到货日期') !== -1 || l.indexOf('原始单据日期') !== -1 || l.indexOf('日期') !== -1)) arrivalDateCol = c;
+                if(!arrivalPriceCol && (l.indexOf('售价') !== -1 || l.indexOf('定价') !== -1 || l.indexOf('价格') !== -1)) arrivalPriceCol = c;
+            } else if(type === 'sales'){
+                if(!isbnCol && (l.indexOf('书号') !== -1 || l.indexOf('条形码') !== -1 || l.indexOf('isbn') !== -1)) isbnCol = c;
+                if(!salesCustomerCol && (l.indexOf('购货单位') !== -1 || l.indexOf('客户') !== -1 || l.indexOf('客户名称') !== -1)) salesCustomerCol = c;
+                if(!salesDemandCol && (l.indexOf('馆配单据') !== -1 || l.indexOf('需求单') !== -1 || l.indexOf('需求单名称') !== -1)) salesDemandCol = c;
+                if(!salesQtyCol && (l.indexOf('批销册数') !== -1 || l.indexOf('册数') !== -1 || l.indexOf('数量') !== -1)) salesQtyCol = c;
+                if(!salesPersonCol && (l.indexOf('开单人') !== -1 || l.indexOf('批销人') !== -1 || l.indexOf('操作人') !== -1)) salesPersonCol = c;
+                if(!salesDateCol && (l.indexOf('批销日期') !== -1 || l.indexOf('日期') !== -1 || l.indexOf('时间') !== -1)) salesDateCol = c;
+            }
+        }
+        return { isbnCol:isbnCol, customerCol:customerCol, demandCol:demandCol, orderQtyCol:orderQtyCol, titleCol:titleCol, orderPriceCol:orderPriceCol,
+                 orderNoCol:orderNoCol, actualQtyCol:actualQtyCol, arrivalDateCol:arrivalDateCol, arrivalPriceCol:arrivalPriceCol,
+                 salesCustomerCol:salesCustomerCol, salesDemandCol:salesDemandCol, salesQtyCol:salesQtyCol, salesPersonCol:salesPersonCol, salesDateCol:salesDateCol };
+    }
+
+    function buildOrderIndex() {
+        orderIndex.clear();
+        orderTitleMap.clear();
+        for(var i=0; i<orderRows.length; i++){
+            var row = orderRows[i];
+            var isbn = row['书号'] || row['条形码'] || row['isbn'] || '';
+            var customer = row['客户名称'] || row['客户'] || '';
+            var demand = row['馆配需求单名称'] || row['需求单名称'] || '';
+            var orderQty = parseFloat(row['订数'] || row['数量'] || 0);
+            var title = row['书名'] || row['品名'] || '';
+            var price = parseFloat(row['定价'] || 0);
+            if(isbn && demand){
+                var key = customer + '|' + demand;
+                if(!orderIndex.has(isbn)) orderIndex.set(isbn, []);
+                var arr = orderIndex.get(isbn);
+                arr.push({ customer:customer, demand:demand, orderQty:isNaN(orderQty)?0:orderQty, key:key, display:customer + ' | ' + demand, price:isNaN(price)?0:price });
+            }
+            if(isbn && title && (!orderTitleMap.has(isbn) || orderTitleMap.get(isbn) === '' || orderTitleMap.get(isbn) === '一般图书')){
+                orderTitleMap.set(isbn, title);
+            }
+        }
+        for(var j=0; j<orderRows.length; j++){
+            var r = orderRows[j];
+            var ib = r['书号'] || r['条形码'] || r['isbn'] || '';
+            var t = r['书名'] || r['品名'] || '';
+            if(ib && t && !orderTitleMap.has(ib)){
+                orderTitleMap.set(ib, t);
+            }
+        }
+    }
+
+    function buildArrivalIndex() {
+        arrivalIndex.clear();
+        for(var i=0; i<arrivalRows.length; i++){
+            var row = arrivalRows[i];
+            var orderNoRaw = row['原始单据号'] || row['单据号'] || row['到货单号'] || '';
+            var isbn = row['条形码'] || row['书号'] || row['isbn'] || '';
+            var title = row['品名'] || row['书名'] || '';
+            var actualQty = parseFloat(row['实收数'] || row['实收数量'] || 0);
+            var arrivalDate = row['到货日期'] || row['原始单据日期'] || row['日期'] || '';
+            var price = parseFloat(row['售价'] || 0);
+            if(orderNoRaw && isbn){
+                var normalized = orderNoRaw.replace(/^0+/, '');
+                if(!arrivalIndex.has(normalized)) arrivalIndex.set(normalized, []);
+                arrivalIndex.get(normalized).push({ isbn:isbn, title:title, actualQty:isNaN(actualQty)?0:actualQty, arrivalDate:arrivalDate, price:isNaN(price)?0:price });
+            }
+        }
+    }
+
+    function buildSalesIndex() {
+        salesIndex.clear();
+        if(!salesRows.length) return;
+        for(var i=0; i<salesRows.length; i++){
+            var row = salesRows[i];
+            var isbn = row['书号'] || row['条形码'] || row['isbn'] || '';
+            var customer = row['购货单位'] || row['客户名称'] || row['客户'] || '';
+            var demand = row['馆配单据'] || row['需求单名称'] || row['馆配需求单名称'] || '';
+            var qty = parseFloat(row['批销册数'] || row['册数'] || row['数量'] || 0);
+            var person = row['开单人'] || row['批销人'] || row['操作人'] || '';
+            var date = row['批销日期'] || row['日期'] || '';
+            if(isbn && customer){
+                var key = getSalesKey(isbn, customer, demand);
+                var existing = salesIndex.get(key);
+                if(!existing){
+                    salesIndex.set(key, { totalQty: (isNaN(qty)?0:qty), lastPerson: person, lastDate: date });
+                } else {
+                    existing.totalQty += (isNaN(qty)?0:qty);
+                    // 保留最新的批销人和时间（按日期比较）
+                    if(date && (!existing.lastDate || date > existing.lastDate)){
+                        existing.lastPerson = person;
+                        existing.lastDate = date;
+                    }
+                }
+            }
+        }
+    }
+
+    function predictBooks(isbnItems, batchIsbnSet) {
+        if(orderRows.length === 0) return [];
+        var batchScores = new Map();
+        if(batchIsbnSet && batchIsbnSet.size > 1){
+            var it = batchIsbnSet.values();
+            for(var itv of it){
+                var ordersForIsbn = orderIndex.get(itv) || [];
+                for(var k=0; k<ordersForIsbn.length; k++){
+                    var o = ordersForIsbn[k];
+                    batchScores.set(o.key, (batchScores.get(o.key)||0) + 1);
+                }
+            }
+            var maxVal = 1;
+            var svals = batchScores.values();
+            for(var sv of svals){ if(sv > maxVal) maxVal = sv; }
+            var bKeys = batchScores.keys();
+            for(var bk of bKeys){
+                batchScores.set(bk, batchScores.get(bk) / maxVal);
+            }
+        }
+
+        var rawResults = [];
+        for(var idx=0; idx<isbnItems.length; idx++){
+            var item = isbnItems[idx];
+            var isbn = item.isbn;
+            var actualQty = item.actualQty;
+            var arrivalDate = item.arrivalDate;
+            var arrivalPrice = item.arrivalPrice;
+            var bookTitle = orderTitleMap.get(isbn) || '';
+            var orders = orderIndex.get(isbn) || [];
+            var orderPrice = (orders.length > 0 ? orders[0].price : 0);
+            if(orders.length === 0){
+                rawResults.push({ isbn:isbn, title:bookTitle, predictions:[{ display:"无订单记录", prob:100, reasons:"无订单记录", orderQty:0, salesQty:0, salesPerson:'', salesDate:'' }], actualQty:actualQty||0, arrivalDate:arrivalDate||'', orderPrice:orderPrice, arrivalPrice:arrivalPrice||0 });
+                continue;
+            }
+            var combMap = new Map();
+            for(var oi=0; oi<orders.length; oi++){
+                var oo = orders[oi];
+                if(!combMap.has(oo.key)){
+                    combMap.set(oo.key, { totalOrderQty:0, count:0, display:oo.display, customer:oo.customer, demand:oo.demand });
+                }
+                var info = combMap.get(oo.key);
+                info.totalOrderQty += oo.orderQty;
+                info.count++;
+            }
+            var totalQty = 0;
+            var combValues = combMap.values();
+            for(var cv of combValues) totalQty += cv.totalOrderQty;
+            var rawScores = [];
+            var combItems = combMap.values();
+            for(var ci of combItems){
+                var baseScore = 100;
+                var qtyWeight = totalQty > 0 ? (ci.totalOrderQty / totalQty) * 30 : 0;
+                var countWeight = Math.min(ci.count * 5, 20);
+                var score = baseScore + qtyWeight + countWeight;
+                var reasons = ["订数占比" + Math.round(qtyWeight) + "%", "出现" + ci.count + "次订单"];
+                if(actualQty !== undefined && actualQty > 0 && ci.totalOrderQty > 0){
+                    var diffPercent = Math.abs(actualQty - ci.totalOrderQty) / Math.max(actualQty, ci.totalOrderQty);
+                    var matchBonus = Math.max(0, 30 * (1 - diffPercent));
+                    if(matchBonus > 0){
+                        score += matchBonus;
+                        reasons.push("订数匹配度+" + Math.round(matchBonus) + "% (订单" + ci.totalOrderQty + " vs 实收" + actualQty + ")");
+                    }
+                }
+                rawScores.push({ display:ci.display, key:ci.display, score:score, reasons:reasons, orderQty:ci.totalOrderQty, customer:ci.customer, demand:ci.demand });
+            }
+            if(batchScores.size > 0){
+                for(var rs=0; rs<rawScores.length; rs++){
+                    var rss = rawScores[rs];
+                    var batchBonus = (batchScores.get(rss.key) || 0) * 30;
+                    if(batchBonus > 0){
+                        rss.score += batchBonus;
+                        rss.reasons.push("批次内其他书匹配度+" + Math.round(batchBonus) + "%");
+                    }
+                }
+            }
+            var totalScore = 0;
+            for(var s=0; s<rawScores.length; s++) totalScore += rawScores[s].score;
+            var predictions = [];
+            for(var p=0; p<rawScores.length; p++){
+                var rsp = rawScores[p];
+                var sales = getSalesInfo(isbn, rsp.customer, rsp.demand);
+                predictions.push({ display:rsp.display, orderQty:rsp.orderQty, prob:(rsp.score / totalScore * 100).toFixed(1), reasons:rsp.reasons.join("; "), salesQty:sales.qty, salesPerson:sales.person, salesDate:sales.date });
+            }
+            predictions.sort(function(a,b){ return parseFloat(b.prob) - parseFloat(a.prob); });
+            if(predictions.length > 3) predictions = predictions.slice(0,3);
+            rawResults.push({ isbn:isbn, title:bookTitle, predictions:predictions, actualQty:actualQty||0, arrivalDate:arrivalDate||'', orderPrice:orderPrice, arrivalPrice:arrivalPrice||0 });
+        }
+
+        if(batchIsbnSet && batchIsbnSet.size > 1){
+            var firstChoiceCount = new Map();
+            for(var r=0; r<rawResults.length; r++){
+                var topDisplay = rawResults[r].predictions.length > 0 ? rawResults[r].predictions[0].display : "无";
+                if(topDisplay !== "无") firstChoiceCount.set(topDisplay, (firstChoiceCount.get(topDisplay)||0) + 1);
+            }
+            var total = rawResults.length;
+            var maxCount = 0;
+            var dominantCombo = null;
+            var fcKeys = firstChoiceCount.keys();
+            for(var fck of fcKeys){
+                var cnt = firstChoiceCount.get(fck);
+                if(cnt > maxCount){
+                    maxCount = cnt;
+                    dominantCombo = fck;
+                }
+            }
+            var dominanceRatio = maxCount / total;
+            if(dominanceRatio >= 0.75 && dominantCombo){
+                for(var r2=0; r2<rawResults.length; r2++){
+                    var res2 = rawResults[r2];
+                    var foundIdx = -1;
+                    for(var pi=0; pi<res2.predictions.length; pi++){
+                        if(res2.predictions[pi].display === dominantCombo){
+                            foundIdx = pi;
+                            break;
+                        }
+                    }
+                    if(foundIdx !== -1){
+                        var targetPred = res2.predictions[foundIdx];
+                        var otherPreds = [];
+                        for(var oi2=0; oi2<res2.predictions.length; oi2++){
+                            if(oi2 !== foundIdx) otherPreds.push(res2.predictions[oi2]);
+                        }
+                        var targetProb = 95;
+                        var otherTotalProb = 5;
+                        var otherSum = 0;
+                        for(var opi=0; opi<otherPreds.length; opi++) otherSum += parseFloat(otherPreds[opi].prob);
+                        var newOtherPreds = [];
+                        for(var opj=0; opj<otherPreds.length; opj++){
+                            var weight = otherSum > 0 ? parseFloat(otherPreds[opj].prob) / otherSum : 1 / otherPreds.length;
+                            var newPred = { display:otherPreds[opj].display, orderQty:otherPreds[opj].orderQty, prob:(weight * otherTotalProb).toFixed(1), reasons:otherPreds[opj].reasons, salesQty:otherPreds[opj].salesQty, salesPerson:otherPreds[opj].salesPerson, salesDate:otherPreds[opj].salesDate };
+                            newOtherPreds.push(newPred);
+                        }
+                        targetPred.prob = targetProb.toFixed(1);
+                        res2.predictions = [targetPred].concat(newOtherPreds);
+                        res2.predictions.sort(function(a,b){ return parseFloat(b.prob) - parseFloat(a.prob); });
+                    }
+                }
+            }
+        }
+        return rawResults;
+    }
+
+    function querySingleIsbn(isbn) {
+        return new Promise(function(resolve, reject) {
+            if(orderRows.length === 0) { showTip("请先上传订单文件"); resolve(null); return; }
+            var items = [{ isbn:isbn, actualQty:undefined, arrivalDate:'', arrivalPrice:undefined }];
+            var results = predictBooks(items, null);
+            var summary = "书号: " + isbn + "，匹配结果如下";
+            resolve({ results:results, summary:summary, hasArrival:false, isOrder:false });
+        });
+    }
+
+    function queryByOrderNo(orderNoNorm) {
+        return new Promise(function(resolve, reject) {
+            if(arrivalRows.length === 0) { showTip("请先上传到货文件"); resolve(null); return; }
+            var books = arrivalIndex.get(orderNoNorm);
+            if(!books || books.length === 0){
+                showTip("未找到单据号 " + orderNoNorm + " 对应的书籍", true);
+                resolve(null);
+                return;
+            }
+            var batchArrivalDate = '';
+            for(var i=0; i<books.length; i++){
+                if(books[i].arrivalDate){
+                    batchArrivalDate = books[i].arrivalDate;
+                    break;
+                }
+            }
+            var items = [];
+            for(var j=0; j<books.length; j++){
+                items.push({ isbn:books[j].isbn, actualQty:books[j].actualQty, arrivalDate:books[j].arrivalDate, arrivalPrice:books[j].price });
+            }
+            var batchSet = new Set();
+            for(var k=0; k<items.length; k++) batchSet.add(items[k].isbn);
+            var results = predictBooks(items, batchSet);
+            var comboCount = new Map();
+            for(var r=0; r<results.length; r++){
+                var topDisp = results[r].predictions.length > 0 ? results[r].predictions[0].display : "无";
+                if(topDisp !== "无") comboCount.set(topDisp, (comboCount.get(topDisp)||0) + 1);
+            }
+            var totalMatched = 0;
+            for(var m=0; m<results.length; m++){
+                if(results[m].predictions.length > 0 && results[m].predictions[0].display !== "无") totalMatched++;
+            }
+            var topCombo = "不确定";
+            var maxC = 0;
+            var comboKeys = comboCount.keys();
+            for(var ck of comboKeys){
+                if(comboCount.get(ck) > maxC){
+                    maxC = comboCount.get(ck);
+                    topCombo = ck;
+                }
+            }
+            var summary = "整单共 " + books.length + " 种书，其中 " + totalMatched + " 种有订单匹配。到货日期: " + (batchArrivalDate || '未记录');
+            var recommend = "本批推荐唯一归属：" + topCombo + " (占比 " + (totalMatched ? Math.round((comboCount.get(topCombo)||0)/totalMatched*100) : 0) + "% 的匹配书)";
+            resolve({ results:results, summary:summary, recommend:recommend, hasArrival:true, isOrder:true });
+        });
+    }
+
+    function batchQueryIsbns(isbnList) {
+        return new Promise(function(resolve, reject) {
+            if(orderRows.length === 0) { showTip("请先上传订单文件"); resolve(null); return; }
+            var countMap = new Map();
+            for(var i=0; i<isbnList.length; i++){
+                var isb = isbnList[i];
+                countMap.set(isb, (countMap.get(isb)||0) + 1);
+            }
+            var occurMap = new Map();
+            var items = [];
+            for(var j=0; j<isbnList.length; j++){
+                var isbnj = isbnList[j];
+                var idx = (occurMap.get(isbnj)||0) + 1;
+                occurMap.set(isbnj, idx);
+                items.push({ isbn:isbnj, actualQty:undefined, arrivalDate:'', arrivalPrice:undefined, repeatIdx:idx, totalRepeat:countMap.get(isbnj) });
+            }
+            var results = predictBooks(items, null);
+            for(var k=0; k<results.length; k++){
+                results[k].repeatIdx = items[k].repeatIdx;
+                results[k].totalRepeat = items[k].totalRepeat;
+            }
+            var summaryMap = new Map();
+            for(var r=0; r<results.length; r++){
+                var topD = results[r].predictions.length > 0 ? results[r].predictions[0].display : "无";
+                if(topD !== "无"){
+                    var sum = summaryMap.get(topD) || { totalQty:0, count:0 };
+                    var orderQt = results[r].predictions[0].orderQty;
+                    sum.totalQty += orderQt;
+                    sum.count++;
+                    summaryMap.set(topD, sum);
+                }
+            }
+            var summaryArr = [];
+            var smKeys = summaryMap.keys();
+            for(var sk of smKeys){
+                summaryArr.push({ display:sk, totalQty:summaryMap.get(sk).totalQty, count:summaryMap.get(sk).count });
+            }
+            summaryArr.sort(function(a,b){ return b.totalQty - a.totalQty; });
+            var summaryHtml = '<div class="summary-stat"><strong>批量查询汇总</strong><br>';
+            for(var sa=0; sa<summaryArr.length; sa++){
+                summaryHtml += escapeHtml(summaryArr[sa].display) + ' : 订数合计 ' + summaryArr[sa].totalQty + ' 册 (' + summaryArr[sa].count + '种书)<br>';
+            }
+            summaryHtml += '</div>';
+            var matchedCount = 0;
+            for(var mc=0; mc<results.length; mc++){
+                if(results[mc].predictions.length > 0 && results[mc].predictions[0].display !== "无") matchedCount++;
+            }
+            var summary = "批量查询 " + isbnList.length + " 条记录（含重复），匹配 " + matchedCount + " 条";
+            resolve({ results:results, summary:summary, summaryHtml:summaryHtml, hasArrival:false, isOrder:false });
+        });
+    }
+
+    function batchQueryOrderNos(orderNoList) {
+        return new Promise(function(resolve, reject) {
+            if(orderRows.length === 0) { showTip("请先上传订单文件"); resolve(null); return; }
+            if(arrivalRows.length === 0) { showTip("批量单据号查询需要上传到货文件"); resolve(null); return; }
+            var resultsList = [];
+            for(var i=0; i<orderNoList.length; i++){
+                var rawNo = orderNoList[i];
+                var normalized = rawNo.replace(/^0+/, '');
+                var books = arrivalIndex.get(normalized);
+                if(!books || books.length === 0){
+                    resultsList.push({ orderNo:rawNo, success:false, message:"未找到该单据号", detail:null, recommend:null, arrivalDate:'' });
+                    continue;
+                }
+                var batchArrivalDate = '';
+                for(var bj=0; bj<books.length; bj++){
+                    if(books[bj].arrivalDate){
+                        batchArrivalDate = books[bj].arrivalDate;
+                        break;
+                    }
+                }
+                var items = [];
+                for(var bk=0; bk<books.length; bk++){
+                    items.push({ isbn:books[bk].isbn, actualQty:books[bk].actualQty, arrivalDate:books[bk].arrivalDate, arrivalPrice:books[bk].price });
+                }
+                var batchSet = new Set();
+                for(var itm of items) batchSet.add(itm.isbn);
+                var res = predictBooks(items, batchSet);
+                var comboCount = new Map();
+                for(var rr=0; rr<res.length; rr++){
+                    var tdisp = res[rr].predictions.length > 0 ? res[rr].predictions[0].display : "无";
+                    if(tdisp !== "无") comboCount.set(tdisp, (comboCount.get(tdisp)||0) + 1);
+                }
+                var totalMatched = 0;
+                for(var mt=0; mt<res.length; mt++){
+                    if(res[mt].predictions.length > 0 && res[mt].predictions[0].display !== "无") totalMatched++;
+                }
+                var topCombo = "无";
+                var maxCnt = 0;
+                var ccKeys = comboCount.keys();
+                for(var cck of ccKeys){
+                    if(comboCount.get(cck) > maxCnt){
+                        maxCnt = comboCount.get(cck);
+                        topCombo = cck;
+                    }
+                }
+                var summary = "共" + books.length + "种书，匹配" + totalMatched + "种，到货日期: " + (batchArrivalDate || '未记录');
+                var recommend = "推荐归属：" + topCombo + " (占比 " + (totalMatched ? Math.round((comboCount.get(topCombo)||0)/totalMatched*100) : 0) + "% 的匹配书)";
+                resultsList.push({ orderNo:rawNo, success:true, summary:summary, recommend:recommend, detail:res, booksCount:books.length, hasArrival:true, arrivalDate:batchArrivalDate });
+            }
+            resolve(resultsList);
+        });
+    }
+
+    function renderSingleResult(queryResult, isOrder) {
+        var thead = document.getElementById('resultThead');
+        var tbody = document.getElementById('resultTbody');
+        var statsDiv = document.getElementById('statsInfo');
+        var wrapper = document.getElementById('resultTableWrapper');
+        if(!queryResult || !queryResult.results || queryResult.results.length === 0){
+            thead.innerHTML = '';
+            tbody.innerHTML = '<td><td colspan="13" style="text-align:center;">无匹配结果</td></tr>';
+            statsDiv.style.display = 'none';
+            var oldSum = wrapper.querySelector('.summary-stat');
+            if(oldSum) oldSum.remove();
+            return;
+        }
+        var hasArrival = queryResult.hasArrival;
+        var isOrderQuery = queryResult.isOrder === true;
+        
+        var extraHtml = '';
+        if(isOrderQuery && queryResult.recommend){
+            var recommendText = queryResult.recommend;
+            var match = recommendText.match(/归属：([^（]+)/);
+            var highlightPart = '';
+            var prefix = '';
+            if(match){
+                var fullCombo = match[1].trim();
+                prefix = recommendText.substring(0, recommendText.indexOf('归属：') + 3);
+                highlightPart = '<span class="global-recommend">' + escapeHtml(fullCombo) + '</span>';
+                extraHtml = '<div class="order-stats" style="background:#eef2ff; padding:8px 12px; margin-bottom:12px;">' + prefix + highlightPart + '</div>';
+            } else {
+                extraHtml = '<div class="order-stats" style="background:#eef2ff; padding:8px 12px; margin-bottom:12px;">' + escapeHtml(recommendText) + '</div>';
+            }
+        }
+        
+        var thHtml = '<th>推荐归属</th><th>可能客户 | 需求单 (概率)</th><th>书号</th><th>书名</th><th>订单价/元</th><th>订单订数</th><th>批销册数</th><th>批销人</th><th>批销时间</th>';
+        if(hasArrival) thHtml += '<th>到货价/元</th><th>到货数量</th><th>到货日期</th>';
+        thead.innerHTML = '<tr>' + thHtml + '</tr>';
+        
+        var html = '';
+        for(var i=0; i<queryResult.results.length; i++){
+            var res = queryResult.results[i];
+            var orderPriceDisplay = formatPrice(res.orderPrice);
+            var arrivalPriceDisplay = hasArrival ? formatPrice(res.arrivalPrice) : '-';
+            var priceWarning = '';
+            if(hasArrival && res.orderPrice !== 0 && res.arrivalPrice !== 0 && Math.abs(res.orderPrice - res.arrivalPrice) > 0.01){
+                priceWarning = '<span class="price-warning" title="价格不一致">!</span>';
+            }
+            var candidateHtml = '<div class="cand-list">';
+            for(var p=0; p<res.predictions.length; p++){
+                var pred = res.predictions[p];
+                candidateHtml += '<div class="cand-item"><strong>' + escapeHtml(pred.display) + '</strong> ' + pred.prob + '% (订数:' + pred.orderQty + ') 批销:' + pred.salesQty + '</div>';
+            }
+            candidateHtml += '</div>';
+            var topDisplay = res.predictions.length > 0 ? res.predictions[0].display : "无";
+            var topSales = res.predictions.length > 0 ? res.predictions[0].salesQty : 0;
+            var topSalesPerson = res.predictions.length > 0 ? res.predictions[0].salesPerson : '';
+            var topSalesDate = res.predictions.length > 0 ? res.predictions[0].salesDate : '';
+            var repeatBadge = '';
+            if(res.repeatIdx && res.totalRepeat > 1){
+                repeatBadge = '<span class="repeat-badge">#' + res.repeatIdx + '/' + res.totalRepeat + '</span>';
+            }
+            html += '<tr>';
+            html += '<td class="rec-highlight"><strong>' + escapeHtml(topDisplay) + '</strong></td>';
+            html += '<td style="min-width:200px;">' + candidateHtml + '</td>';
+            html += '<td>' + escapeHtml(res.isbn) + repeatBadge + '</td>';
+            html += '<td>' + escapeHtml(res.title) + '</td>';
+            html += '<td>' + orderPriceDisplay + ' ' + priceWarning + '</td>';
+            html += '<td>' + (res.predictions[0] ? res.predictions[0].orderQty : 0) + '</td>';
+            html += '<td>' + topSales + '</td>';
+            html += '<td>' + escapeHtml(topSalesPerson) + '</td>';
+            html += '<td>' + escapeHtml(topSalesDate) + '</td>';
+            if(hasArrival){
+                html += '<td>' + arrivalPriceDisplay + ' ' + priceWarning + '</td>';
+                html += '<td>' + res.actualQty + '</td>';
+                html += '<td>' + escapeHtml(res.arrivalDate) + '</td>';
+            }
+            html += '</tr>';
+        }
+        tbody.innerHTML = html;
+        if(queryResult.summary){
+            statsDiv.style.display = 'inline-block';
+            statsDiv.innerHTML = queryResult.summary;
+        } else {
+            statsDiv.style.display = 'none';
+        }
+        var oldSum = wrapper.querySelector('.summary-stat');
+        if(oldSum) oldSum.remove();
+        if(queryResult.summaryHtml){
+            wrapper.insertAdjacentHTML('afterbegin', queryResult.summaryHtml);
+        }
+        var oldBanner = wrapper.querySelector('.order-stats');
+        if(oldBanner) oldBanner.remove();
+        if(extraHtml){
+            wrapper.insertAdjacentHTML('afterbegin', extraHtml);
+        }
+    }
+
+    function renderBatchOrderResult(resultsList) {
+        var container = document.getElementById('batchOrderResult');
+        if(!resultsList || resultsList.length === 0){
+            container.innerHTML = '<div class="insight">无匹配结果</div>';
+            return;
+        }
+        var tabsHtml = '<div class="batch-order-tabs">';
+        var panesHtml = '<div class="batch-order-panes">';
+        for(var i=0; i<resultsList.length; i++){
+            var item = resultsList[i];
+            var activeClass = i===0 ? 'active' : '';
+            var tabId = 'tab_' + i;
+            var paneId = 'pane_' + i;
+            tabsHtml += '<div class="batch-order-tab ' + activeClass + '" data-tab="' + tabId + '" data-pane="' + paneId + '">' + escapeHtml(item.orderNo) + '</div>';
+            var content = '';
+            if(item.success){
+                var thHtml = '<th>推荐归属</th><th>可能客户 | 需求单 (概率)</th><th>书号</th><th>书名</th><th>订单价/元</th><th>订单订数</th><th>批销册数</th><th>批销人</th><th>批销时间</th><th>到货价/元</th><th>到货数量</th><th>到货日期</th>';
+                var detailRows = '';
+                for(var d=0; d<item.detail.length; d++){
+                    var res = item.detail[d];
+                    var orderPriceDisplay = formatPrice(res.orderPrice);
+                    var arrivalPriceDisplay = formatPrice(res.arrivalPrice);
+                    var priceWarning = '';
+                    if(res.orderPrice !== 0 && res.arrivalPrice !== 0 && Math.abs(res.orderPrice - res.arrivalPrice) > 0.01){
+                        priceWarning = '<span class="price-warning" title="价格不一致">!</span>';
+                    }
+                    var candidateHtml = '<div class="cand-list">';
+                    for(var cp=0; cp<res.predictions.length; cp++){
+                        candidateHtml += '<div class="cand-item"><strong>' + escapeHtml(res.predictions[cp].display) + '</strong> ' + res.predictions[cp].prob + '% (订数:' + res.predictions[cp].orderQty + ') 批销:' + res.predictions[cp].salesQty + '</div>';
+                    }
+                    candidateHtml += '</div>';
+                    var topDisplay = res.predictions.length > 0 ? res.predictions[0].display : "无";
+                    var topSales = res.predictions.length > 0 ? res.predictions[0].salesQty : 0;
+                    var topSalesPerson = res.predictions.length > 0 ? res.predictions[0].salesPerson : '';
+                    var topSalesDate = res.predictions.length > 0 ? res.predictions[0].salesDate : '';
+                    detailRows += '<tr>';
+                    detailRows += '<td class="rec-highlight"><strong>' + escapeHtml(topDisplay) + '</strong></td>';
+                    detailRows += '<td style="min-width:200px;">' + candidateHtml + '</td>';
+                    detailRows += '<td>' + escapeHtml(res.isbn) + '</td>';
+                    detailRows += '<td>' + escapeHtml(res.title) + '</td>';
+                    detailRows += '<td>' + orderPriceDisplay + ' ' + priceWarning + '</td>';
+                    detailRows += '<td>' + (res.predictions[0] ? res.predictions[0].orderQty : 0) + '</td>';
+                    detailRows += '<td>' + topSales + '</td>';
+                    detailRows += '<td>' + escapeHtml(topSalesPerson) + '</td>';
+                    detailRows += '<td>' + escapeHtml(topSalesDate) + '</td>';
+                    detailRows += '<td>' + arrivalPriceDisplay + ' ' + priceWarning + '</td>';
+                    detailRows += '<td>' + res.actualQty + '</td>';
+                    detailRows += '<td>' + escapeHtml(res.arrivalDate) + '</td>';
+                    detailRows += '</tr>';
+                }
+                content = '<div class="batch-recommend">' + escapeHtml(item.recommend) + '</div><div style="overflow-x:auto;"><table class="review-table" style="width:100%;"><thead><tr>' + thHtml + '</thead><tbody>' + detailRows + '</tbody></table></div>';
+            } else {
+                content = '<div class="insight">' + escapeHtml(item.message) + '</div>';
+            }
+            panesHtml += '<div id="' + paneId + '" class="batch-order-pane ' + activeClass + '" style="padding:8px 0;">' + content + '</div>';
+        }
+        tabsHtml += '</div>';
+        panesHtml += '</div>';
+        container.innerHTML = tabsHtml + panesHtml;
+        var tabsElements = document.querySelectorAll('.batch-order-tab');
+        for(var t=0; t<tabsElements.length; t++){
+            tabsElements[t].onclick = function(){
+                var paneId = this.getAttribute('data-pane');
+                var allTabs = document.querySelectorAll('.batch-order-tab');
+                for(var at=0; at<allTabs.length; at++) allTabs[at].classList.remove('active');
+                this.classList.add('active');
+                var allPanes = document.querySelectorAll('.batch-order-pane');
+                for(var ap=0; ap<allPanes.length; ap++) allPanes[ap].classList.remove('active');
+                document.getElementById(paneId).classList.add('active');
+            };
+        }
+    }
+
+    function isOrderNo(input){
+        var s = input.trim();
+        return /^900\d{6}$/.test(s);
+    }
+
+    function smartQuery(){
+        var input = document.getElementById('smartInput').value.trim();
+        if(!input){ showTip("请输入书号或单据号"); return; }
+        if(orderRows.length === 0){ showTip("请先上传订单文件"); return; }
+        if(isOrderNo(input)){
+            if(arrivalRows.length === 0){ showTip("查询单据号需要上传到货文件", true); return; }
+            var normalized = input.replace(/^0+/, '');
+            queryByOrderNo(normalized).then(function(result) {
+                if(result) renderSingleResult(result, true);
+            });
+        } else {
+            querySingleIsbn(input).then(function(result) {
+                if(result) renderSingleResult(result, false);
+            });
+        }
+    }
+
+    var smartInputEl = document.getElementById('smartInput');
+    smartInputEl.addEventListener('keypress', function(e){
+        if(e.key === 'Enter'){
+            e.preventDefault();
+            smartQuery();
+            this.select();
+        }
+    });
+
+    document.getElementById('uploadOrderBtn').onclick = function(){ document.getElementById('orderFileInput').click(); };
+    document.getElementById('orderFileInput').onchange = function(e){
+        if(e.target.files[0]){
+            parseExcel(e.target.files[0]).then(function(data) {
+                orderRows = data.rows;
+                var map = autoMapColumns(data.cols, 'order');
+                var info = "书号列:"+(map.isbnCol||'未识别')+", 需求单列:"+(map.demandCol||'未识别')+", 订数列:"+(map.orderQtyCol||'未识别')+", 书名列:"+(map.titleCol||'未识别')+", 定价列:"+(map.orderPriceCol||'未识别');
+                if(!map.isbnCol || !map.demandCol){
+                    showTip("订单文件缺少必需列：书号、馆配需求单名称", true);
+                    orderRows = [];
+                    return;
+                }
+                orderRows = orderRows.map(function(row){
+                    var newRow = {};
+                    newRow['书号'] = row[map.isbnCol] || '';
+                    newRow['客户名称'] = map.customerCol ? (row[map.customerCol] || '') : '';
+                    newRow['馆配需求单名称'] = row[map.demandCol] || '';
+                    newRow['订数'] = map.orderQtyCol ? (row[map.orderQtyCol] || '') : '';
+                    newRow['书名'] = map.titleCol ? (row[map.titleCol] || '') : '';
+                    newRow['定价'] = map.orderPriceCol ? (row[map.orderPriceCol] || '') : '';
+                    return newRow;
+                });
+                buildOrderIndex();
+                var sampleTitle = orderRows[0] ? (orderRows[0]['书名'] || '无') : '无';
+                document.getElementById('orderStatus').innerHTML = "✅ " + data.fileName + " (" + orderRows.length + "行)<br>" + info + "<br>示例书名: " + sampleTitle;
+                showTip("订单加载成功", false);
+            }).catch(function(err){ showTip("订单解析失败: "+err); });
+        }
+    };
+
+    document.getElementById('uploadArrivalBtn').onclick = function(){ document.getElementById('arrivalFileInput').click(); };
+    document.getElementById('arrivalFileInput').onchange = function(e){
+        if(e.target.files[0]){
+            parseExcel(e.target.files[0]).then(function(data) {
+                arrivalRows = data.rows;
+                var map = autoMapColumns(data.cols, 'arrival');
+                var info = "单据号列:"+(map.orderNoCol||'未识别')+", 书号列:"+(map.isbnCol||'未识别')+", 实收数列:"+(map.actualQtyCol||'未识别')+", 到货日期列:"+(map.arrivalDateCol||'未识别')+", 售价列:"+(map.arrivalPriceCol||'未识别');
+                if(!map.orderNoCol || !map.isbnCol){
+                    showTip("到货文件缺少必需列：原始单据号、书号（条形码）", true);
+                    arrivalRows = [];
+                    return;
+                }
+                arrivalRows = arrivalRows.map(function(row){
+                    var newRow = {};
+                    newRow['原始单据号'] = row[map.orderNoCol] || '';
+                    newRow['条形码'] = row[map.isbnCol] || '';
+                    newRow['实收数'] = map.actualQtyCol ? (row[map.actualQtyCol] || '') : '';
+                    newRow['到货日期'] = map.arrivalDateCol ? (row[map.arrivalDateCol] || '') : '';
+                    newRow['售价'] = map.arrivalPriceCol ? (row[map.arrivalPriceCol] || '') : '';
+                    return newRow;
+                });
+                buildArrivalIndex();
+                document.getElementById('arrivalStatus').innerHTML = "✅ " + data.fileName + " (" + arrivalRows.length + "行)<br>" + info;
+                showTip("到货加载成功", false);
+            }).catch(function(err){ showTip("到货解析失败: "+err); });
+        }
+    };
+
+    document.getElementById('uploadSalesBtn').onclick = function(){ document.getElementById('salesFileInput').click(); };
+    document.getElementById('salesFileInput').onchange = function(e){
+        if(e.target.files[0]){
+            parseExcel(e.target.files[0]).then(function(data) {
+                salesRows = data.rows;
+                var map = autoMapColumns(data.cols, 'sales');
+                var info = "书号列:"+(map.isbnCol||'未识别')+", 购货单位列:"+(map.salesCustomerCol||'未识别')+", 馆配单据列:"+(map.salesDemandCol||'未识别')+", 批销册数列:"+(map.salesQtyCol||'未识别')+", 开单人列:"+(map.salesPersonCol||'未识别')+", 批销日期列:"+(map.salesDateCol||'未识别');
+                if(!map.isbnCol || !map.salesCustomerCol){
+                    showTip("批销文件缺少必需列：书号、购货单位", true);
+                    salesRows = [];
+                    return;
+                }
+                salesRows = salesRows.map(function(row){
+                    var newRow = {};
+                    newRow['书号'] = row[map.isbnCol] || '';
+                    newRow['购货单位'] = map.salesCustomerCol ? (row[map.salesCustomerCol] || '') : '';
+                    newRow['馆配单据'] = map.salesDemandCol ? (row[map.salesDemandCol] || '') : '';
+                    newRow['批销册数'] = map.salesQtyCol ? (row[map.salesQtyCol] || '') : '';
+                    newRow['开单人'] = map.salesPersonCol ? (row[map.salesPersonCol] || '') : '';
+                    newRow['批销日期'] = map.salesDateCol ? (row[map.salesDateCol] || '') : '';
+                    return newRow;
+                });
+                buildSalesIndex();
+                document.getElementById('salesStatus').innerHTML = "✅ " + data.fileName + " (" + salesRows.length + "行)<br>" + info;
+                showTip("批销加载成功", false);
+                var input = document.getElementById('smartInput').value.trim();
+                if(input) smartQuery();
+            }).catch(function(err){ showTip("批销解析失败: "+err); });
+        }
+    };
+
+    document.getElementById('smartQueryBtn').onclick = function(){
+        smartQuery();
+        smartInputEl.select();
+    };
+
+    document.getElementById('analyzeBatchIsbnBtn').onclick = function(){
+        var text = document.getElementById('batchIsbnText').value;
+        if(!text.trim()){ showTip("请输入批量书号"); return; }
+        var isbns = [];
+        var lines = text.split(/\r?\n/);
+        for(var li=0; li<lines.length; li++){
+            var line = lines[li].trim();
+            if(!line) continue;
+            if(line.indexOf(',') !== -1 || line.indexOf(' ') !== -1){
+                var parts = line.split(/[ ,]+/);
+                for(var pi=0; pi<parts.length; pi++){
+                    if(parts[pi].trim()) isbns.push(parts[pi].trim());
+                }
+            } else {
+                isbns.push(line);
+            }
+        }
+        if(isbns.length === 0){ showTip("未识别到有效书号"); return; }
+        if(orderRows.length === 0){ showTip("请先上传订单文件"); return; }
+        batchQueryIsbns(isbns).then(function(result) {
+            if(result){
+                renderSingleResult(result, false);
+                document.getElementById('batchOrderResult').innerHTML = '';
+            }
+        });
+    };
+    document.getElementById('uploadBatchIsbnBtn').onclick = function(){ document.getElementById('batchIsbnExcel').click(); };
+    document.getElementById('batchIsbnExcel').onchange = function(e){
+        if(e.target.files[0]){
+            parseExcel(e.target.files[0]).then(function(data) {
+                var isbnList = [];
+                for(var ri=0; ri<data.rows.length; ri++){
+                    var row = data.rows[ri];
+                    var isbn = row['书号'] || row['isbn'] || row['条形码'] || Object.values(row)[0] || '';
+                    if(isbn) isbnList.push(String(isbn).trim());
+                }
+                if(isbnList.length === 0) throw new Error("未找到书号列");
+                document.getElementById('batchIsbnText').value = isbnList.join('\n');
+                showTip("导入 " + isbnList.length + " 个书号", false);
+                batchQueryIsbns(isbnList).then(function(result) {
+                    renderSingleResult(result, false);
+                    document.getElementById('batchOrderResult').innerHTML = '';
+                });
+            }).catch(function(e){ showTip("文件解析失败: "+e.message); });
+        }
+    };
+
+    function parseBatchOrderNoText(text){
+        var lines = text.trim().split(/\r?\n/);
+        var result = [];
+        for(var i=0; i<lines.length; i++){
+            var v = lines[i].trim();
+            if(v) result.push(v);
+        }
+        return result;
+    }
+    document.getElementById('analyzeBatchOrderNoBtn').onclick = function(){
+        var text = document.getElementById('batchOrderNoText').value;
+        if(!text.trim()){ showTip("请输入批量单据号"); return; }
+        var orderNos = parseBatchOrderNoText(text);
+        if(orderNos.length === 0){ showTip("未识别到有效单据号"); return; }
+        if(orderRows.length === 0){ showTip("请先上传订单文件"); return; }
+        if(arrivalRows.length === 0){ showTip("批量单据号查询需要上传到货文件"); return; }
+        batchQueryOrderNos(orderNos).then(function(resultList) {
+            renderBatchOrderResult(resultList);
+            document.getElementById('resultThead').innerHTML = '';
+            document.getElementById('resultTbody').innerHTML = '';
+            document.getElementById('statsInfo').style.display = 'none';
+            var banner = document.querySelector('#resultTableWrapper .order-stats');
+            if(banner) banner.remove();
+            var summaryDiv = document.querySelector('#resultTableWrapper .summary-stat');
+            if(summaryDiv) summaryDiv.remove();
+        });
+    };
+    document.getElementById('uploadBatchOrderNoBtn').onclick = function(){ document.getElementById('batchOrderNoExcel').click(); };
+    document.getElementById('batchOrderNoExcel').onchange = function(e){
+        if(e.target.files[0]){
+            parseExcel(e.target.files[0]).then(function(data) {
+                var noList = [];
+                for(var ri=0; ri<data.rows.length; ri++){
+                    var row = data.rows[ri];
+                    var no = row['原始单据号'] || row['单据号'] || row['到货单号'] || Object.values(row)[0] || '';
+                    if(no) noList.push(String(no).trim());
+                }
+                if(noList.length === 0) throw new Error("未找到单据号列");
+                document.getElementById('batchOrderNoText').value = noList.join('\n');
+                showTip("导入 " + noList.length + " 个单据号", false);
+                batchQueryOrderNos(noList).then(function(resultList) {
+                    renderBatchOrderResult(resultList);
+                    document.getElementById('resultThead').innerHTML = '';
+                    document.getElementById('resultTbody').innerHTML = '';
+                    document.getElementById('statsInfo').style.display = 'none';
+                    var banner = document.querySelector('#resultTableWrapper .order-stats');
+                    if(banner) banner.remove();
+                    var summaryDiv = document.querySelector('#resultTableWrapper .summary-stat');
+                    if(summaryDiv) summaryDiv.remove();
+                });
+            }).catch(function(e){ showTip("文件解析失败: "+e.message); });
+        }
+    };
+
+    var mainTabs = document.querySelectorAll('.tabs .tab');
+    var mainTabContents = {
+        single: document.getElementById('singleTab'),
+        batchIsbn: document.getElementById('batchIsbnTab'),
+        batchOrderNo: document.getElementById('batchOrderNoTab')
+    };
+    for(var ti=0; ti<mainTabs.length; ti++){
+        mainTabs[ti].onclick = function(){
+            var target = this.getAttribute('data-tab');
+            for(var t2=0; t2<mainTabs.length; t2++) mainTabs[t2].classList.remove('active');
+            this.classList.add('active');
+            for(var tc in mainTabContents){
+                mainTabContents[tc].classList.remove('active');
+            }
+            mainTabContents[target].classList.add('active');
+            if(target !== 'batchOrderNo') document.getElementById('batchOrderResult').innerHTML = '';
+            if(target !== 'single'){
+                document.getElementById('resultThead').innerHTML = '';
+                document.getElementById('resultTbody').innerHTML = '';
+                document.getElementById('statsInfo').style.display = 'none';
+                var ban = document.querySelector('#resultTableWrapper .order-stats');
+                if(ban) ban.remove();
+                var sumd = document.querySelector('#resultTableWrapper .summary-stat');
+                if(sumd) sumd.remove();
+            }
+        };
+    }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>订单复核录入 · 新华书店</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        /* ========== 全局样式（移动端优先） ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #f0f4f8;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        /* ========== Tab 切换样式 ========== */
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 48px;
+            padding: 4px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .tab-btn {
+            flex: 1;
+            text-align: center;
+            padding: 12px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #5b6e8c;
+        }
+        .tab-btn.active {
+            background: #2b4c7c;
+            color: white;
+            box-shadow: 0 2px 6px rgba(43,76,124,0.3);
+        }
+        
+        /* ========== 卡片样式 ========== */
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #eef2f7;
+        }
+        
+        /* ========== 上传区域样式 ========== */
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            background: #fafcff;
+            margin-bottom: 16px;
+        }
+        .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+        .file-info { font-size: 0.75rem; color: #5b6e8c; margin-top: 8px; }
+        
+        /* ========== 按钮样式 ========== */
+        .btn {
+            background: #2b4c7c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 48px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+        }
+        .btn-secondary {
+            background: #eef2f7;
+            color: #2b4c7c;
+        }
+        .btn-danger {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .btn-success {
+            background: #2d6a4f;
+        }
+        
+        /* ========== 录入表单样式 ========== */
+        .isbn-input {
+            width: 100%;
+            font-size: 1.2rem;
+            padding: 14px 16px;
+            text-align: left;
+            border: 2px solid #2b4c7c;
+            border-radius: 48px;
+            font-family: monospace;
+            background: #fefefe;
+            margin-bottom: 12px;
+        }
+        .info-row {
+            display: flex;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            align-items: baseline;
+        }
+        .info-label {
+            width: 90px;
+            font-weight: 600;
+            color: #2c3e66;
+            font-size: 0.8rem;
+        }
+        .info-value {
+            flex: 1;
+            font-size: 0.9rem;
+            color: #1f2a44;
+            word-break: break-word;
+        }
+        .copies-input {
+            font-size: 1.2rem;
+            width: 100px;
+            text-align: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 24px;
+            padding: 8px;
+        }
+        .match-tip {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin: 12px 0;
+        }
+        .error-tip { background: #f8d7da; color: #721c24; }
+        
+        /* ========== 记录列表样式 ========== */
+        .record-list { max-height: 350px; overflow-y: auto; }
+        .record-item {
+            background: #f9fafc;
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid #2b4c7c;
+        }
+        .record-title { font-weight: 600; margin-bottom: 4px; }
+        .record-meta { font-size: 0.7rem; color: #7b8a9b; }
+        
+        /* ========== 上传日志样式 ========== */
+        .upload-log {
+            background: #f1f5f9;
+            border-radius: 16px;
+            padding: 12px;
+            font-size: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        
+        /* ========== 工具类 ========== */
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .text-center { text-align: center; }
+        .mt-2 { margin-top: 12px; }
+        .mb-2 { margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Tab 切换：上传订单 / 扫码录入 -->
+    <div class="tabs">
+        <div class="tab-btn active" data-tab="upload">📤 上传订单</div>
+        <div class="tab-btn" data-tab="scan">📷 扫码录入</div>
+    </div>
+
+    <!-- ==================== Tab 1: 数据上传（电脑端专用） ==================== -->
+    <div id="uploadPanel" class="tab-panel">
+        <div class="card">
+            <div class="card-title">📁 上传订单表</div>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📊</div>
+                <div>点击或拖拽上传 Excel 文件</div>
+                <div class="file-info">支持 .xlsx, .xls，自动读取：书号、书名、定价、订数、已发数、已到货数、已收数、客户名称、馆配需求单名称、需求单折扣、报订批次、上报日期</div>
+            </div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+            <div id="uploadStatus" class="upload-log" style="display:none"></div>
+            <button id="clearOrdersBtn" class="btn btn-secondary mt-2" style="background:#fee2e2; color:#b91c1c;">🗑️ 清空所有订单数据</button>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📋 订单统计</div>
+            <div id="orderStats" class="text-center" style="color:#5b6e8c;">加载中...</div>
+        </div>
+    </div>
+
+    <!-- ==================== Tab 2: 扫码录入（手机/电脑通用） ==================== -->
+    <div id="scanPanel" class="tab-panel" style="display:none">
+        <div class="card">
+            <div class="card-title">🔍 扫码/输入书号</div>
+            <!-- 书号输入框，支持扫码枪输入 -->
+            <input type="text" id="isbnInput" class="isbn-input" placeholder="扫码或输入书号" autofocus>
+            <!-- 匹配结果显示区域 -->
+            <div id="matchInfo" class="match-tip" style="display:none"></div>
+            
+            <!-- 匹配成功后显示的图书信息 -->
+            <div id="bookInfo" style="display:none">
+                <div class="info-row"><span class="info-label">书名</span><span class="info-value" id="titleVal">--</span></div>
+                <div class="info-row"><span class="info-label">定价</span><span class="info-value" id="priceVal">--</span></div>
+                <div class="info-row"><span class="info-label">订数</span><span class="info-value" id="orderQtyVal">--</span></div>
+                <div class="info-row"><span class="info-label">客户名称</span><span class="info-value" id="customerVal">--</span></div>
+                <div class="info-row"><span class="info-label">馆配单号</span><span class="info-value" id="consignmentVal">--</span></div>
+                <div class="info-row"><span class="info-label">需求单折扣</span><span class="info-value" id="discountVal">--</span></div>
+                <div class="info-row"><span class="info-label">报订批次</span><span class="info-value" id="batchNoVal">--</span></div>
+                <div class="info-row"><span class="info-label">上报日期</span><span class="info-value" id="reportDateVal">--</span></div>
+                <div class="info-row">
+                    <span class="info-label">录入本数</span>
+                    <input type="number" id="copiesInput" class="copies-input" value="1" min="1">
+                </div>
+                <button id="addRecordBtn" class="btn btn-success mt-2">✅ 确认录入</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex-between">
+                <div class="card-title" style="border-bottom:none; margin-bottom:0;">📋 录入记录</div>
+                <button id="exportRecordsBtn" class="btn-secondary" style="padding:6px 12px; width:auto;">📎 导出</button>
+            </div>
+            <div id="recordsList" class="record-list">
+                <div class="text-center" style="color:#aaa; padding:20px;">暂无录入数据</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== 配置 ==========
+    const API_BASE = '/api/order';  // 后端 API 地址
+    
+    let currentMatch = null;        // 当前匹配的订单数据
+    let localRecords = [];           // 本地录入记录缓存（用于展示和导出）
+    
+    // ========== Tab 切换逻辑 ==========
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // 更新 Tab 按钮样式
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // 切换面板显示
+            const tab = btn.dataset.tab;
+            document.getElementById('uploadPanel').style.display = tab === 'upload' ? 'block' : 'none';
+            document.getElementById('scanPanel').style.display = tab === 'scan' ? 'block' : 'none';
+            
+            // 切换到扫码录入时，刷新记录并聚焦输入框
+            if (tab === 'scan') {
+                document.getElementById('isbnInput').focus();
+                loadRecords();
+            } else {
+                loadOrderStats();
+            }
+        });
+    });
+    
+    // ========== 上传订单功能 ==========
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    
+    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = '#2b4c7c'; });
+    uploadArea.addEventListener('dragleave', () => uploadArea.style.borderColor = '#cbd5e1');
+    uploadArea.addEventListener('drop', (e) => { 
+        e.preventDefault(); 
+        uploadArea.style.borderColor = '#cbd5e1'; 
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+    
+    /**
+     * 处理上传的 Excel 文件
+     * 读取列：书号、书名、定价、订数、已发数、已到货数、已收数、客户名称、馆配需求单名称、需求单折扣、报订批次、上报日期
+     */
+    async function handleFile(file) {
+        if (!file.name.match(/\.(xlsx|xls)$/i)) { 
+            alert('请上传 Excel 文件（.xlsx 或 .xls）'); 
+            return; 
+        }
+        
+        const statusDiv = document.getElementById('uploadStatus');
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = '⏳ 正在解析文件...';
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                
+                if (json.length < 2) throw new Error('文件至少需要表头+数据');
+                
+                // 解析表头，匹配列名（支持中英文）
+                const headers = json[0].map(h => String(h || '').trim());
+                const getIdx = (keywords) => headers.findIndex(h => keywords.some(kw => h.toLowerCase().includes(kw)));
+                
+                // 列名映射
+                const isbnIdx = getIdx(['书号', 'isbn']);
+                const titleIdx = getIdx(['书名', '名称']);
+                const priceIdx = getIdx(['定价', '价格']);
+                const orderQtyIdx = getIdx(['订数', '数量']);
+                const sentQtyIdx = getIdx(['已发数']);
+                const arrivedQtyIdx = getIdx(['已到货数']);
+                const receivedQtyIdx = getIdx(['已收数']);
+                const customerIdx = getIdx(['客户名称', '客户']);
+                const consignmentIdx = getIdx(['馆配需求单名称', '需求单名称']);
+                const discountIdx = getIdx(['需求单折扣', '折扣']);
+                const batchNoIdx = getIdx(['报订批次', '批次']);
+                const reportDateIdx = getIdx(['上报日期', '报订日期']);
+                
+                // 必填列检查
+                if (isbnIdx === -1 || titleIdx === -1 || priceIdx === -1) {
+                    throw new Error('缺少必要列：书号、书名、定价');
+                }
+                
+                // 解析数据行
+                const records = [];
+                for (let i = 1; i < json.length; i++) {
+                    const row = json[i];
+                    const isbn = row[isbnIdx] ? String(row[isbnIdx]).trim() : '';
+                    if (!isbn) continue;  // 书号为空则跳过
+                    
+                    records.push({
+                        isbn: isbn,
+                        title: row[titleIdx] ? String(row[titleIdx]).trim() : '',
+                        price: parseFloat(row[priceIdx]) || 0,
+                        order_qty: orderQtyIdx !== -1 ? (parseInt(row[orderQtyIdx]) || 0) : 0,
+                        sent_qty: sentQtyIdx !== -1 ? (parseInt(row[sentQtyIdx]) || 0) : 0,
+                        arrived_qty: arrivedQtyIdx !== -1 ? (parseInt(row[arrivedQtyIdx]) || 0) : 0,
+                        received_qty: receivedQtyIdx !== -1 ? (parseInt(row[receivedQtyIdx]) || 0) : 0,
+                        customer_name: customerIdx !== -1 ? String(row[customerIdx] || '').trim() : '',
+                        consignment_name: consignmentIdx !== -1 ? String(row[consignmentIdx] || '').trim() : '',
+                        discount: discountIdx !== -1 ? (parseInt(row[discountIdx]) || 0) : 0,
+                        batch_no: batchNoIdx !== -1 ? String(row[batchNoIdx] || '').trim() : '',
+                        report_date: reportDateIdx !== -1 ? String(row[reportDateIdx] || '').trim() : ''
+                    });
+                }
+                
+                if (records.length === 0) throw new Error('未找到有效数据');
+                
+                statusDiv.innerHTML = `⏳ 正在上传 ${records.length} 条数据...`;
+                
+                // 调用后端 API 保存数据
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'uploadOrders', data: records })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = `✅ 上传成功！共 ${records.length} 条记录<br>📝 新增 ${result.newCount || records.length} 条，跳过重复 ${result.skipCount || 0} 条`;
+                    loadOrderStats();
+                } else {
+                    throw new Error(result.error || '上传失败');
+                }
+            } catch (err) {
+                statusDiv.innerHTML = `❌ 上传失败: ${err.message}`;
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    
+    /**
+     * 加载订单统计信息
+     */
+    async function loadOrderStats() {
+        try {
+            const response = await fetch(API_BASE, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ action: 'getOrderStats' }) 
+            });
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById('orderStats').innerHTML = `📚 订单总数: ${result.data.total} 条<br>📅 最后更新: ${result.data.lastUpdate || '--'}`;
+            }
+        } catch(e) { console.error(e); }
+    }
+    
+    /**
+     * 清空所有订单数据
+     */
+    document.getElementById('clearOrdersBtn').onclick = async () => {
+        if (!confirm('⚠️ 确认清空所有订单数据？不可恢复！')) return;
+        const response = await fetch(API_BASE, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ action: 'clearOrders' }) 
+        });
+        const result = await response.json();
+        if (result.success) { 
+            alert('清空成功'); 
+            loadOrderStats(); 
+        } else {
+            alert('清空失败');
+        }
+    };
+    
+    // ========== 扫码录入功能 ==========
+    const isbnInput = document.getElementById('isbnInput');
+    const matchInfo = document.getElementById('matchInfo');
+    const bookInfo = document.getElementById('bookInfo');
+    
+    /**
+     * 根据书号查询订单信息
+     * @param {string} isbn - 书号
+     * @returns {object|null} 订单数据或null
+     */
+    async function queryOrder(isbn) {
+        if (!isbn || isbn.length < 5) return null;
+        
+        matchInfo.style.display = 'block';
+        matchInfo.className = 'match-tip';
+        matchInfo.innerHTML = '⏳ 查询中...';
+        
+        try {
+            const response = await fetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'queryOrder', data: { isbn } })
+            });
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                const d = result.data;
+                // 显示匹配成功信息
+                matchInfo.innerHTML = `✅ 匹配成功：${d.title || d.isbn}`;
+                matchInfo.className = 'match-tip';
+                
+                // 填充图书信息
+                document.getElementById('titleVal').innerText = d.title || '--';
+                document.getElementById('priceVal').innerText = d.price ? `¥${d.price.toFixed(2)}` : '--';
+                document.getElementById('orderQtyVal').innerText = d.order_qty || 0;
+                document.getElementById('customerVal').innerText = d.customer_name || '--';
+                document.getElementById('consignmentVal').innerText = d.consignment_name || '--';
+                document.getElementById('discountVal').innerText = d.discount ? `${d.discount}%` : '--';
+                document.getElementById('batchNoVal').innerText = d.batch_no || '--';
+                document.getElementById('reportDateVal').innerText = d.report_date || '--';
+                
+                // 默认录入数量 = 订数
+                document.getElementById('copiesInput').value = d.order_qty || 1;
+                bookInfo.style.display = 'block';
+                return d;
+            } else {
+                matchInfo.innerHTML = `❌ 未找到书号：${isbn}`;
+                matchInfo.className = 'match-tip error-tip';
+                bookInfo.style.display = 'none';
+                return null;
+            }
+        } catch (err) {
+            matchInfo.innerHTML = `❌ 查询失败：${err.message}`;
+            matchInfo.className = 'match-tip error-tip';
+            bookInfo.style.display = 'none';
+            return null;
+        }
+    }
+    
+    /**
+     * 保存录入记录
+     * @param {string} isbn - 书号
+     * @param {number} qty - 录入数量
+     * @param {object} orderData - 订单数据
+     */
+    async function addRecord(isbn, qty, orderData) {
+        try {
+            const response = await fetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'saveScanRecord',
+                    data: {
+                        isbn, qty,
+                        title: orderData.title,
+                        price: orderData.price,
+                        customer_name: orderData.customer_name,
+                        consignment_name: orderData.consignment_name,
+                        discount: orderData.discount,
+                        batch_no: orderData.batch_no,
+                        report_date: orderData.report_date
+                    }
+                })
+            });
+            const result = await response.json();
+            if (result.success) {
+                // 添加到本地缓存并刷新列表
+                localRecords.unshift({
+                    id: Date.now(),
+                    isbn, qty,
+                    title: orderData.title,
+                    customer_name: orderData.customer_name,
+                    consignment_name: orderData.consignment_name,
+                    discount: orderData.discount,
+                    batch_no: orderData.batch_no,
+                    scanned_at: new Date().toISOString()
+                });
+                renderRecordsList();
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
+    }
+    
+    /**
+     * 渲染录入记录列表
+     */
+    function renderRecordsList() {
+        const container = document.getElementById('recordsList');
+        if (localRecords.length === 0) {
+            container.innerHTML = '<div class="text-center" style="color:#aaa; padding:20px;">暂无录入数据</div>';
+            return;
+        }
+        let html = '';
+        localRecords.forEach(rec => {
+            html += `
+                <div class="record-item">
+                    <div class="record-title">📖 ${rec.title || rec.isbn}</div>
+                    <div class="record-meta">书号: ${rec.isbn} | 数量: ${rec.qty}</div>
+                    <div class="record-meta">客户: ${rec.customer_name || '--'} | 馆配单: ${rec.consignment_name || '--'}</div>
+                    <div class="record-meta">折扣: ${rec.discount ? rec.discount + '%' : '--'} | 批次: ${rec.batch_no || '--'}</div>
+                    <div class="record-meta">${new Date(rec.scanned_at).toLocaleString()}</div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+    
+    /**
+     * 导出录入记录为 CSV
+     */
+    function exportRecords() {
+        if (localRecords.length === 0) { 
+            alert('暂无数据可导出'); 
+            return; 
+        }
+        const rows = [['书号', '书名', '数量', '客户名称', '馆配单号', '折扣', '报订批次', '录入时间']];
+        localRecords.forEach(r => {
+            rows.push([r.isbn, r.title, r.qty, r.customer_name, r.consignment_name, r.discount, r.batch_no, r.scanned_at]);
+        });
+        const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `录入记录_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.csv`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+    
+    /**
+     * 加载历史录入记录
+     */
+    async function loadRecords() {
+        try {
+            const response = await fetch(API_BASE, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ action: 'getScanRecords' }) 
+            });
+            const result = await response.json();
+            if (result.success) {
+                localRecords = result.data || [];
+                renderRecordsList();
+            }
+        } catch(e) { console.error(e); }
+    }
+    
+    // ========== 事件绑定 ==========
+    let timeoutId = null;
+    // 输入防抖：停止输入 300ms 后自动查询
+    isbnInput.addEventListener('input', () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        const isbn = isbnInput.value.trim();
+        if (!isbn) { 
+            bookInfo.style.display = 'none'; 
+            matchInfo.style.display = 'none'; 
+            return; 
+        }
+        timeoutId = setTimeout(() => queryOrder(isbn), 300);
+    });
+    
+    // 回车查询
+    isbnInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const isbn = isbnInput.value.trim();
+            if (isbn) queryOrder(isbn);
+        }
+    });
+    
+    // 确认录入按钮
+    document.getElementById('addRecordBtn').onclick = async () => {
+        const isbn = isbnInput.value.trim();
+        if (!isbn) { 
+            alert('请先输入书号'); 
+            return; 
+        }
+        const qty = parseInt(document.getElementById('copiesInput').value) || 1;
+        if (qty <= 0) {
+            alert('录入本数必须大于0');
+            return;
+        }
+        const orderData = {
+            title: document.getElementById('titleVal').innerText,
+            price: parseFloat(document.getElementById('priceVal').innerText.replace('¥','')) || 0,
+            customer_name: document.getElementById('customerVal').innerText,
+            consignment_name: document.getElementById('consignmentVal').innerText,
+            discount: parseInt(document.getElementById('discountVal').innerText) || 0,
+            batch_no: document.getElementById('batchNoVal').innerText,
+            report_date: document.getElementById('reportDateVal').innerText
+        };
+        
+        const success = await addRecord(isbn, qty, orderData);
+        if (success) {
+            // 清空输入，准备下一条
+            isbnInput.value = '';
+            bookInfo.style.display = 'none';
+            matchInfo.style.display = 'none';
+            isbnInput.focus();
+        } else {
+            alert('录入失败，请重试');
+        }
+    };
+    
+    // 导出按钮
+    document.getElementById('exportRecordsBtn').onclick = exportRecords;
+    
+    // ========== 页面初始化 ==========
+    loadOrderStats();
+    loadRecords();
+</script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+// functions/api/sync.js
+export async function onRequest(context) {
+    const { request, env } = context;
+    const headers = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+    };
+
+    if (request.method === 'OPTIONS') {
+        return new Response(null, { headers });
+    }
+
+    try {
+        const DB = env.DB;
+        const url = new URL(request.url);
+        const action = url.searchParams.get('action') || (await request.json().catch(() => ({}))).action;
+
+        // ---------- 上传订单（支持增量/全量） ----------
+        if (request.method === 'POST' && action === 'uploadOrders') {
+            const { data, mode = 'incremental' } = await request.json();
+            if (!data || !data.length) {
+                return new Response(JSON.stringify({ success: false, error: '无有效数据' }), { headers });
+            }
+
+            let inserted = 0, updated = 0;
+            await DB.prepare('BEGIN').run();
+
+            try {
+                if (mode === 'full') {
+                    // 全量模式：先清空，再全部插入
+                    await DB.prepare('DELETE FROM orders').run();
+                    for (const item of data) {
+                        await DB.prepare(`
+                            INSERT INTO orders (isbn, title, price, order_qty, sent_qty, arrived_qty, received_qty, customer_name, consignment_name, discount, batch_no, report_date)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `).bind(
+                            item.isbn, item.title, item.price, item.order_qty,
+                            item.sent_qty, item.arrived_qty, item.received_qty,
+                            item.customer_name, item.consignment_name,
+                            item.discount, item.batch_no, item.report_date
+                        ).run();
+                        inserted++;
+                    }
+                } else {
+                    // 增量模式：按唯一键 upsert
+                    for (const item of data) {
+                        const existing = await DB.prepare(
+                            'SELECT id FROM orders WHERE isbn = ? AND consignment_name = ?'
+                        ).bind(item.isbn, item.consignment_name).first();
+
+                        if (existing) {
+                            await DB.prepare(`
+                                UPDATE orders SET
+                                    title = ?, price = ?, order_qty = ?, sent_qty = ?,
+                                    arrived_qty = ?, received_qty = ?, customer_name = ?,
+                                    discount = ?, batch_no = ?, report_date = ?, updated_at = CURRENT_TIMESTAMP
+                                WHERE isbn = ? AND consignment_name = ?
+                            `).bind(
+                                item.title, item.price, item.order_qty, item.sent_qty,
+                                item.arrived_qty, item.received_qty, item.customer_name,
+                                item.discount, item.batch_no, item.report_date,
+                                item.isbn, item.consignment_name
+                            ).run();
+                            updated++;
+                        } else {
+                            await DB.prepare(`
+                                INSERT INTO orders (isbn, title, price, order_qty, sent_qty, arrived_qty, received_qty, customer_name, consignment_name, discount, batch_no, report_date)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            `).bind(
+                                item.isbn, item.title, item.price, item.order_qty,
+                                item.sent_qty, item.arrived_qty, item.received_qty,
+                                item.customer_name, item.consignment_name,
+                                item.discount, item.batch_no, item.report_date
+                            ).run();
+                            inserted++;
+                        }
+                    }
+                }
+
+                await DB.prepare('COMMIT').run();
+                return new Response(JSON.stringify({ success: true, inserted, updated, mode }), { headers });
+            } catch (err) {
+                await DB.prepare('ROLLBACK').run();
+                throw err;
+            }
+        }
+
+        // ---------- 获取订单列表（分页 + 搜索） ----------
+        if (request.method === 'GET' && action === 'list') {
+            const page = parseInt(url.searchParams.get('page') || '1');
+            const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
+            const keyword = url.searchParams.get('keyword') || '';
+            const offset = (page - 1) * pageSize;
+
+            let countSql = 'SELECT COUNT(*) as total FROM orders';
+            let listSql = `
+                SELECT id, isbn, title, price, order_qty, customer_name, consignment_name,
+                       discount, batch_no, report_date, created_at
+                FROM orders
+            `;
+            let params = [];
+            if (keyword) {
+                const kw = `%${keyword}%`;
+                countSql += ' WHERE isbn LIKE ? OR title LIKE ? OR customer_name LIKE ? OR consignment_name LIKE ?';
+                listSql += ' WHERE isbn LIKE ? OR title LIKE ? OR customer_name LIKE ? OR consignment_name LIKE ?';
+                params = [kw, kw, kw, kw];
+            }
+            listSql += ' ORDER BY id DESC LIMIT ? OFFSET ?';
+            const countResult = await DB.prepare(countSql).bind(...params.slice(0, 4)).first();
+            const listResult = await DB.prepare(listSql).bind(...params, pageSize, offset).all();
+            return new Response(JSON.stringify({
+                success: true,
+                data: listResult.results,
+                total: countResult.total,
+                page,
+                pageSize
+            }), { headers });
+        }
+
+        // ---------- 清空所有订单 ----------
+        if (request.method === 'DELETE' && action === 'clear') {
+            await DB.prepare('DELETE FROM orders').run();
+            return new Response(JSON.stringify({ success: true }), { headers });
+        }
+
+        // ---------- 批量删除 ----------
+        if (request.method === 'POST' && action === 'deleteByIds') {
+            const { ids } = await request.json();
+            if (ids && ids.length) {
+                const placeholders = ids.map(() => '?').join(',');
+                await DB.prepare(`DELETE FROM orders WHERE id IN (${placeholders})`).bind(ids).run();
+            }
+            return new Response(JSON.stringify({ success: true }), { headers });
+        }
+
+        return new Response(JSON.stringify({ error: 'Invalid action' }), { status: 400, headers });
+    } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers });
+    }
+}

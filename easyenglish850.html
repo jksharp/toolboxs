@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Basic English 850 · 智能例句 · 三引擎发音</title>
+    <title>Basic English 850 · 完整例句翻译 · 学习卡牌</title>
     <style>
         * {
             margin: 0;
@@ -112,24 +112,6 @@
             gap: 12px;
             padding: 8px 0;
             font-size: 0.9rem;
-        }
-        .cache-status-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 12px;
-            background: #eef2f6;
-            padding: 10px 16px;
-            border-radius: 60px;
-        }
-        .cache-btn {
-            background: #2c7da0;
-            border: none;
-            color: white;
-            padding: 8px 14px;
-            border-radius: 40px;
-            cursor: pointer;
-            font-size: 0.75rem;
         }
         .close-modal {
             background: #2c7da0;
@@ -342,12 +324,11 @@
     <div class="header-area">
         <div class="hero">
             <h1>📘 Basic English 850</h1>
-            <div class="badge">智能例句 · 完整音标 · 三引擎发音</div>
+            <div class="badge">官方词表 · 例句带翻译 · 智能发音</div>
         </div>
         <div class="settings-icon" id="settingsBtn">⚙️ 设置</div>
     </div>
 
-    <!-- 弹窗设置 -->
     <div id="modalOverlay" class="modal-mask">
         <div class="modal-card">
             <h3>⚙️ 学习与发音设置</h3>
@@ -359,15 +340,7 @@
                 <div style="margin-bottom:6px; font-weight:600;">🔊 发音引擎</div>
                 <label><input type="radio" name="ttsEngine" value="browser" checked> 🌐 浏览器原生语音 (离线/免费)</label>
                 <label><input type="radio" name="ttsEngine" value="youdao"> 📡 有道API (网络/支持句子)</label>
-                <label><input type="radio" name="ttsEngine" value="offline"> 💾 离线缓存 (需预下载单词)</label>
-                <div style="font-size:0.7rem; color:#6f98b0; margin-top:6px;">* 离线模式仅支持已下载的单词，例句仍走浏览器或有道</div>
             </div>
-            <div class="cache-status-row">
-                <span>🎧 离线包状态</span>
-                <button id="downloadOfflineBtn" class="cache-btn">📥 下载全部单词</button>
-            </div>
-            <div style="font-size:0.7rem; color:#6f98b0; text-align:left; margin-top:6px;" id="cacheStatusText">未下载</div>
-            <button id="clearOfflineBtn" class="cache-btn" style="background:#b5651e; margin-top:8px;">🗑️ 清除离线缓存</button>
             <button id="modalApplyBtn" class="close-modal">✔️ 保存并关闭</button>
         </div>
     </div>
@@ -378,7 +351,7 @@
             <span class="daily-progress" id="groupCompleteLabel">📖 已掌握 0 / 0</span>
         </div>
         <div class="progress-bar"><div class="progress-fill" id="globalProgressFill"></div></div>
-        <div class="tiny-stats">✅ 总进度: <span id="totalLearnedSpan">0</span> / 850 词 · 例句包含当前单词</div>
+        <div class="tiny-stats">✅ 总进度: <span id="totalLearnedSpan">0</span> / 850 词 · 每词例句+翻译</div>
     </div>
 
     <div id="dynamicContainer"></div>
@@ -389,610 +362,475 @@
         <button id="nextGroupBtn" class="nav-btn">下一组 ▶</button>
     </div>
     <div class="footer-note">
-        💡 三种发音模式自由切换<br>
-        📖 每个单词的例句都经过优化，语法正确、语义通顺，且包含该单词本身。
+        💡 单词发音使用浏览器语音，例句发音使用有道API（需网络）<br>
+        📖 每个单词都有专属例句和完整中文翻译，点击“查看翻译”即可显示。
     </div>
 </div>
 
 <script>
-    // ======================= 完整850词库 (字母排序) =======================
-    const rawWords = [
-        "a","able","about","account","acid","across","act","addition","adjustment","advertisement",
-        "after","again","against","agreement","air","all","almost","among","amount","amusement",
-        "and","angle","angry","animal","answer","ant","any","apparatus","apple","approval",
-        "arch","argument","arm","army","art","as","at","attack","attempt","attention",
-        "attraction","authority","automatic","awake","baby","back","bad","bag","balance","ball",
-        "band","base","basin","basket","bath","be","beautiful","because","bed","bee",
-        "before","behavior","belief","bell","bent","berry","between","bird","birth","bit",
-        "bite","bitter","black","blade","blood","blow","blue","board","boat","body",
-        "boiling","bone","book","boot","bottle","box","boy","brain","brake","branch",
-        "brass","bread","break","breath","brick","bridge","bright","broken","brother","brown",
-        "brush","bucket","building","bulb","burn","burst","business","but","butter","button",
-        "by","cake","camera","canvas","card","care","carriage","cart","cat","cause",
-        "certain","chain","chalk","chance","change","cheap","cheese","chemical","chest","chief",
-        "chin","church","circle","clean","clear","clock","cloth","cloud","coal","coat",
-        "cold","collar","color","comb","come","comfort","committee","common","company","comparison",
-        "competition","complete","complex","condition","connection","conscious","control","cook","copper","copy",
-        "cord","cork","cotton","cough","country","cover","cow","crack","credit","crime",
-        "cruel","crush","cry","cup","current","curtain","curve","cushion","damage","danger",
-        "dark","daughter","day","dead","dear","death","debt","decision","deep","degree",
-        "delicate","dependent","design","desire","destruction","detail","development","different","digestion","direction",
-        "dirty","discovery","discussion","disease","disgust","distance","distribution","division","do","dog",
-        "door","doubt","down","drain","drawer","dress","drink","driving","drop","dry",
-        "dust","ear","early","earth","east","edge","education","effect","egg","elastic",
-        "electric","end","engine","enough","equal","error","even","event","ever","every",
-        "example","exchange","existence","expansion","experience","expert","eye","face","fact","fall",
-        "false","family","far","farm","fat","father","fear","feather","feeble","feeling",
-        "female","fertile","fiction","field","fight","finger","fire","first","fish","fixed",
-        "flag","flame","flat","flight","floor","flower","fly","fold","food","foolish",
-        "foot","for","force","fork","form","forward","fowl","frame","free","frequent",
-        "friend","from","front","fruit","full","future","garden","general","get","girl",
-        "give","glass","glove","go","goat","gold","good","government","grain","grass",
-        "great","green","grey","grip","group","growth","guide","gun","hair","hammer",
-        "hand","hanging","happy","harbor","hard","harmony","hat","hate","have","he",
-        "head","healthy","hearing","heart","heat","help","here","high","history","hole",
-        "hollow","hook","hope","horn","horse","hospital","hour","house","how","humor",
-        "I","ice","idea","if","ill","important","impulse","in","increase","industry",
-        "ink","insect","instrument","insurance","interest","invention","iron","island","jelly","jewel",
-        "join","journey","judge","jump","keep","kettle","key","kick","kind","kiss",
-        "knee","knife","knot","knowledge","land","language","last","late","laugh","law",
-        "lead","leaf","learning","leather","left","leg","let","letter","level","library",
-        "lift","light","like","limit","line","linen","lip","liquid","list","little",
-        "living","lock","long","look","loose","loss","loud","love","low","machine",
-        "make","male","man","manager","map","mark","market","married","match","material",
-        "may","meal","measure","meat","medical","meeting","memory","metal","middle","military",
-        "milk","mind","mine","minute","mist","mixed","money","monkey","month","moon",
-        "morning","mother","motion","mountain","mouth","move","much","muscle","music","nail",
-        "name","narrow","nation","natural","near","necessary","neck","need","needle","nerve",
-        "net","new","news","night","no","noise","normal","north","nose","not",
-        "note","now","number","nut","observation","of","off","offer","office","oil",
-        "old","on","only","open","operation","opinion","opposite","or","orange","order",
-        "organization","ornament","other","out","oven","over","owner","page","pain","paint",
-        "paper","parallel","parcel","part","past","paste","payment","peace","pen","pencil",
-        "person","physical","picture","pig","pin","pipe","place","plane","plant","plate",
-        "play","please","pleasure","plough","pocket","point","poison","polish","political","poor",
-        "porter","position","possible","pot","potato","powder","power","present","price","print",
-        "prison","private","probable","process","produce","profit","property","prose","protest","public",
-        "pull","pump","punishment","purpose","push","put","quality","question","quick","quiet",
-        "quite","rail","rain","range","rat","rate","ray","reaction","reading","ready",
-        "reason","receipt","record","red","regret","relation","religion","representative","request","respect",
-        "responsible","rest","reward","rhythm","rice","right","ring","river","road","rod",
-        "roll","roof","room","root","rough","round","rub","rule","run","sad",
-        "safe","sail","salt","same","sand","say","scale","school","science","scissors",
-        "screw","sea","seat","second","secret","secretary","see","seed","seem","selection",
-        "self","send","sense","separate","serious","servant","sex","shade","shake","shame",
-        "sharp","sheep","shelf","ship","shirt","shock","shoe","short","shut","side",
-        "sign","silk","silver","simple","sister","size","skin","skirt","sky","sleep",
-        "slip","slope","slow","small","smash","smell","smile","smoke","smooth","snake",
-        "sneeze","snow","so","soap","society","sock","soft","solid","son","song",
-        "sort","sound","soup","space","spade","special","sponge","spoon","spring","square",
-        "stamp","stage","star","start","statement","station","steam","stem","steel","step",
-        "stick","sticky","still","stitch","stocking","stomach","stone","stop","store","story",
-        "strange","street","stretch","stiff","straight","strong","structure","substance","such","sudden",
-        "sugar","suggestion","summer","sun","support","surprise","sweet","swim","system","table",
-        "tail","take","talk","tall","taste","tax","teaching","tendency","test","than",
-        "that","the","then","theory","there","thick","thin","thing","this","though",
-        "thought","thread","throat","through","thumb","thunder","ticket","tight","till","time",
-        "tin","tired","to","toe","together","tomorrow","tongue","tooth","top","touch",
-        "town","trade","train","transport","tray","tree","trick","trouble","trousers","true",
-        "turn","twist","umbrella","under","unit","up","use","value","verse","very",
-        "vessel","view","violent","voice","waiting","walk","wall","war","warm","wash",
-        "waste","watch","water","wave","wax","way","weather","week","weight","well",
-        "west","wet","wheel","when","where","while","whip","whistle","white","who",
-        "why","wide","will","wind","window","wine","wing","winter","wire","wise",
-        "with","woman","wood","wool","word","work","worm","wound","writing","wrong",
-        "year","yellow","yes","yesterday","you","young"
-    ];
-    let unique = [...new Set(rawWords)].sort((a,b)=>a.localeCompare(b));
-    while(unique.length < 850) unique.push(`word${unique.length}`);
+    // ======================= 官方 Ogden Basic English 850 词表 =======================
+    const ops = ["come","get","give","go","keep","let","make","put","seem","take","be","do","have","say","see","send","may","will","about","across","after","against","among","at","before","between","by","down","from","in","off","on","over","through","to","under","up","with","as","for","of","till","than","a","the","all","any","every","little","much","no","other","some","such","that","this","I","he","you","who","and","because","but","or","if","though","while","how","when","where","why","again","ever","far","forward","here","near","now","out","still","then","there","together","well","almost","enough","even","not","only","quite","so","very","tomorrow","yesterday","north","south","east","west","please","yes"];
+    const thingsGeneral = ["account","act","addition","adjustment","advertisement","agreement","air","amount","amusement","animal","answer","apparatus","approval","argument","art","attack","attempt","attention","attraction","authority","back","balance","base","behavior","belief","birth","bit","bite","blood","blow","body","brass","bread","breath","brother","building","burn","burst","business","butter","canvas","care","cause","chalk","chance","change","cloth","coal","color","comfort","committee","company","comparison","competition","condition","connection","control","cook","copper","copy","cork","cotton","cough","country","cover","crack","credit","crime","crush","cry","current","curve","damage","danger","daughter","day","death","debt","decision","degree","design","desire","destruction","detail","development","digestion","direction","discovery","discussion","disease","disgust","distance","distribution","division","doubt","drink","driving","dust","earth","edge","education","effect","end","error","event","example","exchange","existence","expansion","experience","expert","fact","fall","family","father","fear","feeling","fiction","field","fight","fire","flame","flight","flower","fold","food","force","form","friend","front","fruit","glass","gold","government","grain","grass","grip","group","growth","guide","harbor","harmony","hate","hearing","heat","help","history","hole","hope","hour","humor","ice","idea","impulse","increase","industry","ink","insect","instrument","insurance","interest","invention","iron","jelly","join","journey","judge","jump","kick","kiss","knowledge","land","language","laugh","law","lead","learning","leather","letter","level","lift","light","limit","linen","liquid","list","look","loss","love","machine","man","manager","mark","market","mass","meal","measure","meat","meeting","memory","metal","middle","milk","mind","mine","minute","mist","money","month","morning","mother","motion","mountain","move","music","name","nation","need","news","night","noise","note","number","observation","offer","oil","operation","opinion","order","organization","ornament","owner","page","pain","paint","paper","part","paste","payment","peace","person","place","plant","play","pleasure","point","poison","polish","porter","position","powder","power","price","print","process","produce","profit","property","prose","protest","pull","punishment","purpose","push","quality","question","rain","range","rate","ray","reaction","reading","reason","record","regret","relation","religion","representative","request","respect","rest","reward","rhythm","rice","river","road","roll","room","rub","rule","run","salt","sand","scale","science","sea","seat","secretary","selection","self","sense","servant","sex","shade","shake","shame","shock","side","sign","silk","silver","sister","size","sky","sleep","slip","slope","smash","smell","smile","smoke","sneeze","snow","soap","society","son","song","sort","sound","soup","space","stage","start","statement","steam","steel","step","stitch","stone","stop","story","stretch","structure","substance","sugar","suggestion","summer","support","surprise","swim","system","talk","taste","tax","teaching","tendency","test","theory","thing","thought","thunder","time","tin","top","touch","trade","transport","trick","trouble","turn","twist","unit","use","value","verse","vessel","view","voice","walk","war","wash","waste","water","wave","wax","way","weather","week","weight","wind","wine","winter","woman","wood","wool","word","work","wound","writing","year"];
+    const thingsPicture = ["angle","ant","apple","arch","arm","army","baby","bag","ball","band","basin","basket","bath","bed","bee","bell","berry","bird","blade","board","boat","bone","book","boot","bottle","box","boy","brain","brake","branch","brick","bridge","brush","bucket","bulb","button","cake","camera","card","cart","carriage","cat","chain","cheese","chest","chin","church","circle","clock","cloud","coat","collar","comb","cord","cow","cup","curtain","cushion","dog","door","drain","drawer","dress","drop","ear","egg","engine","eye","face","farm","feather","finger","fish","flag","floor","fly","foot","fork","fowl","frame","garden","girl","glove","goat","gun","hair","hammer","hand","hat","head","heart","hook","horn","horse","hospital","house","island","jewel","kettle","key","knee","knife","knot","leaf","leg","library","line","lip","lock","map","match","monkey","moon","mouth","muscle","nail","neck","needle","nerve","net","nose","nut","office","orange","oven","parcel","pen","pencil","picture","pig","pin","pipe","plane","plate","plough","pocket","pot","potato","prison","pump","rail","rat","receipt","ring","rod","roof","root","sail","school","scissors","screw","seed","sheep","shelf","ship","shirt","shoe","skin","skirt","snake","sock","spade","sponge","spoon","spring","square","stamp","star","station","stem","stick","stocking","stomach","store","street","sun","table","tail","thread","throat","thumb","ticket","toe","tongue","tooth","town","train","tray","tree","trousers","umbrella","wall","watch","wheel","whip","whistle","window","wing","wire","worm"];
+    const qualitiesGeneral = ["able","acid","angry","automatic","beautiful","black","boiling","bright","broken","brown","cheap","chemical","chief","clean","clear","common","complex","conscious","cut","deep","dependent","early","elastic","electric","equal","fat","fertile","first","fixed","flat","free","frequent","full","general","good","great","grey","gray","hanging","happy","hard","healthy","high","hollow","important","kind","like","living","long","male","married","material","medical","military","natural","necessary","new","normal","open","parallel","past","physical","political","poor","possible","present","private","probable","quick","quiet","ready","red","regular","responsible","right","round","same","second","separate","serious","sharp","smooth","sticky","stiff","straight","strong","sudden","sweet","tall","thick","tight","tired","true","violent","waiting","warm","wet","wide","wise","yellow","young"];
+    const qualitiesOpposite = ["awake","bad","bent","bitter","blue","certain","cold","complete","cruel","dark","dead","dear","delicate","different","dirty","dry","false","feeble","female","foolish","future","green","ill","last","late","left","loose","loud","low","mixed","narrow","old","opposite","public","rough","sad","safe","secret","short","shut","simple","slow","small","soft","solid","special","strange","thin","white","wrong"];
+    let allWords = [...ops, ...thingsGeneral, ...thingsPicture, ...qualitiesGeneral, ...qualitiesOpposite];
+    let uniqueWords = [...new Set(allWords)];
+    while(uniqueWords.length < 850) uniqueWords.push(`word${uniqueWords.length}`);
     const TOTAL = 850;
 
-    // 获取词性
-    const getPos = (w) => {
-        if(w.match(/^(a|an|the|this|that|these|those)$/)) return "det.";
+    function getPos(w) {
+        if(w.match(/^(a|an|the|this|that|these|those|all|any|every|no|some|such|my|your|his|her|its|our|their)$/)) return "det.";
         if(w.match(/(ly|ful|less|able|ive)$/i)) return "adj.";
         if(w.match(/(ize|ise|ate)$/i)) return "v.";
         if(w.length<=3 && !w.match(/[aeiou]/i)) return "conj./prep.";
+        if(ops.includes(w) && (w==="come"||w==="get"||w==="give"||w==="go"||w==="keep"||w==="let"||w==="make"||w==="put"||w==="seem"||w==="take"||w==="be"||w==="do"||w==="have"||w==="say"||w==="see"||w==="send")) return "v.";
         return "n.";
-    };
-    
-    // ======================= 音标映射（完整版，此处仅展示部分，实际代码包含全部）=======================
-    const ipaMap = {
-        "a": "/ə/ (或 /eɪ/)", "able": "/ˈeɪbəl/", "about": "/əˈbaʊt/", "account": "/əˈkaʊnt/", "acid": "/ˈæsɪd/",
-        "across": "/əˈkrɔːs/", "act": "/ækt/", "addition": "/əˈdɪʃən/", "adjustment": "/əˈdʒʌstmənt/", "advertisement": "/ədˈvɜːrtɪsmənt/",
-        "after": "/ˈæftər/", "again": "/əˈɡen/", "against": "/əˈɡenst/", "agreement": "/əˈɡriːmənt/", "air": "/er/",
-        "all": "/ɔːl/", "almost": "/ˈɔːlmoʊst/", "among": "/əˈmʌŋ/", "amount": "/əˈmaʊnt/", "amusement": "/əˈmjuːzmənt/",
-        "and": "/ənd/", "angle": "/ˈæŋɡəl/", "angry": "/ˈæŋɡri/", "animal": "/ˈænɪməl/", "answer": "/ˈænsər/",
-        "ant": "/ænt/", "any": "/ˈeni/", "apparatus": "/ˌæpəˈrætəs/", "apple": "/ˈæpəl/", "approval": "/əˈpruːvəl/",
-        "arch": "/ɑːrtʃ/", "argument": "/ˈɑːrɡjʊmənt/", "arm": "/ɑːrm/", "army": "/ˈɑːrmi/", "art": "/ɑːrt/",
-        "as": "/æz/", "at": "/æt/", "attack": "/əˈtæk/", "attempt": "/əˈtempt/", "attention": "/əˈtenʃən/",
-        "attraction": "/əˈtrækʃən/", "authority": "/əˈθɔːrəti/", "automatic": "/ˌɔːtəˈmætɪk/", "awake": "/əˈweɪk/",
-        "baby": "/ˈbeɪbi/", "back": "/bæk/", "bad": "/bæd/", "bag": "/bæɡ/", "balance": "/ˈbæləns/", "ball": "/bɔːl/",
-        "band": "/bænd/", "base": "/beɪs/", "basin": "/ˈbeɪsən/", "basket": "/ˈbæskɪt/", "bath": "/bæθ/", "be": "/biː/",
-        "beautiful": "/ˈbjuːtɪfəl/", "because": "/bɪˈkɔːz/", "bed": "/bed/", "bee": "/biː/", "before": "/bɪˈfɔːr/",
-        "behavior": "/bɪˈheɪvjər/", "belief": "/bɪˈliːf/", "bell": "/bel/", "bent": "/bent/", "berry": "/ˈberi/",
-        "between": "/bɪˈtwiːn/", "bird": "/bɜːrd/", "birth": "/bɜːrθ/", "bit": "/bɪt/", "bite": "/baɪt/", "bitter": "/ˈbɪtər/",
-        "black": "/blæk/", "blade": "/bleɪd/", "blood": "/blʌd/", "blow": "/bloʊ/", "blue": "/bluː/", "board": "/bɔːrd/",
-        "boat": "/boʊt/", "body": "/ˈbɑːdi/", "boiling": "/ˈbɔɪlɪŋ/", "bone": "/boʊn/", "book": "/bʊk/", "boot": "/buːt/",
-        "bottle": "/ˈbɑːtl/", "box": "/bɑːks/", "boy": "/bɔɪ/", "brain": "/breɪn/", "brake": "/breɪk/", "branch": "/bræntʃ/",
-        "brass": "/bræs/", "bread": "/bred/", "break": "/breɪk/", "breath": "/breθ/", "brick": "/brɪk/", "bridge": "/brɪdʒ/",
-        "bright": "/braɪt/", "broken": "/ˈbroʊkən/", "brother": "/ˈbrʌðər/", "brown": "/braʊn/", "brush": "/brʌʃ/",
-        "bucket": "/ˈbʌkɪt/", "building": "/ˈbɪldɪŋ/", "bulb": "/bʌlb/", "burn": "/bɜːrn/", "burst": "/bɜːrst/",
-        "business": "/ˈbɪznəs/", "but": "/bʌt/", "butter": "/ˈbʌtər/", "button": "/ˈbʌtən/", "by": "/baɪ/",
-        "cake": "/keɪk/", "camera": "/ˈkæmərə/", "canvas": "/ˈkænvəs/", "card": "/kɑːrd/", "care": "/ker/",
-        "carriage": "/ˈkærɪdʒ/", "cart": "/kɑːrt/", "cat": "/kæt/", "cause": "/kɔːz/", "certain": "/ˈsɜːrtən/",
-        "chain": "/tʃeɪn/", "chalk": "/tʃɔːk/", "chance": "/tʃæns/", "change": "/tʃeɪndʒ/", "cheap": "/tʃiːp/",
-        "cheese": "/tʃiːz/", "chemical": "/ˈkemɪkəl/", "chest": "/tʃest/", "chief": "/tʃiːf/", "chin": "/tʃɪn/",
-        "church": "/tʃɜːrtʃ/", "circle": "/ˈsɜːrkəl/", "clean": "/kliːn/", "clear": "/klɪr/", "clock": "/klɑːk/",
-        "cloth": "/klɔːθ/", "cloud": "/klaʊd/", "coal": "/koʊl/", "coat": "/koʊt/", "cold": "/koʊld/",
-        "collar": "/ˈkɑːlər/", "color": "/ˈkʌlər/", "comb": "/koʊm/", "come": "/kʌm/", "comfort": "/ˈkʌmfərt/",
-        "committee": "/kəˈmɪti/", "common": "/ˈkɑːmən/", "company": "/ˈkʌmpəni/", "comparison": "/kəmˈpærɪsən/",
-        "competition": "/ˌkɑːmpəˈtɪʃən/", "complete": "/kəmˈpliːt/", "complex": "/kəmˈpleks/", "condition": "/kənˈdɪʃən/",
-        "connection": "/kəˈnekʃən/", "conscious": "/ˈkɑːnʃəs/", "control": "/kənˈtroʊl/", "cook": "/kʊk/",
-        "copper": "/ˈkɑːpər/", "copy": "/ˈkɑːpi/", "cord": "/kɔːrd/", "cork": "/kɔːrk/", "cotton": "/ˈkɑːtən/",
-        "cough": "/kɔːf/", "country": "/ˈkʌntri/", "cover": "/ˈkʌvər/", "cow": "/kaʊ/", "crack": "/kræk/",
-        "credit": "/ˈkredɪt/", "crime": "/kraɪm/", "cruel": "/ˈkruːəl/", "crush": "/krʌʃ/", "cry": "/kraɪ/",
-        "cup": "/kʌp/", "current": "/ˈkɜːrənt/", "curtain": "/ˈkɜːrtən/", "curve": "/kɜːrv/", "cushion": "/ˈkʊʃən/",
-        "damage": "/ˈdæmɪdʒ/", "danger": "/ˈdeɪndʒər/", "dark": "/dɑːrk/", "daughter": "/ˈdɔːtər/", "day": "/deɪ/",
-        "dead": "/ded/", "dear": "/dɪr/", "death": "/deθ/", "debt": "/det/", "decision": "/dɪˈsɪʒən/",
-        "deep": "/diːp/", "degree": "/dɪˈɡriː/", "delicate": "/ˈdelɪkət/", "dependent": "/dɪˈpendənt/", "design": "/dɪˈzaɪn/",
-        "desire": "/dɪˈzaɪər/", "destruction": "/dɪˈstrʌkʃən/", "detail": "/ˈdiːteɪl/", "development": "/dɪˈveləpmənt/",
-        "different": "/ˈdɪfrənt/", "digestion": "/daɪˈdʒestʃən/", "direction": "/dɪˈrekʃən/", "dirty": "/ˈdɜːrti/",
-        "discovery": "/dɪˈskʌvəri/", "discussion": "/dɪˈskʌʃən/", "disease": "/dɪˈziːz/", "disgust": "/dɪsˈɡʌst/",
-        "distance": "/ˈdɪstəns/", "distribution": "/ˌdɪstrɪˈbjuːʃən/", "division": "/dɪˈvɪʒən/", "do": "/duː/",
-        "dog": "/dɔːɡ/", "door": "/dɔːr/", "doubt": "/daʊt/", "down": "/daʊn/", "drain": "/dreɪn/",
-        "drawer": "/drɔːr/", "dress": "/dres/", "drink": "/drɪŋk/", "driving": "/ˈdraɪvɪŋ/", "drop": "/drɑːp/",
-        "dry": "/draɪ/", "dust": "/dʌst/", "ear": "/ɪr/", "early": "/ˈɜːrli/", "earth": "/ɜːrθ/",
-        "east": "/iːst/", "edge": "/edʒ/", "education": "/ˌedʒʊˈkeɪʃən/", "effect": "/ɪˈfekt/", "egg": "/eɡ/",
-        "elastic": "/ɪˈlæstɪk/", "electric": "/ɪˈlektrɪk/", "end": "/end/", "engine": "/ˈendʒɪn/", "enough": "/ɪˈnʌf/",
-        "equal": "/ˈiːkwəl/", "error": "/ˈerər/", "even": "/ˈiːvən/", "event": "/ɪˈvent/", "ever": "/ˈevər/",
-        "every": "/ˈevri/", "example": "/ɪɡˈzæmpəl/", "exchange": "/ɪksˈtʃeɪndʒ/", "existence": "/ɪɡˈzɪstəns/",
-        "expansion": "/ɪkˈspænʃən/", "experience": "/ɪkˈspɪriəns/", "expert": "/ˈekspɜːrt/", "eye": "/aɪ/",
-        "face": "/feɪs/", "fact": "/fækt/", "fall": "/fɔːl/", "false": "/fɔːls/", "family": "/ˈfæməli/",
-        "far": "/fɑːr/", "farm": "/fɑːrm/", "fat": "/fæt/", "father": "/ˈfɑːðər/", "fear": "/fɪr/",
-        "feather": "/ˈfeðər/", "feeble": "/ˈfiːbəl/", "feeling": "/ˈfiːlɪŋ/", "female": "/ˈfiːmeɪl/", "fertile": "/ˈfɜːrtəl/",
-        "fiction": "/ˈfɪkʃən/", "field": "/fiːld/", "fight": "/faɪt/", "finger": "/ˈfɪŋɡər/", "fire": "/ˈfaɪər/",
-        "first": "/fɜːrst/", "fish": "/fɪʃ/", "fixed": "/fɪkst/", "flag": "/flæɡ/", "flame": "/fleɪm/",
-        "flat": "/flæt/", "flight": "/flaɪt/", "floor": "/flɔːr/", "flower": "/ˈflaʊər/", "fly": "/flaɪ/",
-        "fold": "/foʊld/", "food": "/fuːd/", "foolish": "/ˈfuːlɪʃ/", "foot": "/fʊt/", "for": "/fɔːr/",
-        "force": "/fɔːrs/", "fork": "/fɔːrk/", "form": "/fɔːrm/", "forward": "/ˈfɔːrwərd/", "fowl": "/faʊl/",
-        "frame": "/freɪm/", "free": "/friː/", "frequent": "/ˈfriːkwənt/", "friend": "/frend/", "from": "/frʌm/",
-        "front": "/frʌnt/", "fruit": "/fruːt/", "full": "/fʊl/", "future": "/ˈfjuːtʃər/", "garden": "/ˈɡɑːrdən/",
-        "general": "/ˈdʒenərəl/", "get": "/ɡet/", "girl": "/ɡɜːrl/", "give": "/ɡɪv/", "glass": "/ɡlæs/",
-        "glove": "/ɡlʌv/", "go": "/ɡoʊ/", "goat": "/ɡoʊt/", "gold": "/ɡoʊld/", "good": "/ɡʊd/",
-        "government": "/ˈɡʌvərnmənt/", "grain": "/ɡreɪn/", "grass": "/ɡræs/", "great": "/ɡreɪt/", "green": "/ɡriːn/",
-        "grey": "/ɡreɪ/", "grip": "/ɡrɪp/", "group": "/ɡruːp/", "growth": "/ɡroʊθ/", "guide": "/ɡaɪd/",
-        "gun": "/ɡʌn/", "hair": "/her/", "hammer": "/ˈhæmər/", "hand": "/hænd/", "hanging": "/ˈhæŋɪŋ/",
-        "happy": "/ˈhæpi/", "harbor": "/ˈhɑːrbər/", "hard": "/hɑːrd/", "harmony": "/ˈhɑːrməni/", "hat": "/hæt/",
-        "hate": "/heɪt/", "have": "/hæv/", "he": "/hiː/", "head": "/hed/", "healthy": "/ˈhelθi/",
-        "hearing": "/ˈhɪrɪŋ/", "heart": "/hɑːrt/", "heat": "/hiːt/", "help": "/help/", "here": "/hɪr/",
-        "high": "/haɪ/", "history": "/ˈhɪstəri/", "hole": "/hoʊl/", "hollow": "/ˈhɑːloʊ/", "hook": "/hʊk/",
-        "hope": "/hoʊp/", "horn": "/hɔːrn/", "horse": "/hɔːrs/", "hospital": "/ˈhɑːspɪtəl/", "hour": "/ˈaʊər/",
-        "house": "/haʊs/", "how": "/haʊ/", "humor": "/ˈhjuːmər/", "I": "/aɪ/", "ice": "/aɪs/",
-        "idea": "/aɪˈdiːə/", "if": "/ɪf/", "ill": "/ɪl/", "important": "/ɪmˈpɔːrtənt/", "impulse": "/ˈɪmpʌls/",
-        "in": "/ɪn/", "increase": "/ɪnˈkriːs/", "industry": "/ˈɪndəstri/", "ink": "/ɪŋk/", "insect": "/ˈɪnsekt/",
-        "instrument": "/ˈɪnstrʊmənt/", "insurance": "/ɪnˈʃʊrəns/", "interest": "/ˈɪntrəst/", "invention": "/ɪnˈvenʃən/",
-        "iron": "/ˈaɪərn/", "island": "/ˈaɪlənd/", "jelly": "/ˈdʒeli/", "jewel": "/ˈdʒuːəl/", "join": "/dʒɔɪn/",
-        "journey": "/ˈdʒɜːrni/", "judge": "/dʒʌdʒ/", "jump": "/dʒʌmp/", "keep": "/kiːp/", "kettle": "/ˈketəl/",
-        "key": "/kiː/", "kick": "/kɪk/", "kind": "/kaɪnd/", "kiss": "/kɪs/", "knee": "/niː/",
-        "knife": "/naɪf/", "knot": "/nɑːt/", "knowledge": "/ˈnɑːlɪdʒ/", "land": "/lænd/", "language": "/ˈlæŋɡwɪdʒ/",
-        "last": "/læst/", "late": "/leɪt/", "laugh": "/læf/", "law": "/lɔː/", "lead": "/liːd/",
-        "leaf": "/liːf/", "learning": "/ˈlɜːrnɪŋ/", "leather": "/ˈleðər/", "left": "/left/", "leg": "/leɡ/",
-        "let": "/let/", "letter": "/ˈletər/", "level": "/ˈlevəl/", "library": "/ˈlaɪbreri/", "lift": "/lɪft/",
-        "light": "/laɪt/", "like": "/laɪk/", "limit": "/ˈlɪmɪt/", "line": "/laɪn/", "linen": "/ˈlɪnɪn/",
-        "lip": "/lɪp/", "liquid": "/ˈlɪkwɪd/", "list": "/lɪst/", "little": "/ˈlɪtəl/", "living": "/ˈlɪvɪŋ/",
-        "lock": "/lɑːk/", "long": "/lɔːŋ/", "look": "/lʊk/", "loose": "/luːs/", "loss": "/lɔːs/",
-        "loud": "/laʊd/", "love": "/lʌv/", "low": "/loʊ/", "machine": "/məˈʃiːn/", "make": "/meɪk/",
-        "male": "/meɪl/", "man": "/mæn/", "manager": "/ˈmænɪdʒər/", "map": "/mæp/", "mark": "/mɑːrk/",
-        "market": "/ˈmɑːrkɪt/", "married": "/ˈmærid/", "match": "/mætʃ/", "material": "/məˈtɪriəl/", "may": "/meɪ/",
-        "meal": "/miːl/", "measure": "/ˈmeʒər/", "meat": "/miːt/", "medical": "/ˈmedɪkəl/", "meeting": "/ˈmiːtɪŋ/",
-        "memory": "/ˈmeməri/", "metal": "/ˈmetəl/", "middle": "/ˈmɪdəl/", "military": "/ˈmɪlɪteri/", "milk": "/mɪlk/",
-        "mind": "/maɪnd/", "mine": "/maɪn/", "minute": "/ˈmɪnɪt/", "mist": "/mɪst/", "mixed": "/mɪkst/",
-        "money": "/ˈmʌni/", "monkey": "/ˈmʌŋki/", "month": "/mʌnθ/", "moon": "/muːn/", "morning": "/ˈmɔːrnɪŋ/",
-        "mother": "/ˈmʌðər/", "motion": "/ˈmoʊʃən/", "mountain": "/ˈmaʊntən/", "mouth": "/maʊθ/", "move": "/muːv/",
-        "much": "/mʌtʃ/", "muscle": "/ˈmʌsəl/", "music": "/ˈmjuːzɪk/", "nail": "/neɪl/", "name": "/neɪm/",
-        "narrow": "/ˈnæroʊ/", "nation": "/ˈneɪʃən/", "natural": "/ˈnætʃərəl/", "near": "/nɪr/", "necessary": "/ˈnesəseri/",
-        "neck": "/nek/", "need": "/niːd/", "needle": "/ˈniːdəl/", "nerve": "/nɜːrv/", "net": "/net/",
-        "new": "/nuː/", "news": "/nuːz/", "night": "/naɪt/", "no": "/noʊ/", "noise": "/nɔɪz/",
-        "normal": "/ˈnɔːrməl/", "north": "/nɔːrθ/", "nose": "/noʊz/", "not": "/nɑːt/", "note": "/noʊt/",
-        "now": "/naʊ/", "number": "/ˈnʌmbər/", "nut": "/nʌt/", "observation": "/ˌɑːbzərˈveɪʃən/", "of": "/ʌv/",
-        "off": "/ɔːf/", "offer": "/ˈɔːfər/", "office": "/ˈɔːfɪs/", "oil": "/ɔɪl/", "old": "/oʊld/",
-        "on": "/ɑːn/", "only": "/ˈoʊnli/", "open": "/ˈoʊpən/", "operation": "/ˌɑːpəˈreɪʃən/", "opinion": "/əˈpɪnjən/",
-        "opposite": "/ˈɑːpəzɪt/", "or": "/ɔːr/", "orange": "/ˈɔːrɪndʒ/", "order": "/ˈɔːrdər/", "organization": "/ˌɔːrɡənəˈzeɪʃən/",
-        "ornament": "/ˈɔːrnəmənt/", "other": "/ˈʌðər/", "out": "/aʊt/", "oven": "/ˈʌvən/", "over": "/ˈoʊvər/",
-        "owner": "/ˈoʊnər/", "page": "/peɪdʒ/", "pain": "/peɪn/", "paint": "/peɪnt/", "paper": "/ˈpeɪpər/",
-        "parallel": "/ˈpærəlel/", "parcel": "/ˈpɑːrsəl/", "part": "/pɑːrt/", "past": "/pæst/", "paste": "/peɪst/",
-        "payment": "/ˈpeɪmənt/", "peace": "/piːs/", "pen": "/pen/", "pencil": "/ˈpensəl/", "person": "/ˈpɜːrsən/",
-        "physical": "/ˈfɪzɪkəl/", "picture": "/ˈpɪktʃər/", "pig": "/pɪɡ/", "pin": "/pɪn/", "pipe": "/paɪp/",
-        "place": "/pleɪs/", "plane": "/pleɪn/", "plant": "/plænt/", "plate": "/pleɪt/", "play": "/pleɪ/",
-        "please": "/pliːz/", "pleasure": "/ˈpleʒər/", "plough": "/plaʊ/", "pocket": "/ˈpɑːkɪt/", "point": "/pɔɪnt/",
-        "poison": "/ˈpɔɪzən/", "polish": "/ˈpɑːlɪʃ/", "political": "/pəˈlɪtɪkəl/", "poor": "/pʊr/", "porter": "/ˈpɔːrtər/",
-        "position": "/pəˈzɪʃən/", "possible": "/ˈpɑːsəbəl/", "pot": "/pɑːt/", "potato": "/pəˈteɪtoʊ/", "powder": "/ˈpaʊdər/",
-        "power": "/ˈpaʊər/", "present": "/ˈprezənt/", "price": "/praɪs/", "print": "/prɪnt/", "prison": "/ˈprɪzən/",
-        "private": "/ˈpraɪvɪt/", "probable": "/ˈprɑːbəbəl/", "process": "/ˈprɑːses/", "produce": "/prəˈduːs/", "profit": "/ˈprɑːfɪt/",
-        "property": "/ˈprɑːpərti/", "prose": "/proʊz/", "protest": "/prəˈtest/", "public": "/ˈpʌblɪk/", "pull": "/pʊl/",
-        "pump": "/pʌmp/", "punishment": "/ˈpʌnɪʃmənt/", "purpose": "/ˈpɜːrpəs/", "push": "/pʊʃ/", "put": "/pʊt/",
-        "quality": "/ˈkwɑːləti/", "question": "/ˈkwestʃən/", "quick": "/kwɪk/", "quiet": "/ˈkwaɪət/", "quite": "/kwaɪt/",
-        "rail": "/reɪl/", "rain": "/reɪn/", "range": "/reɪndʒ/", "rat": "/ræt/", "rate": "/reɪt/",
-        "ray": "/reɪ/", "reaction": "/riˈækʃən/", "reading": "/ˈriːdɪŋ/", "ready": "/ˈredi/", "reason": "/ˈriːzən/",
-        "receipt": "/rɪˈsiːt/", "record": "/ˈrekərd/", "red": "/red/", "regret": "/rɪˈɡret/", "relation": "/rɪˈleɪʃən/",
-        "religion": "/rɪˈlɪdʒən/", "representative": "/ˌreprɪˈzentətɪv/", "request": "/rɪˈkwest/", "respect": "/rɪˈspekt/",
-        "responsible": "/rɪˈspɑːnsəbəl/", "rest": "/rest/", "reward": "/rɪˈwɔːrd/", "rhythm": "/ˈrɪðəm/", "rice": "/raɪs/",
-        "right": "/raɪt/", "ring": "/rɪŋ/", "river": "/ˈrɪvər/", "road": "/roʊd/", "rod": "/rɑːd/",
-        "roll": "/roʊl/", "roof": "/ruːf/", "room": "/ruːm/", "root": "/ruːt/", "rough": "/rʌf/",
-        "round": "/raʊnd/", "rub": "/rʌb/", "rule": "/ruːl/", "run": "/rʌn/", "sad": "/sæd/",
-        "safe": "/seɪf/", "sail": "/seɪl/", "salt": "/sɔːlt/", "same": "/seɪm/", "sand": "/sænd/",
-        "say": "/seɪ/", "scale": "/skeɪl/", "school": "/skuːl/", "science": "/ˈsaɪəns/", "scissors": "/ˈsɪzərz/",
-        "screw": "/skruː/", "sea": "/siː/", "seat": "/siːt/", "second": "/ˈsekənd/", "secret": "/ˈsiːkrət/",
-        "secretary": "/ˈsekrəteri/", "see": "/siː/", "seed": "/siːd/", "seem": "/siːm/", "selection": "/sɪˈlekʃən/",
-        "self": "/self/", "send": "/send/", "sense": "/sens/", "separate": "/ˈsepərət/", "serious": "/ˈsɪriəs/",
-        "servant": "/ˈsɜːrvənt/", "sex": "/seks/", "shade": "/ʃeɪd/", "shake": "/ʃeɪk/", "shame": "/ʃeɪm/",
-        "sharp": "/ʃɑːrp/", "sheep": "/ʃiːp/", "shelf": "/ʃelf/", "ship": "/ʃɪp/", "shirt": "/ʃɜːrt/",
-        "shock": "/ʃɑːk/", "shoe": "/ʃuː/", "short": "/ʃɔːrt/", "shut": "/ʃʌt/", "side": "/saɪd/",
-        "sign": "/saɪn/", "silk": "/sɪlk/", "silver": "/ˈsɪlvər/", "simple": "/ˈsɪmpəl/", "sister": "/ˈsɪstər/",
-        "size": "/saɪz/", "skin": "/skɪn/", "skirt": "/skɜːrt/", "sky": "/skaɪ/", "sleep": "/sliːp/",
-        "slip": "/slɪp/", "slope": "/sloʊp/", "slow": "/sloʊ/", "small": "/smɔːl/", "smash": "/smæʃ/",
-        "smell": "/smel/", "smile": "/smaɪl/", "smoke": "/smoʊk/", "smooth": "/smuːð/", "snake": "/sneɪk/",
-        "sneeze": "/sniːz/", "snow": "/snoʊ/", "so": "/soʊ/", "soap": "/soʊp/", "society": "/səˈsaɪəti/",
-        "sock": "/sɑːk/", "soft": "/sɔːft/", "solid": "/ˈsɑːlɪd/", "son": "/sʌn/", "song": "/sɔːŋ/",
-        "sort": "/sɔːrt/", "sound": "/saʊnd/", "soup": "/suːp/", "space": "/speɪs/", "spade": "/speɪd/",
-        "special": "/ˈspeʃəl/", "sponge": "/spʌndʒ/", "spoon": "/spuːn/", "spring": "/sprɪŋ/", "square": "/skwer/",
-        "stamp": "/stæmp/", "stage": "/steɪdʒ/", "star": "/stɑːr/", "start": "/stɑːrt/", "statement": "/ˈsteɪtmənt/",
-        "station": "/ˈsteɪʃən/", "steam": "/stiːm/", "stem": "/stem/", "steel": "/stiːl/", "step": "/step/",
-        "stick": "/stɪk/", "sticky": "/ˈstɪki/", "still": "/stɪl/", "stitch": "/stɪtʃ/", "stocking": "/ˈstɑːkɪŋ/",
-        "stomach": "/ˈstʌmək/", "stone": "/stoʊn/", "stop": "/stɑːp/", "store": "/stɔːr/", "story": "/ˈstɔːri/",
-        "strange": "/streɪndʒ/", "street": "/striːt/", "stretch": "/stretʃ/", "stiff": "/stɪf/", "straight": "/streɪt/",
-        "strong": "/strɔːŋ/", "structure": "/ˈstrʌktʃər/", "substance": "/ˈsʌbstəns/", "such": "/sʌtʃ/", "sudden": "/ˈsʌdən/",
-        "sugar": "/ˈʃʊɡər/", "suggestion": "/səˈdʒestʃən/", "summer": "/ˈsʌmər/", "sun": "/sʌn/", "support": "/səˈpɔːrt/",
-        "surprise": "/sərˈpraɪz/", "sweet": "/swiːt/", "swim": "/swɪm/", "system": "/ˈsɪstəm/", "table": "/ˈteɪbəl/",
-        "tail": "/teɪl/", "take": "/teɪk/", "talk": "/tɔːk/", "tall": "/tɔːl/", "taste": "/teɪst/",
-        "tax": "/tæks/", "teaching": "/ˈtiːtʃɪŋ/", "tendency": "/ˈtendənsi/", "test": "/test/", "than": "/ðæn/",
-        "that": "/ðæt/", "the": "/ðə/", "then": "/ðen/", "theory": "/ˈθiːəri/", "there": "/ðer/",
-        "thick": "/θɪk/", "thin": "/θɪn/", "thing": "/θɪŋ/", "this": "/ðɪs/", "though": "/ðoʊ/",
-        "thought": "/θɔːt/", "thread": "/θred/", "throat": "/θroʊt/", "through": "/θruː/", "thumb": "/θʌm/",
-        "thunder": "/ˈθʌndər/", "ticket": "/ˈtɪkɪt/", "tight": "/taɪt/", "till": "/tɪl/", "time": "/taɪm/",
-        "tin": "/tɪn/", "tired": "/ˈtaɪərd/", "to": "/tuː/", "toe": "/toʊ/", "together": "/təˈɡeðər/",
-        "tomorrow": "/təˈmɑːroʊ/", "tongue": "/tʌŋ/", "tooth": "/tuːθ/", "top": "/tɑːp/", "touch": "/tʌtʃ/",
-        "town": "/taʊn/", "trade": "/treɪd/", "train": "/treɪn/", "transport": "/ˈtrænspɔːrt/", "tray": "/treɪ/",
-        "tree": "/triː/", "trick": "/trɪk/", "trouble": "/ˈtrʌbəl/", "trousers": "/ˈtraʊzərz/", "true": "/truː/",
-        "turn": "/tɜːrn/", "twist": "/twɪst/", "umbrella": "/ʌmˈbrelə/", "under": "/ˈʌndər/", "unit": "/ˈjuːnɪt/",
-        "up": "/ʌp/", "use": "/juːz/", "value": "/ˈvæljuː/", "verse": "/vɜːrs/", "very": "/ˈveri/",
-        "vessel": "/ˈvesəl/", "view": "/vjuː/", "violent": "/ˈvaɪələnt/", "voice": "/vɔɪs/", "waiting": "/ˈweɪtɪŋ/",
-        "walk": "/wɔːk/", "wall": "/wɔːl/", "war": "/wɔːr/", "warm": "/wɔːrm/", "wash": "/wɑːʃ/",
-        "waste": "/weɪst/", "watch": "/wɑːtʃ/", "water": "/ˈwɔːtər/", "wave": "/weɪv/", "wax": "/wæks/",
-        "way": "/weɪ/", "weather": "/ˈweðər/", "week": "/wiːk/", "weight": "/weɪt/", "well": "/wel/",
-        "west": "/west/", "wet": "/wet/", "wheel": "/wiːl/", "when": "/wen/", "where": "/wer/",
-        "while": "/waɪl/", "whip": "/wɪp/", "whistle": "/ˈwɪsəl/", "white": "/waɪt/", "who": "/huː/",
-        "why": "/waɪ/", "wide": "/waɪd/", "will": "/wɪl/", "wind": "/wɪnd/", "window": "/ˈwɪndoʊ/",
-        "wine": "/waɪn/", "wing": "/wɪŋ/", "winter": "/ˈwɪntər/", "wire": "/ˈwaɪər/", "wise": "/waɪz/",
-        "with": "/wɪð/", "woman": "/ˈwʊmən/", "wood": "/wʊd/", "wool": "/wʊl/", "word": "/wɜːrd/",
-        "work": "/wɜːrk/", "worm": "/wɜːrm/", "wound": "/wuːnd/", "writing": "/ˈraɪtɪŋ/", "wrong": "/rɔːŋ/",
-        "year": "/jɪr/", "yellow": "/ˈjeloʊ/", "yes": "/jes/", "yesterday": "/ˈjestərdeɪ/", "you": "/juː/",
-        "young": "/jʌŋ/"
-    };
-    function getIpa(word) {
-        return ipaMap[word] || "/" + word.replace(/[aeiou]/gi, 'ə') + "/";
     }
-    
-    // 释义映射（仅显示单词释义，不翻译例句）
-    const meaningMap = {
-        "a":"一个","able":"能够","about":"关于","account":"账户","acid":"酸","across":"横穿","act":"行动","addition":"加法","adjustment":"调整","advertisement":"广告",
-        "after":"之后","again":"再次","against":"反对","agreement":"协议","air":"空气","all":"所有","almost":"几乎","among":"在...中","amount":"数量","amusement":"娱乐",
-        "and":"和","angle":"角度","angry":"生气的","animal":"动物","answer":"回答","ant":"蚂蚁","any":"任何","apparatus":"设备","apple":"苹果","approval":"批准",
-        "arch":"拱门","argument":"争论","arm":"手臂","army":"军队","art":"艺术","as":"作为","at":"在","attack":"攻击","attempt":"尝试","attention":"注意力",
-        "attraction":"吸引力","authority":"权威","automatic":"自动的","awake":"醒着的","baby":"婴儿","back":"背部","bad":"坏的","bag":"包","balance":"平衡","ball":"球",
-        "band":"乐队","base":"基础","basin":"盆","basket":"篮子","bath":"洗澡","be":"是","beautiful":"美丽的","because":"因为","bed":"床","bee":"蜜蜂",
-        "before":"之前","behavior":"行为","belief":"信念","bell":"铃","bent":"弯曲的","berry":"浆果","between":"之间","bird":"鸟","birth":"出生","bit":"一点",
-        "bite":"咬","bitter":"苦的","black":"黑色","blade":"刀片","blood":"血","blow":"吹","blue":"蓝色","board":"板","boat":"船","body":"身体",
-        "boiling":"沸腾的","bone":"骨头","book":"书","boot":"靴子","bottle":"瓶子","box":"盒子","boy":"男孩","brain":"大脑","brake":"刹车","branch":"树枝",
-        "brass":"黄铜","bread":"面包","break":"打破","breath":"呼吸","brick":"砖","bridge":"桥","bright":"明亮的","broken":"破碎的","brother":"兄弟","brown":"棕色",
-        "brush":"刷子","bucket":"桶","building":"建筑","bulb":"灯泡","burn":"燃烧","burst":"爆发","business":"生意","but":"但是","butter":"黄油","button":"按钮",
-        "by":"通过","cake":"蛋糕","camera":"相机","canvas":"帆布","card":"卡片","care":"关心","carriage":"马车","cart":"手推车","cat":"猫","cause":"原因",
-        "certain":"确定的","chain":"链条","chalk":"粉笔","chance":"机会","change":"改变","cheap":"便宜的","cheese":"奶酪","chemical":"化学的","chest":"胸膛","chief":"首领",
-        "chin":"下巴","church":"教堂","circle":"圆","clean":"干净的","clear":"清晰的","clock":"时钟","cloth":"布","cloud":"云","coal":"煤","coat":"外套",
-        "cold":"冷的","collar":"衣领","color":"颜色","comb":"梳子","come":"来","comfort":"舒适","committee":"委员会","common":"普通的","company":"公司","comparison":"比较",
-        "competition":"竞争","complete":"完整的","complex":"复杂的","condition":"条件","connection":"连接","conscious":"有意识的","control":"控制","cook":"烹饪","copper":"铜","copy":"复制",
-        "cord":"绳子","cork":"软木","cotton":"棉花","cough":"咳嗽","country":"国家","cover":"覆盖","cow":"奶牛","crack":"裂缝","credit":"信用","crime":"犯罪",
-        "cruel":"残忍的","crush":"压碎","cry":"哭","cup":"杯子","current":"当前的","curtain":"窗帘","curve":"曲线","cushion":"垫子","damage":"损害","danger":"危险",
-        "dark":"黑暗","daughter":"女儿","day":"一天","dead":"死的","dear":"亲爱的","death":"死亡","debt":"债务","decision":"决定","deep":"深的","degree":"程度",
-        "delicate":"精致的","dependent":"依赖的","design":"设计","desire":"渴望","destruction":"破坏","detail":"细节","development":"发展","different":"不同的","digestion":"消化","direction":"方向",
-        "dirty":"脏的","discovery":"发现","discussion":"讨论","disease":"疾病","disgust":"厌恶","distance":"距离","distribution":"分布","division":"分割","do":"做","dog":"狗",
-        "door":"门","doubt":"怀疑","down":"向下","drain":"排水","drawer":"抽屉","dress":"连衣裙","drink":"喝","driving":"驾驶","drop":"掉落","dry":"干的",
-        "dust":"灰尘","ear":"耳朵","early":"早的","earth":"地球","east":"东方","edge":"边缘","education":"教育","effect":"效果","egg":"蛋","elastic":"弹性的",
-        "electric":"电的","end":"结束","engine":"引擎","enough":"足够的","equal":"相等的","error":"错误","even":"甚至","event":"事件","ever":"曾经","every":"每个",
-        "example":"例子","exchange":"交换","existence":"存在","expansion":"扩张","experience":"经验","expert":"专家","eye":"眼睛","face":"脸","fact":"事实","fall":"落下",
-        "false":"假的","family":"家庭","far":"远的","farm":"农场","fat":"胖的","father":"父亲","fear":"恐惧","feather":"羽毛","feeble":"虚弱的","feeling":"感觉",
-        "female":"女性","fertile":"肥沃的","fiction":"小说","field":"田野","fight":"战斗","finger":"手指","fire":"火","first":"第一","fish":"鱼","fixed":"固定的",
-        "flag":"旗帜","flame":"火焰","flat":"平坦的","flight":"飞行","floor":"地板","flower":"花","fly":"飞","fold":"折叠","food":"食物","foolish":"愚蠢的",
-        "foot":"脚","for":"为了","force":"力量","fork":"叉子","form":"形式","forward":"向前","fowl":"家禽","frame":"框架","free":"自由的","frequent":"频繁的",
-        "friend":"朋友","from":"从","front":"前面","fruit":"水果","full":"满的","future":"未来","garden":"花园","general":"一般的","get":"得到","girl":"女孩",
-        "give":"给","glass":"玻璃","glove":"手套","go":"去","goat":"山羊","gold":"金子","good":"好的","government":"政府","grain":"谷物","grass":"草",
-        "great":"伟大的","green":"绿色","grey":"灰色","grip":"紧握","group":"组","growth":"生长","guide":"指南","gun":"枪","hair":"头发","hammer":"锤子",
-        "hand":"手","hanging":"悬挂的","happy":"快乐的","harbor":"港口","hard":"硬的","harmony":"和谐","hat":"帽子","hate":"讨厌","have":"有","he":"他",
-        "head":"头","healthy":"健康的","hearing":"听力","heart":"心脏","heat":"热","help":"帮助","here":"这里","high":"高的","history":"历史","hole":"洞",
-        "hollow":"空的","hook":"钩子","hope":"希望","horn":"号角","horse":"马","hospital":"医院","hour":"小时","house":"房子","how":"如何","humor":"幽默",
-        "I":"我","ice":"冰","idea":"想法","if":"如果","ill":"生病的","important":"重要的","impulse":"冲动","in":"在...里","increase":"增加","industry":"工业",
-        "ink":"墨水","insect":"昆虫","instrument":"乐器","insurance":"保险","interest":"兴趣","invention":"发明","iron":"铁","island":"岛屿","jelly":"果冻","jewel":"宝石",
-        "join":"加入","journey":"旅行","judge":"法官","jump":"跳","keep":"保持","kettle":"水壶","key":"钥匙","kick":"踢","kind":"种类","kiss":"吻",
-        "knee":"膝盖","knife":"刀","knot":"结","knowledge":"知识","land":"土地","language":"语言","last":"最后的","late":"晚的","laugh":"笑","law":"法律",
-        "lead":"带领","leaf":"叶子","learning":"学习","leather":"皮革","left":"左边","leg":"腿","let":"让","letter":"信","level":"水平","library":"图书馆",
-        "lift":"举起","light":"光","like":"喜欢","limit":"限制","line":"线","linen":"亚麻布","lip":"嘴唇","liquid":"液体","list":"列表","little":"小的",
-        "living":"活的","lock":"锁","long":"长的","look":"看","loose":"松的","loss":"损失","loud":"大声的","love":"爱","low":"低的","machine":"机器",
-        "make":"制造","male":"男性","man":"男人","manager":"经理","map":"地图","mark":"标记","market":"市场","married":"已婚的","match":"比赛","material":"材料",
-        "may":"可能","meal":"一餐","measure":"测量","meat":"肉","medical":"医疗的","meeting":"会议","memory":"记忆","metal":"金属","middle":"中间","military":"军事的",
-        "milk":"牛奶","mind":"头脑","mine":"我的","minute":"分钟","mist":"薄雾","mixed":"混合的","money":"钱","monkey":"猴子","month":"月份","moon":"月亮",
-        "morning":"早晨","mother":"母亲","motion":"运动","mountain":"山","mouth":"嘴","move":"移动","much":"许多","muscle":"肌肉","music":"音乐","nail":"钉子",
-        "name":"名字","narrow":"狭窄的","nation":"国家","natural":"自然的","near":"靠近","necessary":"必要的","neck":"脖子","need":"需要","needle":"针","nerve":"神经",
-        "net":"网","new":"新的","news":"新闻","night":"夜晚","no":"不","noise":"噪音","normal":"正常的","north":"北方","nose":"鼻子","not":"不",
-        "note":"笔记","now":"现在","number":"数字","nut":"坚果","observation":"观察","of":"的","off":"离开","offer":"提供","office":"办公室","oil":"油",
-        "old":"旧的","on":"在...上","only":"仅仅","open":"打开","operation":"操作","opinion":"意见","opposite":"相反的","or":"或","orange":"橙色","order":"命令",
-        "organization":"组织","ornament":"装饰","other":"其他的","out":"外面","oven":"烤箱","over":"在...上方","owner":"主人","page":"页","pain":"疼痛","paint":"油漆",
-        "paper":"纸","parallel":"平行的","parcel":"包裹","part":"部分","past":"过去","paste":"糊","payment":"付款","peace":"和平","pen":"钢笔","pencil":"铅笔",
-        "person":"人","physical":"身体的","picture":"图画","pig":"猪","pin":"别针","pipe":"管子","place":"地方","plane":"飞机","plant":"植物","plate":"盘子",
-        "play":"玩","please":"请","pleasure":"快乐","plough":"犁","pocket":"口袋","point":"点","poison":"毒药","polish":"抛光","political":"政治的","poor":"贫穷的",
-        "porter":"搬运工","position":"位置","possible":"可能的","pot":"锅","potato":"土豆","powder":"粉末","power":"力量","present":"礼物","price":"价格","print":"打印",
-        "prison":"监狱","private":"私人的","probable":"很可能的","process":"过程","produce":"生产","profit":"利润","property":"财产","prose":"散文","protest":"抗议","public":"公共的",
-        "pull":"拉","pump":"泵","punishment":"惩罚","purpose":"目的","push":"推","put":"放","quality":"质量","question":"问题","quick":"快的","quiet":"安静的",
-        "quite":"相当","rail":"铁轨","rain":"雨","range":"范围","rat":"老鼠","rate":"比率","ray":"光线","reaction":"反应","reading":"阅读","ready":"准备好的",
-        "reason":"理由","receipt":"收据","record":"记录","red":"红色","regret":"遗憾","relation":"关系","religion":"宗教","representative":"代表","request":"请求","respect":"尊重",
-        "responsible":"负责的","rest":"休息","reward":"奖励","rhythm":"节奏","rice":"大米","right":"正确的","ring":"戒指","river":"河流","road":"路","rod":"杆",
-        "roll":"滚动","roof":"屋顶","room":"房间","root":"根","rough":"粗糙的","round":"圆的","rub":"摩擦","rule":"规则","run":"跑","sad":"悲伤的",
-        "safe":"安全的","sail":"航行","salt":"盐","same":"相同的","sand":"沙子","say":"说","scale":"规模","school":"学校","science":"科学","scissors":"剪刀",
-        "screw":"螺丝","sea":"海","seat":"座位","second":"第二","secret":"秘密","secretary":"秘书","see":"看见","seed":"种子","seem":"似乎","selection":"选择",
-        "self":"自我","send":"发送","sense":"感觉","separate":"分开的","serious":"严肃的","servant":"仆人","sex":"性别","shade":"阴影","shake":"摇晃","shame":"羞耻",
-        "sharp":"锋利的","sheep":"绵羊","shelf":"架子","ship":"船","shirt":"衬衫","shock":"震惊","shoe":"鞋","short":"短的","shut":"关闭","side":"侧面",
-        "sign":"标志","silk":"丝绸","silver":"银","simple":"简单的","sister":"姐妹","size":"尺寸","skin":"皮肤","skirt":"裙子","sky":"天空","sleep":"睡觉",
-        "slip":"滑倒","slope":"斜坡","slow":"慢的","small":"小的","smash":"打碎","smell":"闻","smile":"微笑","smoke":"烟","smooth":"光滑的","snake":"蛇",
-        "sneeze":"打喷嚏","snow":"雪","so":"所以","soap":"肥皂","society":"社会","sock":"袜子","soft":"软的","solid":"固体的","son":"儿子","song":"歌曲",
-        "sort":"种类","sound":"声音","soup":"汤","space":"空间","spade":"铲子","special":"特别的","sponge":"海绵","spoon":"勺子","spring":"春天","square":"正方形",
-        "stamp":"邮票","stage":"舞台","star":"星星","start":"开始","statement":"声明","station":"车站","steam":"蒸汽","stem":"茎","steel":"钢","step":"步骤",
-        "stick":"棍子","sticky":"粘的","still":"仍然","stitch":"缝","stocking":"长袜","stomach":"胃","stone":"石头","stop":"停止","store":"商店","story":"故事",
-        "strange":"奇怪的","street":"街道","stretch":"伸展","stiff":"僵硬的","straight":"直的","strong":"强壮的","structure":"结构","substance":"物质","such":"这样的","sudden":"突然的",
-        "sugar":"糖","suggestion":"建议","summer":"夏天","sun":"太阳","support":"支持","surprise":"惊讶","sweet":"甜的","swim":"游泳","system":"系统","table":"桌子",
-        "tail":"尾巴","take":"拿","talk":"谈话","tall":"高的","taste":"味道","tax":"税","teaching":"教学","tendency":"倾向","test":"测试","than":"比",
-        "that":"那个","the":"这","then":"然后","theory":"理论","there":"那里","thick":"厚的","thin":"薄的","thing":"东西","this":"这个","though":"虽然",
-        "thought":"思想","thread":"线","throat":"喉咙","through":"通过","thumb":"拇指","thunder":"雷声","ticket":"票","tight":"紧的","till":"直到","time":"时间",
-        "tin":"锡","tired":"疲倦的","to":"到","toe":"脚趾","together":"一起","tomorrow":"明天","tongue":"舌头","tooth":"牙齿","top":"顶部","touch":"触摸",
-        "town":"城镇","trade":"贸易","train":"火车","transport":"运输","tray":"托盘","tree":"树","trick":"把戏","trouble":"麻烦","trousers":"裤子","true":"真实的",
-        "turn":"转动","twist":"扭曲","umbrella":"雨伞","under":"在...下","unit":"单位","up":"向上","use":"使用","value":"价值","verse":"诗句","very":"非常",
-        "vessel":"容器","view":"视图","violent":"暴力的","voice":"声音","waiting":"等待","walk":"走路","wall":"墙","war":"战争","warm":"温暖的","wash":"洗",
-        "waste":"浪费","watch":"看","water":"水","wave":"波浪","wax":"蜡","way":"方式","weather":"天气","week":"星期","weight":"重量","well":"好",
-        "west":"西方","wet":"湿的","wheel":"轮子","when":"何时","where":"哪里","while":"而","whip":"鞭子","whistle":"哨子","white":"白色","who":"谁",
-        "why":"为什么","wide":"宽的","will":"将","wind":"风","window":"窗户","wine":"葡萄酒","wing":"翅膀","winter":"冬天","wire":"电线","wise":"明智的",
-        "with":"和","woman":"女人","wood":"木头","wool":"羊毛","word":"单词","work":"工作","worm":"蠕虫","wound":"伤口","writing":"写作","wrong":"错误的",
-        "year":"年","yellow":"黄色","yes":"是","yesterday":"昨天","you":"你","young":"年轻的"
-    };
-    
-    // ======================= 智能例句生成（根据词性）=======================
-    function isVowelSound(word) {
-        // 判断单词是否以元音音素开头（用于冠词 a/an）
-        const vowelStart = /^[aeiou]/i.test(word);
-        // 特殊处理：hour, honest 等虽辅音字母但元音音素
-        const specials = ["hour", "honest", "honor", "heir", "herb"];
-        if(specials.includes(word.toLowerCase())) return true;
-        return vowelStart;
-    }
-    
-    function generateExample(word, pos) {
-        // 特殊单词直接返回定制例句
-        const customExamples = {
-            "a": "I need a cup of tea.",
-            "an": "She ate an apple for lunch.",
-            "the": "The sun is shining brightly.",
-            "and": "I like coffee and tea.",
-            "but": "He is tired but happy.",
-            "for": "This gift is for you.",
-            "with": "She went to school with her friend.",
-            "to": "I want to learn English.",
-            "be": "You should be kind to others.",
-            "have": "They have a new car.",
-            "do": "Do you like music?",
-            "say": "Please say hello to your mother.",
-            "make": "She can make a cake.",
-            "go": "Let's go to the park.",
-            "get": "I will get the book for you.",
-            "see": "I see a bird in the sky.",
-            "come": "Please come to my party.",
-            "use": "May I use your phone?",
-            "able": "She is able to swim very well."
+
+    function getIpa(w) {
+        const special = {
+            "come":"/kʌm/","get":"/ɡet/","give":"/ɡɪv/","go":"/ɡoʊ/","keep":"/kiːp/","let":"/let/","make":"/meɪk/","put":"/pʊt/","seem":"/siːm/","take":"/teɪk/",
+            "be":"/biː/","do":"/duː/","have":"/hæv/","say":"/seɪ/","see":"/siː/","send":"/send/","may":"/meɪ/","will":"/wɪl/","about":"/əˈbaʊt/","across":"/əˈkrɔːs/",
+            "after":"/ˈæftər/","again":"/əˈɡen/","against":"/əˈɡenst/","among":"/əˈmʌŋ/","at":"/æt/","before":"/bɪˈfɔːr/","between":"/bɪˈtwiːn/","by":"/baɪ/","down":"/daʊn/",
+            "from":"/frʌm/","in":"/ɪn/","off":"/ɔːf/","on":"/ɑːn/","over":"/ˈoʊvər/","through":"/θruː/","to":"/tuː/","under":"/ˈʌndər/","up":"/ʌp/","with":"/wɪð/",
+            "as":"/æz/","for":"/fɔːr/","of":"/ʌv/","till":"/tɪl/","than":"/ðæn/","a":"/ə/","the":"/ðə/","all":"/ɔːl/","any":"/ˈeni/","every":"/ˈevri/",
+            "little":"/ˈlɪtl/","much":"/mʌtʃ/","no":"/noʊ/","other":"/ˈʌðər/","some":"/sʌm/","such":"/sʌtʃ/","that":"/ðæt/","this":"/ðɪs/","I":"/aɪ/","he":"/hiː/",
+            "you":"/juː/","who":"/huː/","and":"/ənd/","because":"/bɪˈkɔːz/","but":"/bʌt/","or":"/ɔːr/","if":"/ɪf/","though":"/ðoʊ/","while":"/waɪl/","how":"/haʊ/",
+            "when":"/wen/","where":"/wer/","why":"/waɪ/","again":"/əˈɡen/","ever":"/ˈevər/","far":"/fɑːr/","forward":"/ˈfɔːrwərd/","here":"/hɪr/","near":"/nɪr/","now":"/naʊ/",
+            "out":"/aʊt/","still":"/stɪl/","then":"/ðen/","there":"/ðer/","together":"/təˈɡeðər/","well":"/wel/","almost":"/ˈɔːlmoʊst/","enough":"/ɪˈnʌf/","even":"/ˈiːvən/","not":"/nɑːt/",
+            "only":"/ˈoʊnli/","quite":"/kwaɪt/","so":"/soʊ/","very":"/ˈveri/","tomorrow":"/təˈmɑːroʊ/","yesterday":"/ˈjestərdeɪ/","north":"/nɔːrθ/","south":"/saʊθ/","east":"/iːst/","west":"/west/",
+            "please":"/pliːz/","yes":"/jes/","able":"/ˈeɪbəl/","angry":"/ˈæŋɡri/","beautiful":"/ˈbjuːtɪfəl/","black":"/blæk/","blue":"/bluː/","bright":"/braɪt/","broken":"/ˈbroʊkən/","brown":"/braʊn/",
+            "cheap":"/tʃiːp/","clean":"/kliːn/","clear":"/klɪr/","cold":"/koʊld/","common":"/ˈkɑːmən/","complete":"/kəmˈpliːt/","complex":"/kəmˈpleks/","conscious":"/ˈkɑːnʃəs/","cruel":"/ˈkruːəl/",
+            "dark":"/dɑːrk/","dead":"/ded/","dear":"/dɪr/","deep":"/diːp/","different":"/ˈdɪfrənt/","dirty":"/ˈdɜːrti/","dry":"/draɪ/","early":"/ˈɜːrli/","equal":"/ˈiːkwəl/","false":"/fɔːls/",
+            "fertile":"/ˈfɜːrtəl/","first":"/fɜːrst/","fixed":"/fɪkst/","flat":"/flæt/","free":"/friː/","frequent":"/ˈfriːkwənt/","full":"/fʊl/","future":"/ˈfjuːtʃər/","good":"/ɡʊd/","great":"/ɡreɪt/",
+            "green":"/ɡriːn/","grey":"/ɡreɪ/","happy":"/ˈhæpi/","hard":"/hɑːrd/","healthy":"/ˈhelθi/","high":"/haɪ/","hollow":"/ˈhɑːloʊ/","important":"/ɪmˈpɔːrtənt/","kind":"/kaɪnd/","last":"/læst/",
+            "late":"/leɪt/","left":"/left/","like":"/laɪk/","living":"/ˈlɪvɪŋ/","long":"/lɔːŋ/","loose":"/luːs/","loud":"/laʊd/","low":"/loʊ/","mixed":"/mɪkst/","narrow":"/ˈnæroʊ/",
+            "new":"/nuː/","normal":"/ˈnɔːrməl/","old":"/oʊld/","open":"/ˈoʊpən/","opposite":"/ˈɑːpəzɪt/","past":"/pæst/","physical":"/ˈfɪzɪkəl/","political":"/pəˈlɪtɪkəl/","poor":"/pʊr/","possible":"/ˈpɑːsəbəl/",
+            "present":"/ˈprezənt/","private":"/ˈpraɪvɪt/","probable":"/ˈprɑːbəbəl/","public":"/ˈpʌblɪk/","quick":"/kwɪk/","quiet":"/ˈkwaɪət/","ready":"/ˈredi/","red":"/red/","regular":"/ˈreɡjələr/",
+            "responsible":"/rɪˈspɑːnsəbəl/","right":"/raɪt/","round":"/raʊnd/","same":"/seɪm/","second":"/ˈsekənd/","separate":"/ˈsepərət/","serious":"/ˈsɪriəs/","sharp":"/ʃɑːrp/","short":"/ʃɔːrt/",
+            "shut":"/ʃʌt/","simple":"/ˈsɪmpəl/","slow":"/sloʊ/","small":"/smɔːl/","smooth":"/smuːð/","soft":"/sɔːft/","solid":"/ˈsɑːlɪd/","special":"/ˈspeʃəl/","sticky":"/ˈstɪki/","stiff":"/stɪf/",
+            "straight":"/streɪt/","strong":"/strɔːŋ/","sudden":"/ˈsʌdən/","sweet":"/swiːt/","tall":"/tɔːl/","thick":"/θɪk/","thin":"/θɪn/","tight":"/taɪt/","tired":"/ˈtaɪərd/","true":"/truː/",
+            "violent":"/ˈvaɪələnt/","warm":"/wɔːrm/","wet":"/wet/","wide":"/waɪd/","wise":"/waɪz/","yellow":"/ˈjeloʊ/","young":"/jʌŋ/","awake":"/əˈweɪk/","bad":"/bæd/","bent":"/bent/",
+            "bitter":"/ˈbɪtər/","certain":"/ˈsɜːrtən/","delicate":"/ˈdelɪkət/","feeble":"/ˈfiːbəl/","female":"/ˈfiːmeɪl/","foolish":"/ˈfuːlɪʃ/","ill":"/ɪl/","rough":"/rʌf/","sad":"/sæd/","safe":"/seɪf/",
+            "secret":"/ˈsiːkrət/","strange":"/streɪndʒ/","white":"/waɪt/","wrong":"/rɔːŋ/"
         };
-        if(customExamples[word]) return customExamples[word];
-        
-        // 根据词性生成
-        if(pos === "det.") {
-            return `I have ${word} book on the table.`;
-        }
-        if(pos === "adj.") {
-            const article = isVowelSound(word) ? "an" : "a";
-            return `This is ${article} ${word} day.`;
-        }
-        if(pos === "v.") {
-            // 动词原形，使用第一人称单数
-            return `I ${word} my work every day.`;
-        }
-        if(pos === "n.") {
-            const article = isVowelSound(word) ? "an" : "a";
-            return `I see ${article} ${word} near the house.`;
-        }
-        if(pos === "conj./prep.") {
-            return `We went ${word} the store.`;
-        }
-        // 默认
-        return `This ${word} is very useful.`;
+        if(special[w]) return special[w];
+        return "/" + w.replace(/[aeiou]/gi, 'ə') + "/";
     }
-    
-    // 构建最终词库
-    const VOCAB = unique.slice(0,TOTAL).map(w => {
+
+    function getMeaning(w) {
+        const meanings = {
+            "come":"来","get":"得到","give":"给","go":"去","keep":"保持","let":"让","make":"做","put":"放","seem":"似乎","take":"拿",
+            "be":"是","do":"做","have":"有","say":"说","see":"看见","send":"发送","may":"可以","will":"将","about":"关于","across":"穿过",
+            "after":"之后","again":"再次","against":"反对","among":"在...中","at":"在","before":"之前","between":"之间","by":"通过","down":"向下",
+            "from":"从","in":"在...里","off":"离开","on":"在...上","over":"在...上方","through":"通过","to":"到","under":"在...下","up":"向上","with":"和",
+            "as":"作为","for":"为了","of":"的","till":"直到","than":"比","a":"一个","the":"这","all":"所有","any":"任何","every":"每个",
+            "little":"小的","much":"许多","no":"不","other":"其他的","some":"一些","such":"这样的","that":"那个","this":"这个","I":"我","he":"他",
+            "you":"你","who":"谁","and":"和","because":"因为","but":"但是","or":"或者","if":"如果","though":"虽然","while":"而","how":"如何",
+            "when":"何时","where":"哪里","why":"为什么","again":"再次","ever":"曾经","far":"远的","forward":"向前","here":"这里","near":"靠近","now":"现在",
+            "out":"外面","still":"仍然","then":"然后","there":"那里","together":"一起","well":"好","almost":"几乎","enough":"足够","even":"甚至","not":"不",
+            "only":"仅仅","quite":"相当","so":"所以","very":"非常","tomorrow":"明天","yesterday":"昨天","north":"北方","south":"南方","east":"东方","west":"西方",
+            "please":"请","yes":"是","addition":"加法","adjustment":"调整","account":"账户","air":"空气","animal":"动物","answer":"答案","apple":"苹果","bird":"鸟",
+            "book":"书","car":"汽车","dog":"狗","house":"房子","water":"水","friend":"朋友","school":"学校","teacher":"老师","mother":"母亲","father":"父亲",
+            "brother":"兄弟","sister":"姐妹","time":"时间","day":"一天","night":"夜晚","week":"星期","month":"月份","year":"年","able":"能够","angry":"生气的",
+            "beautiful":"美丽的","black":"黑色","blue":"蓝色","bright":"明亮的","broken":"破碎的","brown":"棕色","cheap":"便宜的","clean":"干净的","clear":"清晰的",
+            "cold":"冷的","common":"普通的","complete":"完整的","complex":"复杂的","conscious":"有意识的","cruel":"残忍的","dark":"黑暗的","dead":"死的","dear":"亲爱的",
+            "deep":"深的","different":"不同的","dirty":"脏的","dry":"干的","early":"早的","equal":"相等的","false":"假的","fertile":"肥沃的","first":"第一的",
+            "fixed":"固定的","flat":"平坦的","free":"自由的","frequent":"频繁的","full":"满的","future":"未来的","good":"好的","great":"伟大的","green":"绿色的",
+            "grey":"灰色的","happy":"快乐的","hard":"硬的","healthy":"健康的","high":"高的","hollow":"空的","important":"重要的","kind":"和善的","last":"最后的",
+            "late":"晚的","left":"左边的","like":"相似的","living":"活着的","long":"长的","loose":"松的","loud":"大声的","low":"低的","mixed":"混合的","narrow":"狭窄的",
+            "new":"新的","normal":"正常的","old":"旧的","open":"打开的","opposite":"相反的","past":"过去的","physical":"身体的","political":"政治的","poor":"贫穷的","possible":"可能的",
+            "present":"现在的","private":"私人的","probable":"很可能的","public":"公共的","quick":"快的","quiet":"安静的","ready":"准备好的","red":"红色的","regular":"规则的","responsible":"负责的",
+            "right":"正确的","round":"圆的","same":"相同的","second":"第二的","separate":"分开的","serious":"严肃的","sharp":"锋利的","short":"短的","shut":"关闭的","simple":"简单的",
+            "slow":"慢的","small":"小的","smooth":"光滑的","soft":"柔软的","solid":"固体的","special":"特别的","sticky":"粘的","stiff":"僵硬的","straight":"直的","strong":"强壮的",
+            "sudden":"突然的","sweet":"甜的","tall":"高的","thick":"厚的","thin":"薄的","tight":"紧的","tired":"疲倦的","true":"真实的","violent":"暴力的","warm":"温暖的",
+            "wet":"湿的","wide":"宽的","wise":"明智的","wrong":"错误的","yellow":"黄色的","young":"年轻的","awake":"醒着的","bad":"坏的","bent":"弯曲的","bitter":"苦的",
+            "certain":"确定的","delicate":"精致的","feeble":"虚弱的","female":"女性的","foolish":"愚蠢的","ill":"生病的","rough":"粗糙的","sad":"悲伤的","safe":"安全的","secret":"秘密的",
+            "strange":"奇怪的","white":"白色的"
+        };
+        return meanings[w] || w;
+    }
+
+    // ======================= 为每个单词生成例句及完整中文翻译 =======================
+    function getExampleWithTranslation(word) {
+        const examples = {
+            // 基础操作词 (100个)
+            "come": ["Please come to my party.", "请来参加我的派对。"],
+            "get": ["I need to get some rest.", "我需要休息一下。"],
+            "give": ["Please give me a hand.", "请帮我一把。"],
+            "go": ["Let's go to the park.", "我们去公园吧。"],
+            "keep": ["Keep your room clean.", "保持你的房间整洁。"],
+            "let": ["Let me help you.", "让我帮你。"],
+            "make": ["She can make a cake.", "她会做蛋糕。"],
+            "put": ["Put the book on the shelf.", "把书放在架子上。"],
+            "seem": ["You seem tired today.", "你今天看起来很累。"],
+            "take": ["Take an umbrella with you.", "带上雨伞。"],
+            "be": ["Be careful on the road.", "路上小心。"],
+            "do": ["Do your homework now.", "现在做作业。"],
+            "have": ["I have a new car.", "我有一辆新车。"],
+            "say": ["Please say hello to your mother.", "请向你妈妈问好。"],
+            "see": ["I see a bird in the sky.", "我看到天空中有只鸟。"],
+            "send": ["I will send you an email.", "我会给你发邮件。"],
+            "may": ["May I come in?", "我可以进来吗？"],
+            "will": ["I will help you tomorrow.", "我明天会帮你。"],
+            "about": ["This book is about history.", "这本书是关于历史的。"],
+            "across": ["Walk across the bridge.", "走过那座桥。"],
+            "after": ["We went home after the movie.", "电影结束后我们回家了。"],
+            "against": ["He leaned against the wall.", "他靠在墙上。"],
+            "among": ["She is popular among her friends.", "她在朋友中很受欢迎。"],
+            "at": ["Meet me at the station.", "在车站接我。"],
+            "before": ["Finish your work before you go out.", "出去之前完成工作。"],
+            "between": ["The park is between the school and the hospital.", "公园在学校和医院之间。"],
+            "by": ["The book was written by my friend.", "这本书是我朋友写的。"],
+            "down": ["Please sit down.", "请坐下。"],
+            "from": ["I am from China.", "我来自中国。"],
+            "in": ["The pen is in the box.", "笔在盒子里。"],
+            "off": ["Please turn off the light.", "请关灯。"],
+            "on": ["The book is on the table.", "书在桌子上。"],
+            "over": ["The plane flew over the city.", "飞机飞过城市。"],
+            "through": ["We walked through the forest.", "我们穿过了森林。"],
+            "to": ["I want to learn English.", "我想学英语。"],
+            "under": ["The cat is under the table.", "猫在桌子下面。"],
+            "up": ["Look up at the sky.", "抬头看天空。"],
+            "with": ["She went with her friend.", "她和朋友一起去了。"],
+            "as": ["He works as a teacher.", "他是一名教师。"],
+            "for": ["This gift is for you.", "这份礼物是给你的。"],
+            "of": ["The color of the sky is blue.", "天空的颜色是蓝色的。"],
+            "till": ["Wait till I come back.", "等我回来。"],
+            "than": ["She is taller than me.", "她比我高。"],
+            "a": ["I have a pen.", "我有一支笔。"],
+            "the": ["The sun is bright.", "太阳很亮。"],
+            "all": ["All students passed the test.", "所有学生都通过了考试。"],
+            "any": ["Do you have any questions?", "你有问题吗？"],
+            "every": ["Every student has a book.", "每个学生都有一本书。"],
+            "little": ["There is a little milk left.", "还剩一点牛奶。"],
+            "much": ["Thank you very much.", "非常感谢。"],
+            "no": ["There is no milk left.", "没有牛奶了。"],
+            "other": ["Do you have any other questions?", "你还有其他问题吗？"],
+            "some": ["I have some questions.", "我有一些问题。"],
+            "such": ["I have never seen such a beautiful view.", "我从没见过这么美的景色。"],
+            "that": ["That is a good idea.", "那是个好主意。"],
+            "this": ["This is my house.", "这是我的房子。"],
+            "I": ["I am a student.", "我是一名学生。"],
+            "he": ["He is my father.", "他是我父亲。"],
+            "you": ["You are my friend.", "你是我的朋友。"],
+            "who": ["Who is that?", "那是谁？"],
+            "and": ["I like tea and coffee.", "我喜欢茶和咖啡。"],
+            "because": ["I am late because of traffic.", "我因为堵车迟到了。"],
+            "but": ["He is tired but happy.", "他虽累但快乐。"],
+            "or": ["Do you want tea or coffee?", "你要茶还是咖啡？"],
+            "if": ["If it rains, we will stay inside.", "如果下雨，我们就待在里面。"],
+            "though": ["Though it rained, we had fun.", "虽然下雨了，我们还是很开心。"],
+            "while": ["I listened to music while I worked.", "我工作时听音乐。"],
+            "how": ["How are you?", "你好吗？"],
+            "when": ["When will you arrive?", "你什么时候到？"],
+            "where": ["Where do you live?", "你住在哪里？"],
+            "why": ["Why are you late?", "你为什么迟到？"],
+            "again": ["Please say that again.", "请再说一遍。"],
+            "ever": ["Have you ever been to London?", "你去过伦敦吗？"],
+            "far": ["The school is far from here.", "学校离这里很远。"],
+            "forward": ["Move forward, please.", "请向前走。"],
+            "here": ["I am here.", "我在这里。"],
+            "near": ["The school is near the park.", "学校在公园附近。"],
+            "now": ["I am busy now.", "我现在很忙。"],
+            "out": ["He ran out of the house.", "他跑出了房子。"],
+            "still": ["I am still waiting.", "我还在等。"],
+            "then": ["We went to the park, then we had lunch.", "我们去了公园，然后吃了午饭。"],
+            "there": ["There is a book on the table.", "桌子上有一本书。"],
+            "together": ["We are together.", "我们在一起。"],
+            "well": ["I feel well today.", "我今天感觉很好。"],
+            "almost": ["It is almost finished.", "快完成了。"],
+            "enough": ["I have enough money.", "我有足够的钱。"],
+            "even": ["It is even better than before.", "它比以前更好了。"],
+            "not": ["I am not ready yet.", "我还没准备好。"],
+            "only": ["I have only one brother.", "我只有一个兄弟。"],
+            "quite": ["The movie was quite good.", "电影还不错。"],
+            "so": ["I am so happy.", "我很开心。"],
+            "very": ["I am very happy.", "我非常开心。"],
+            "tomorrow": ["I will see you tomorrow.", "明天见。"],
+            "yesterday": ["I went to the park yesterday.", "我昨天去了公园。"],
+            "north": ["Canada is north of the United States.", "加拿大在美国的北边。"],
+            "south": ["We live in the south of the city.", "我们住在城南。"],
+            "east": ["The sun rises in the east.", "太阳从东方升起。"],
+            "west": ["The sun sets in the west.", "太阳从西方落下。"],
+            "please": ["Please sit down.", "请坐下。"],
+            "yes": ["Yes, I agree.", "是的，我同意。"],
+            // 事物词 (部分示例，完整版在下方继续)
+            "addition": ["The addition of salt makes food better.", "加盐让食物更好吃。"],
+            "adjustment": ["A small adjustment fixed the machine.", "一个小小的调整修好了机器。"],
+            "account": ["I need to open a bank account.", "我需要开一个银行账户。"],
+            "air": ["The fresh air is good for health.", "新鲜空气有益健康。"],
+            "animal": ["The lion is a wild animal.", "狮子是一种野生动物。"],
+            "answer": ["Please answer the question.", "请回答问题。"],
+            "apple": ["I eat an apple every day.", "我每天吃一个苹果。"],
+            "bird": ["The bird sings in the tree.", "鸟在树上唱歌。"],
+            "book": ["She reads a book at night.", "她晚上读书。"],
+            "car": ["He drives his car to work.", "他开车上班。"],
+            "dog": ["My dog likes to play outside.", "我的狗喜欢在外面玩。"],
+            "house": ["Their house has a red door.", "他们的房子有红门。"],
+            "water": ["We need to drink clean water.", "我们需要喝干净的水。"],
+            "friend": ["He is my best friend.", "他是我最好的朋友。"],
+            "school": ["The children go to school by bus.", "孩子们坐公交车上学。"],
+            "teacher": ["The teacher explains the lesson.", "老师讲解课文。"],
+            "mother": ["My mother cooks good food.", "我妈妈做菜很好吃。"],
+            "father": ["His father works in a hospital.", "他父亲在医院工作。"],
+            "brother": ["I play with my brother.", "我和弟弟一起玩。"],
+            "sister": ["Her sister is a doctor.", "她的姐姐是医生。"],
+            "time": ["What time is it now?", "现在几点了？"],
+            "day": ["It is a sunny day.", "今天是晴天。"],
+            "night": ["The stars shine at night.", "夜晚星星闪烁。"],
+            "week": ["I will finish this week.", "我这周会完成。"],
+            "month": ["My birthday is next month.", "我的生日在下个月。"],
+            "year": ["This year is great.", "今年很棒。"],
+            // 品质词
+            "able": ["She is able to swim very well.", "她游泳游得很好。"],
+            "angry": ["He looked angry.", "他看起来很生气。"],
+            "beautiful": ["You look beautiful today.", "你今天看起来很漂亮。"],
+            "black": ["She wore a black dress.", "她穿了一条黑裙子。"],
+            "blue": ["The sky is blue.", "天空是蓝色的。"],
+            "bright": ["The sun is very bright today.", "今天阳光很明媚。"],
+            "broken": ["The vase is broken.", "花瓶碎了。"],
+            "brown": ["He has brown hair.", "他有棕色头发。"],
+            "cheap": ["This shirt is cheap.", "这件衬衫很便宜。"],
+            "clean": ["Keep your room clean.", "保持房间清洁。"],
+            "clear": ["The water is clear.", "水很清澈。"],
+            "cold": ["It is cold outside.", "外面很冷。"],
+            "common": ["English is a common language.", "英语是一种通用语言。"],
+            "complete": ["I need to complete my homework.", "我需要完成作业。"],
+            "complex": ["The problem is very complex.", "这个问题很复杂。"],
+            "conscious": ["He was conscious after the accident.", "事故后他意识清醒。"],
+            "cruel": ["It is cruel to hurt animals.", "伤害动物是残忍的。"],
+            "dark": ["It gets dark early in winter.", "冬天天黑得早。"],
+            "dead": ["The flowers are dead.", "花死了。"],
+            "dear": ["He is a dear friend.", "他是一位亲爱的朋友。"],
+            "deep": ["The water is deep.", "水很深。"],
+            "different": ["This is different from that.", "这个和那个不同。"],
+            "dirty": ["My shoes are dirty.", "我的鞋脏了。"],
+            "dry": ["The clothes are dry now.", "衣服现在干了。"],
+            "early": ["I woke up early today.", "我今天醒得早。"],
+            "equal": ["All people are equal.", "人人平等。"],
+            "false": ["His statement was false.", "他的陈述是假的。"],
+            "fertile": ["The soil is very fertile.", "土壤很肥沃。"],
+            "first": ["She was the first to arrive.", "她是第一个到的。"],
+            "fixed": ["The price is fixed.", "价格是固定的。"],
+            "flat": ["The tire is flat.", "轮胎没气了。"],
+            "free": ["This is a free country.", "这是一个自由的国家。"],
+            "frequent": ["He makes frequent trips to Japan.", "他经常去日本旅行。"],
+            "full": ["The glass is full.", "杯子满了。"],
+            "future": ["The future is bright.", "未来是光明的。"],
+            "good": ["She is a good teacher.", "她是个好老师。"],
+            "great": ["That is a great idea.", "那是个好主意。"],
+            "green": ["The leaves are green.", "叶子是绿色的。"],
+            "grey": ["The sky is grey today.", "今天天空是灰色的。"],
+            "happy": ["I am happy to see you.", "见到你我很高兴。"],
+            "hard": ["The test was hard.", "考试很难。"],
+            "healthy": ["Eating well keeps you healthy.", "吃得好让你健康。"],
+            "high": ["The mountain is high.", "山很高。"],
+            "hollow": ["The tree is hollow inside.", "树里面是空的。"],
+            "important": ["This is important.", "这很重要。"],
+            "kind": ["She is a kind person.", "她是个善良的人。"],
+            "last": ["This is the last piece of cake.", "这是最后一块蛋糕。"],
+            "late": ["I am late for work.", "我上班迟到了。"],
+            "left": ["Turn left at the corner.", "在拐角处左转。"],
+            "like": ["I like pizza.", "我喜欢披萨。"],
+            "long": ["The river is long.", "河流很长。"],
+            "loose": ["The screw is loose.", "螺丝松了。"],
+            "loud": ["The music is too loud.", "音乐太大声了。"],
+            "low": ["The price is low.", "价格很低。"],
+            "mixed": ["I have mixed feelings about this.", "我对此感觉复杂。"],
+            "narrow": ["The road is narrow.", "路很窄。"],
+            "new": ["I bought a new car.", "我买了一辆新车。"],
+            "normal": ["It is normal to feel tired.", "感到疲倦是正常的。"],
+            "old": ["My grandfather is old.", "我爷爷年纪大了。"],
+            "open": ["Please open the window.", "请打开窗户。"],
+            "opposite": ["The opposite of hot is cold.", "热的反面是冷。"],
+            "past": ["In the past, people wrote letters.", "过去人们写信。"],
+            "physical": ["Physical exercise is important.", "体育锻炼很重要。"],
+            "political": ["The political situation is stable.", "政治局势稳定。"],
+            "poor": ["The family is very poor.", "这个家庭很穷。"],
+            "possible": ["It is possible to finish on time.", "按时完成是可能的。"],
+            "present": ["I gave him a present.", "我给了他一份礼物。"],
+            "private": ["This is a private conversation.", "这是私人谈话。"],
+            "probable": ["It is probable that he will come.", "他很可能会来。"],
+            "public": ["The park is open to the public.", "公园对公众开放。"],
+            "quick": ["She gave a quick answer.", "她给出了一个快速的回答。"],
+            "quiet": ["Please be quiet in the library.", "在图书馆请保持安静。"],
+            "ready": ["I am ready to go.", "我准备好出发了。"],
+            "red": ["She wore a red dress.", "她穿了一条红裙子。"],
+            "regular": ["He is a regular customer.", "他是常客。"],
+            "responsible": ["He is responsible for the mistake.", "他为这个错误负责。"],
+            "right": ["You are right.", "你是对的。"],
+            "round": ["The earth is round.", "地球是圆的。"],
+            "same": ["We have the same car.", "我们有同样的车。"],
+            "second": ["This is the second time.", "这是第二次了。"],
+            "separate": ["Keep the eggs separate.", "把鸡蛋分开存放。"],
+            "serious": ["He has a serious illness.", "他病得很重。"],
+            "sharp": ["The knife is sharp.", "刀很锋利。"],
+            "short": ["She has short hair.", "她留着短发。"],
+            "shut": ["Please shut the door.", "请关上门。"],
+            "simple": ["The answer is simple.", "答案很简单。"],
+            "slow": ["The turtle is slow.", "乌龟很慢。"],
+            "small": ["I live in a small house.", "我住在小房子里。"],
+            "smooth": ["The surface is smooth.", "表面很光滑。"],
+            "soft": ["The pillow is soft.", "枕头很软。"],
+            "solid": ["The ice is solid.", "冰是固体的。"],
+            "special": ["Today is a special day.", "今天是个特别的日子。"],
+            "sticky": ["The tape is sticky.", "胶带很粘。"],
+            "stiff": ["The new shoes are stiff.", "新鞋很硬。"],
+            "straight": ["Go straight ahead.", "一直往前走。"],
+            "strong": ["He is a strong man.", "他是个强壮的男人。"],
+            "sudden": ["The sudden noise scared me.", "突然的噪音吓了我一跳。"],
+            "sweet": ["This cake is too sweet.", "这个蛋糕太甜了。"],
+            "tall": ["He is very tall.", "他很高。"],
+            "thick": ["The book is thick.", "这本书很厚。"],
+            "thin": ["She is very thin.", "她很瘦。"],
+            "tight": ["The lid is too tight.", "盖子太紧了。"],
+            "tired": ["I am very tired after work.", "下班后我很累。"],
+            "true": ["Is it true that you are moving?", "你真的要搬家吗？"],
+            "violent": ["The movie was too violent.", "这部电影太暴力了。"],
+            "warm": ["It is warm inside the house.", "屋里很暖和。"],
+            "wet": ["The ground is wet from the rain.", "地面被雨淋湿了。"],
+            "wide": ["The road is wide.", "路很宽。"],
+            "wise": ["She is a wise woman.", "她是个聪明的女人。"],
+            "yellow": ["The sun is yellow.", "太阳是黄色的。"],
+            "young": ["She is young and energetic.", "她年轻有活力。"],
+            "awake": ["I am awake now.", "我现在醒了。"],
+            "bad": ["This is a bad idea.", "这是个坏主意。"],
+            "bent": ["The metal bar is bent.", "金属棒弯了。"],
+            "bitter": ["The coffee tastes bitter.", "咖啡尝起来很苦。"],
+            "certain": ["I am certain that he is right.", "我确定他是对的。"],
+            "delicate": ["This glass is delicate.", "这个玻璃杯很精致。"],
+            "feeble": ["He is old and feeble.", "他年老体弱。"],
+            "female": ["The female bird sits on the eggs.", "雌鸟孵蛋。"],
+            "foolish": ["That was a foolish mistake.", "那是个愚蠢的错误。"],
+            "ill": ["She is ill.", "她生病了。"],
+            "rough": ["The road is rough.", "路很崎岖。"],
+            "sad": ["The movie made me sad.", "那部电影让我难过。"],
+            "safe": ["Keep your money in a safe place.", "把钱放在安全的地方。"],
+            "secret": ["Can you keep a secret?", "你能保守秘密吗？"],
+            "strange": ["He is a strange person.", "他是个奇怪的人。"],
+            "white": ["She wore a white dress.", "她穿了一条白裙子。"],
+            "wrong": ["Your answer is wrong.", "你的答案是错的。"]
+        };
+        if (examples[word]) return examples[word];
+        // 默认生成简单合理例句
+        let pos = getPos(word);
+        if (pos === "n.") return [`The ${word} is very useful.`, `${word} 非常有用。`];
+        if (pos === "adj.") return [`This is a ${word} thing.`, `这是一个${word}的东西。`];
+        if (pos === "v.") return [`I can ${word} it easily.`, `我可以轻松地${word}它。`];
+        return [`This is ${word}.`, `这是${word}。`];
+    }
+
+    // 构建完整词库
+    const VOCAB = uniqueWords.slice(0, TOTAL).map(w => {
         const pos = getPos(w);
-        const exampleEn = generateExample(w, pos);
-        // 中文只显示单词释义，不翻译整个句子（避免生硬）
-        const exampleZh = `【释义】${meaningMap[w] || "常用词"}`;
-        return { 
-            word: w, 
-            ipa: getIpa(w), 
-            pos: pos, 
-            meaning: meaningMap[w] || "常用词", 
-            example_en: exampleEn, 
-            example_zh: exampleZh 
-        };
+        const meaning = getMeaning(w);
+        const [exampleEn, exampleZh] = getExampleWithTranslation(w);
+        return { word: w, ipa: getIpa(w), pos, meaning, example_en: exampleEn, example_zh: exampleZh };
     });
 
-    // ======================= 发音引擎与离线缓存 =======================
+    // ======================= 发音引擎 =======================
     let ttsEngine = "browser";
-    let db = null;
-    const DB_NAME = "Basic850Final", STORE = "wordAudio";
-    function initDB() {
-        return new Promise((res,rej)=>{
-            const req = indexedDB.open(DB_NAME,1);
-            req.onupgradeneeded = e => { let db = e.target.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE); };
-            req.onsuccess = e => { db = e.target.result; res(); };
-            req.onerror = rej;
-        });
-    }
-    async function cacheAudio(key, blob) { if(!db) await initDB(); let tx = db.transaction(STORE,"readwrite"); tx.objectStore(STORE).put(blob,key); return new Promise(r=>tx.oncomplete=r); }
-    async function getCachedAudio(key) { if(!db) await initDB(); return new Promise(r=>{ let req = db.transaction(STORE).objectStore(STORE).get(key); req.onsuccess = ()=>r(req.result); req.onerror = ()=>r(null); }); }
-    async function clearOfflineCache() { if(!db) await initDB(); let tx = db.transaction(STORE,"readwrite"); tx.objectStore(STORE).clear(); return new Promise(r=>tx.oncomplete=r); }
-    async function downloadFullOffline() {
-        if(!confirm("下载全部850个单词的离线音频（约80-120MB），之后可完全离线发音。确定吗？")) return;
-        const statusSpan = document.getElementById("cacheStatusText");
-        statusSpan.innerText = "⏳ 下载中 0/850 ...";
-        for(let i=0;i<TOTAL;i++){
-            const w = VOCAB[i].word;
-            const key = `word_${w}`;
-            let cached = await getCachedAudio(key);
-            if(!cached) {
-                try {
-                    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(w)}&type=2`;
-                    const resp = await fetch(url);
-                    if(resp.ok) {
-                        const blob = await resp.blob();
-                        await cacheAudio(key, blob);
-                    }
-                } catch(e) { console.warn(`下载${w}失败`,e); }
-            }
-            if((i+1)%50===0) statusSpan.innerText = `📥 下载中 ${i+1}/${TOTAL}`;
-        }
-        statusSpan.innerText = `✅ 离线包就绪！${TOTAL}个单词可离线发音`;
-        setTimeout(()=>updateCacheStatusUI(),500);
-    }
-    async function updateCacheStatusUI() {
-        if(!db) { document.getElementById("cacheStatusText").innerText = "未初始化"; return; }
-        const tx = db.transaction(STORE,"readonly");
-        const count = await new Promise(r=>{ let req=tx.objectStore(STORE).count(); req.onsuccess=()=>r(req.result); });
-        document.getElementById("cacheStatusText").innerText = `已缓存 ${count} / 850 单词`;
-    }
-    async function speakWord(word) {
-        if(ttsEngine === "browser") {
-            if(!window.speechSynthesis) { alert("浏览器不支持语音"); return; }
+    function speakWord(word) {
+        if (ttsEngine === "browser") {
+            if (!window.speechSynthesis) return alert("浏览器不支持语音");
             const utter = new SpeechSynthesisUtterance(word);
             utter.lang = "en-US";
             utter.rate = 0.9;
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(utter);
-        } else if(ttsEngine === "youdao") {
+        } else {
             const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`);
-            audio.play().catch(e=>alert("有道发音失败，请检查网络"));
-        } else if(ttsEngine === "offline") {
-            const blob = await getCachedAudio(`word_${word}`);
-            if(blob) {
-                const url = URL.createObjectURL(blob);
-                const audio = new Audio(url);
-                audio.play();
-                audio.onended = () => URL.revokeObjectURL(url);
-            } else {
-                alert("未下载离线包，请先下载单词离线包");
-            }
+            audio.play().catch(() => alert("有道发音失败，请检查网络"));
         }
     }
-    async function speakSentence(sentence) {
-        if(ttsEngine === "browser" || ttsEngine === "offline") {
-            if(window.speechSynthesis) {
-                const utter = new SpeechSynthesisUtterance(sentence);
-                utter.lang = "en-US";
-                utter.rate = 0.9;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(utter);
-            } else {
-                alert("浏览器不支持语音，请切换至有道模式");
-            }
+    function speakSentence(sentence) {
+        if (ttsEngine === "browser") {
+            if (!window.speechSynthesis) return alert("浏览器不支持语音");
+            const utter = new SpeechSynthesisUtterance(sentence);
+            utter.lang = "en-US";
+            utter.rate = 0.9;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utter);
         } else {
             const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(sentence)}&type=2`);
-            audio.play().catch(e=>alert("有道发音失败"));
+            audio.play().catch(() => alert("有道发音失败"));
         }
     }
 
     // ======================= 学习状态与渲染 =======================
     let learned = new Array(TOTAL).fill(false);
     let currentGroup = 0, groupSize = 10, viewMode = "card";
-    function loadLearned() { const stored = localStorage.getItem("basic850_learned_final"); if(stored) try{ let arr=JSON.parse(stored); if(arr.length===TOTAL) learned=arr; }catch(e){} }
-    function saveLearned() { localStorage.setItem("basic850_learned_final", JSON.stringify(learned)); }
-    function loadGroupSize() { let sz = localStorage.getItem("basic850_groupSize_final"); if(sz) groupSize=parseInt(sz); document.getElementById("modalGroupSize").value=groupSize; }
-    function saveGroupSize() { localStorage.setItem("basic850_groupSize_final", groupSize); }
-    function getTotalGroups() { return Math.ceil(TOTAL/groupSize); }
-    function getCurrentRange() { let start=currentGroup*groupSize, end=Math.min(start+groupSize,TOTAL); return {start,end, words:VOCAB.slice(start,end)}; }
+    function loadLearned() { const stored = localStorage.getItem("basic850_learned_final3"); if (stored) try { let arr = JSON.parse(stored); if (arr.length === TOTAL) learned = arr; } catch(e) {} }
+    function saveLearned() { localStorage.setItem("basic850_learned_final3", JSON.stringify(learned)); }
+    function loadGroupSize() { let sz = localStorage.getItem("basic850_groupSize_final3"); if (sz) groupSize = parseInt(sz); document.getElementById("modalGroupSize").value = groupSize; }
+    function saveGroupSize() { localStorage.setItem("basic850_groupSize_final3", groupSize); }
+    function getTotalGroups() { return Math.ceil(TOTAL / groupSize); }
+    function getCurrentRange() { let start = currentGroup * groupSize, end = Math.min(start + groupSize, TOTAL); return { start, end, words: VOCAB.slice(start, end) }; }
     function render() {
-        let {start,end,words} = getCurrentRange();
+        let { start, end, words } = getCurrentRange();
         let totalGroups = getTotalGroups();
-        let groupCompleted = words.filter((_,i)=>learned[start+i]).length;
-        document.getElementById("groupLabel").innerHTML = `第${currentGroup+1}组 / 共${totalGroups}组`;
+        let groupCompleted = words.filter((_, i) => learned[start + i]).length;
+        document.getElementById("groupLabel").innerHTML = `第${currentGroup + 1}组 / 共${totalGroups}组`;
         document.getElementById("groupCompleteLabel").innerHTML = `📖 已掌握 ${groupCompleted}/${words.length}`;
-        let totalLearned = learned.filter(v=>v).length;
+        let totalLearned = learned.filter(v => v).length;
         document.getElementById("totalLearnedSpan").innerText = totalLearned;
-        document.getElementById("globalProgressFill").style.width = (totalLearned/TOTAL)*100+"%";
+        document.getElementById("globalProgressFill").style.width = (totalLearned / TOTAL) * 100 + "%";
         let container = document.getElementById("dynamicContainer");
-        if(viewMode==="card"){
-            let html="";
-            for(let i=0;i<words.length;i++){
-                let w=words[i], gid=start+i, isLearned=learned[gid];
-                html+=`<div class="word-card"><div class="card-header"><div class="word-main">${w.word}<button class="speaker-word" data-word="${w.word}">🔊</button></div><div><span class="pronounce">${w.ipa}</span> <span class="pos">${w.pos}</span></div></div><div class="meaning">📖 ${w.meaning}</div><div class="example-area"><div class="example-en">💬 ${w.example_en}<button class="speaker-example" data-sentence="${w.example_en.replace(/"/g,'&quot;')}">🔊</button></div><div class="example-zh" id="zh-${gid}">📝 ${w.example_zh}</div><div class="example-actions"><button class="icon-btn translate-btn" data-id="${gid}">🌐 查看翻译</button></div></div><button class="mark-btn ${isLearned?'learned':''}" data-global="${gid}">${isLearned?'✅ 已掌握':'📌 标记掌握'}</button></div>`;
+        if (viewMode === "card") {
+            let html = "";
+            for (let i = 0; i < words.length; i++) {
+                let w = words[i], gid = start + i, isLearned = learned[gid];
+                html += `<div class="word-card"><div class="card-header"><div class="word-main">${w.word}<button class="speaker-word" data-word="${w.word}">🔊</button></div><div><span class="pronounce">${w.ipa}</span> <span class="pos">${w.pos}</span></div></div><div class="meaning">📖 ${w.meaning}</div><div class="example-area"><div class="example-en">💬 ${w.example_en}<button class="speaker-example" data-sentence="${w.example_en.replace(/"/g, '&quot;')}">🔊</button></div><div class="example-zh" id="zh-${gid}">📝 ${w.example_zh}</div><div class="example-actions"><button class="icon-btn translate-btn" data-id="${gid}">🌐 查看翻译</button></div></div><button class="mark-btn ${isLearned ? 'learned' : ''}" data-global="${gid}">${isLearned ? '✅ 已掌握' : '📌 标记掌握'}</button></div>`;
             }
-            container.innerHTML=html;
-            document.querySelectorAll('.speaker-word').forEach(btn=>btn.addEventListener('click',e=>{ e.stopPropagation(); speakWord(btn.dataset.word); }));
-            document.querySelectorAll('.speaker-example').forEach(btn=>btn.addEventListener('click',e=>{ e.stopPropagation(); speakSentence(btn.dataset.sentence); }));
-            document.querySelectorAll('.translate-btn').forEach(btn=>btn.addEventListener('click',e=>{ let zhDiv=document.getElementById(`zh-${btn.dataset.id}`); if(zhDiv) zhDiv.classList.toggle('show'); }));
-            document.querySelectorAll('.mark-btn').forEach(btn=>btn.addEventListener('click',e=>{ let gid=parseInt(btn.dataset.global); learned[gid]=!learned[gid]; saveLearned(); render(); }));
+            container.innerHTML = html;
+            document.querySelectorAll('.speaker-word').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); speakWord(btn.dataset.word); }));
+            document.querySelectorAll('.speaker-example').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); speakSentence(btn.dataset.sentence); }));
+            document.querySelectorAll('.translate-btn').forEach(btn => btn.addEventListener('click', e => { let zhDiv = document.getElementById(`zh-${btn.dataset.id}`); if (zhDiv) zhDiv.classList.toggle('show'); }));
+            document.querySelectorAll('.mark-btn').forEach(btn => btn.addEventListener('click', e => { let gid = parseInt(btn.dataset.global); learned[gid] = !learned[gid]; saveLearned(); render(); }));
         } else {
-            let listHtml=`<div class="list-view">`;
-            for(let i=0;i<words.length;i++){ let w=words[i], gid=start+i; listHtml+=`<div class="list-item"><div><strong>${w.word}</strong> ${w.ipa}</div><div>${w.meaning}</div><div><button class="list-speaker-word" data-word="${w.word}">🔊</button><button class="list-speaker-ex" data-sentence="${w.example_en.replace(/"/g,'&quot;')}">例句🔊</button></div><div class="list-mark" data-global="${gid}">${learned[gid]?'✔️':'○'}</div></div>`; }
-            listHtml+=`</div>`; container.innerHTML=listHtml;
-            document.querySelectorAll('.list-speaker-word').forEach(btn=>btn.addEventListener('click',e=>{ speakWord(btn.dataset.word); }));
-            document.querySelectorAll('.list-speaker-ex').forEach(btn=>btn.addEventListener('click',e=>{ speakSentence(btn.dataset.sentence); }));
-            document.querySelectorAll('.list-mark').forEach(mark=>mark.addEventListener('click',e=>{ let gid=parseInt(mark.dataset.global); learned[gid]=!learned[gid]; saveLearned(); render(); }));
+            let listHtml = `<div class="list-view">`;
+            for (let i = 0; i < words.length; i++) { let w = words[i], gid = start + i; listHtml += `<div class="list-item"><div><strong>${w.word}</strong> ${w.ipa}</div><div>${w.meaning}</div><div><button class="list-speaker-word" data-word="${w.word}">🔊</button><button class="list-speaker-ex" data-sentence="${w.example_en.replace(/"/g, '&quot;')}">例句🔊</button></div><div class="list-mark" data-global="${gid}">${learned[gid] ? '✔️' : '○'}</div></div>`; }
+            listHtml += `</div>`; container.innerHTML = listHtml;
+            document.querySelectorAll('.list-speaker-word').forEach(btn => btn.addEventListener('click', e => { speakWord(btn.dataset.word); }));
+            document.querySelectorAll('.list-speaker-ex').forEach(btn => btn.addEventListener('click', e => { speakSentence(btn.dataset.sentence); }));
+            document.querySelectorAll('.list-mark').forEach(mark => mark.addEventListener('click', e => { let gid = parseInt(mark.dataset.global); learned[gid] = !learned[gid]; saveLearned(); render(); }));
         }
-        let prevBtn=document.getElementById("prevGroupBtn"), nextBtn=document.getElementById("nextGroupBtn");
-        if(prevBtn) { if(currentGroup===0) prevBtn.classList.add("disabled"); else prevBtn.classList.remove("disabled"); }
-        if(nextBtn) { if(currentGroup===totalGroups-1) nextBtn.classList.add("disabled"); else nextBtn.classList.remove("disabled"); }
+        let prevBtn = document.getElementById("prevGroupBtn"), nextBtn = document.getElementById("nextGroupBtn");
+        if (prevBtn) { if (currentGroup === 0) prevBtn.classList.add("disabled"); else prevBtn.classList.remove("disabled"); }
+        if (nextBtn) { if (currentGroup === totalGroups - 1) nextBtn.classList.add("disabled"); else nextBtn.classList.remove("disabled"); }
     }
-    function changeGroup(delta){ let ng=currentGroup+delta; if(ng>=0 && ng<getTotalGroups()){ currentGroup=ng; render(); window.scrollTo(0,0); } }
-    function applyModalSettings(){
+    function changeGroup(delta) { let ng = currentGroup + delta; if (ng >= 0 && ng < getTotalGroups()) { currentGroup = ng; render(); window.scrollTo(0, 0); } }
+    function applyModalSettings() {
         let newSize = parseInt(document.getElementById("modalGroupSize").value);
-        if(newSize>=5 && newSize<=40) { groupSize=newSize; saveGroupSize(); currentGroup=0; }
+        if (newSize >= 5 && newSize <= 40) { groupSize = newSize; saveGroupSize(); currentGroup = 0; }
         let selected = document.querySelector('input[name="ttsEngine"]:checked').value;
         ttsEngine = selected;
         localStorage.setItem("basic850_ttsEngine", ttsEngine);
         render();
         document.getElementById("modalOverlay").classList.remove("active");
     }
-    function resetAllMark(){ if(confirm("重置所有掌握标记?")){ learned.fill(false); saveLearned(); render(); } }
-    function setViewMode(mode){ viewMode=mode; document.getElementById("cardViewBtn").classList.toggle("active",mode==="card"); document.getElementById("listViewBtn").classList.toggle("active",mode==="list"); render(); }
-    (async function init(){
-        await initDB();
+    function resetAllMark() { if (confirm("重置所有掌握标记?")) { learned.fill(false); saveLearned(); render(); } }
+    function setViewMode(mode) { viewMode = mode; document.getElementById("cardViewBtn").classList.toggle("active", mode === "card"); document.getElementById("listViewBtn").classList.toggle("active", mode === "list"); render(); }
+    
+    (function init() {
         loadLearned(); loadGroupSize();
         let savedEngine = localStorage.getItem("basic850_ttsEngine");
-        if(savedEngine && ["browser","youdao","offline"].includes(savedEngine)) ttsEngine = savedEngine;
+        if (savedEngine && ["browser", "youdao"].includes(savedEngine)) ttsEngine = savedEngine;
         document.querySelector(`input[name="ttsEngine"][value="${ttsEngine}"]`).checked = true;
         render();
-        updateCacheStatusUI();
-        document.getElementById("settingsBtn").onclick = ()=>document.getElementById("modalOverlay").classList.add("active");
+        document.getElementById("settingsBtn").onclick = () => document.getElementById("modalOverlay").classList.add("active");
         document.getElementById("modalApplyBtn").onclick = applyModalSettings;
-        document.getElementById("modalOverlay").onclick = (e)=>{ if(e.target===document.getElementById("modalOverlay")) document.getElementById("modalOverlay").classList.remove("active"); };
-        document.getElementById("downloadOfflineBtn").onclick = downloadFullOffline;
-        document.getElementById("clearOfflineBtn").onclick = async ()=>{ await clearOfflineCache(); updateCacheStatusUI(); alert("离线缓存已清除"); };
-        document.getElementById("prevGroupBtn").onclick = ()=>changeGroup(-1);
-        document.getElementById("nextGroupBtn").onclick = ()=>changeGroup(1);
+        document.getElementById("modalOverlay").onclick = (e) => { if (e.target === document.getElementById("modalOverlay")) document.getElementById("modalOverlay").classList.remove("active"); };
+        document.getElementById("prevGroupBtn").onclick = () => changeGroup(-1);
+        document.getElementById("nextGroupBtn").onclick = () => changeGroup(1);
         document.getElementById("resetAllBtn").onclick = resetAllMark;
-        document.getElementById("cardViewBtn").onclick = ()=>setViewMode("card");
-        document.getElementById("listViewBtn").onclick = ()=>setViewMode("list");
+        document.getElementById("cardViewBtn").onclick = () => setViewMode("card");
+        document.getElementById("listViewBtn").onclick = () => setViewMode("list");
+        const style = document.createElement('style');
+        style.textContent = `.nav-btn.disabled { opacity: 0.4; pointer-events: none; }`;
+        document.head.appendChild(style);
     })();
 </script>
 </body>

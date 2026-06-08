@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>订单数据同步</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #f0f4f8;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #eef2f7;
+        }
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            background: #fafcff;
+            margin-bottom: 16px;
+        }
+        .btn {
+            background: #2b4c7c;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 48px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .btn-secondary {
+            background: #eef2f7;
+            color: #2b4c7c;
+        }
+        .btn-danger {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .search-bar input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 48px;
+            font-size: 0.9rem;
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #ecf3f9;
+            text-align: left;
+        }
+        th {
+            background: #f1f5f9;
+            font-weight: 600;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 20px;
+            align-items: center;
+        }
+        .status-msg {
+            background: #fef9e6;
+            border-left: 3px solid #f5a623;
+            padding: 10px 16px;
+            margin-top: 12px;
+            border-radius: 12px;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .batch-delete {
+            margin-top: 12px;
+            text-align: right;
+        }
+        .mode-group {
+            margin: 12px 0;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .mode-group label {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 上传卡片 -->
+    <div class="card">
+        <div class="card-title">📤 订单数据同步</div>
+        <div class="upload-area" id="uploadArea">
+            <div>📊 点击或拖拽上传 Excel 文件</div>
+            <div style="font-size:0.7rem; color:#5b6e8c; margin-top:8px;">支持 .xlsx, .xls，列名：书号、书名、定价、订数、已发数、已到货数、已收数、客户名称、馆配需求单名称、需求单折扣、报订批次、上报日期</div>
+        </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+
+        <div class="mode-group">
+            <label><input type="radio" name="uploadMode" value="incremental" checked> 增量更新（按书号+馆配单号更新/插入）</label>
+            <label><input type="radio" name="uploadMode" value="full"> 全量更新（先清空所有订单，再导入本次数据）</label>
+        </div>
+        <div id="uploadStatus"></div>
+        <div class="flex-between" style="margin-top: 12px;">
+            <button id="clearAllBtn" class="btn-danger" style="background:#fee2e2;">🗑️ 清空所有订单</button>
+            <span id="stats"></span>
+        </div>
+    </div>
+
+    <!-- 订单列表卡片 -->
+    <div class="card">
+        <div class="card-title">📋 订单列表</div>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="搜索书号/书名/客户/馆配单号" autocomplete="off">
+            <button id="searchBtn" class="btn">🔍 查询</button>
+            <button id="refreshBtn" class="btn-secondary">🔄 刷新</button>
+        </div>
+        <div class="table-wrap">
+            <table id="ordersTable">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll"></th>
+                        <th>ID</th><th>书号</th><th>书名</th><th>定价</th><th>订数</th>
+                        <th>客户名称</th><th>馆配单号</th><th>折扣</th><th>批次</th><th>上报日期</th><th>创建时间</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersTbody">
+                    <tr><td colspan="12" style="text-align:center">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+        <div class="batch-delete">
+            <button id="batchDeleteBtn" class="btn-danger" style="background:#fee2e2;">🗑️ 删除选中</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = '/api/sync';
+    let currentPage = 1;
+    let currentKeyword = '';
+    let totalPages = 1;
+
+    // ========== 上传 Excel ==========
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    uploadArea.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+
+    async function handleFile(file) {
+        if (!file.name.match(/\.(xlsx|xls)$/i)) { alert('请上传 Excel 文件'); return; }
+        const mode = document.querySelector('input[name="uploadMode"]:checked').value;
+        if (mode === 'full' && !confirm('⚠️ 全量更新将删除所有现有订单，只保留本次上传的数据。确定继续吗？')) {
+            fileInput.value = '';
+            return;
+        }
+
+        const statusDiv = document.getElementById('uploadStatus');
+        statusDiv.innerHTML = '<div class="status-msg">⏳ 正在解析文件...</div>';
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                if (json.length < 2) throw new Error('文件至少需要表头+数据');
+
+                const headers = json[0].map(h => String(h || '').trim());
+                const getIdx = (keywords) => headers.findIndex(h => keywords.some(kw => h.toLowerCase().includes(kw)));
+                const isbnIdx = getIdx(['书号', 'isbn']);
+                const titleIdx = getIdx(['书名', '名称']);
+                const priceIdx = getIdx(['定价', '价格']);
+                const orderQtyIdx = getIdx(['订数', '数量']);
+                const sentQtyIdx = getIdx(['已发数']);
+                const arrivedQtyIdx = getIdx(['已到货数']);
+                const receivedQtyIdx = getIdx(['已收数']);
+                const customerIdx = getIdx(['客户名称', '客户']);
+                const consignmentIdx = getIdx(['馆配需求单名称', '需求单名称']);
+                const discountIdx = getIdx(['需求单折扣', '折扣']);
+                const batchNoIdx = getIdx(['报订批次', '批次']);
+                const reportDateIdx = getIdx(['上报日期', '报订日期']);
+
+                if (isbnIdx === -1 || titleIdx === -1 || priceIdx === -1) {
+                    throw new Error('缺少必要列：书号、书名、定价');
+                }
+
+                const records = [];
+                for (let i = 1; i < json.length; i++) {
+                    const row = json[i];
+                    const isbn = row[isbnIdx] ? String(row[isbnIdx]).trim() : '';
+                    if (!isbn) continue;
+                    records.push({
+                        isbn,
+                        title: row[titleIdx] ? String(row[titleIdx]).trim() : '',
+                        price: parseFloat(row[priceIdx]) || 0,
+                        order_qty: orderQtyIdx !== -1 ? (parseInt(row[orderQtyIdx]) || 0) : 0,
+                        sent_qty: sentQtyIdx !== -1 ? (parseInt(row[sentQtyIdx]) || 0) : 0,
+                        arrived_qty: arrivedQtyIdx !== -1 ? (parseInt(row[arrivedQtyIdx]) || 0) : 0,
+                        received_qty: receivedQtyIdx !== -1 ? (parseInt(row[receivedQtyIdx]) || 0) : 0,
+                        customer_name: customerIdx !== -1 ? String(row[customerIdx] || '').trim() : '',
+                        consignment_name: consignmentIdx !== -1 ? String(row[consignmentIdx] || '').trim() : '',
+                        discount: discountIdx !== -1 ? (parseInt(row[discountIdx]) || 0) : 0,
+                        batch_no: batchNoIdx !== -1 ? String(row[batchNoIdx] || '').trim() : '',
+                        report_date: reportDateIdx !== -1 ? String(row[reportDateIdx] || '').trim() : ''
+                    });
+                }
+                if (records.length === 0) throw new Error('未找到有效数据');
+
+                statusDiv.innerHTML = '<div class="status-msg">⏳ 正在上传...</div>';
+                const response = await fetch(`${API_BASE}?action=uploadOrders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: records, mode })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    let msg = `✅ 上传成功！${mode === 'full' ? '全量替换完成' : '增量更新完成'}，共 ${records.length} 条记录。`;
+                    if (mode === 'incremental') msg += ` 新增 ${result.inserted} 条，更新 ${result.updated} 条。`;
+                    statusDiv.innerHTML = `<div class="status-msg">${msg}</div>`;
+                    loadOrders(); // 刷新列表
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (err) {
+                statusDiv.innerHTML = `<div class="status-msg">❌ 上传失败: ${err.message}</div>`;
+            } finally {
+                fileInput.value = '';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // ========== 加载订单列表 ==========
+    async function loadOrders(page = 1) {
+        const keyword = document.getElementById('searchInput').value;
+        const url = `${API_BASE}?action=list&page=${page}&pageSize=20&keyword=${encodeURIComponent(keyword)}`;
+        try {
+            const res = await fetch(url);
+            const result = await res.json();
+            if (result.success) {
+                renderTable(result.data);
+                totalPages = Math.ceil(result.total / result.pageSize);
+                currentPage = result.page;
+                renderPagination();
+                document.getElementById('stats').innerText = `共 ${result.total} 条记录`;
+            } else {
+                document.getElementById('ordersTbody').innerHTML = '<tr><td colspan="12">加载失败</td></tr>';
+            }
+        } catch (err) {
+            document.getElementById('ordersTbody').innerHTML = '<tr><td colspan="12">加载出错</td></tr>';
+        }
+    }
+
+    function renderTable(orders) {
+        const tbody = document.getElementById('ordersTbody');
+        if (!orders.length) {
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align:center">暂无数据</td></tr>';
+            return;
+        }
+        let html = '';
+        orders.forEach(order => {
+            html += `<tr>
+                <td><input type="checkbox" class="row-checkbox" data-id="${order.id}"></td>
+                <td>${order.id}</td>
+                <td>${escapeHtml(order.isbn)}</td>
+                <td>${escapeHtml(order.title)}</td>
+                <td>${order.price.toFixed(2)}</td>
+                <td>${order.order_qty}</td>
+                <td>${escapeHtml(order.customer_name || '')}</td>
+                <td>${escapeHtml(order.consignment_name || '')}</td>
+                <td>${order.discount || ''}</td>
+                <td>${escapeHtml(order.batch_no || '')}</td>
+                <td>${order.report_date || ''}</td>
+                <td>${order.created_at ? order.created_at.slice(0,10) : ''}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    function renderPagination() {
+        const container = document.getElementById('pagination');
+        if (totalPages <= 1) { container.innerHTML = ''; return; }
+        let btns = '';
+        if (currentPage > 1) btns += `<button class="btn-secondary" onclick="loadOrders(${currentPage-1})">上一页</button>`;
+        btns += `<span>第 ${currentPage} / ${totalPages} 页</span>`;
+        if (currentPage < totalPages) btns += `<button class="btn-secondary" onclick="loadOrders(${currentPage+1})">下一页</button>`;
+        container.innerHTML = btns;
+    }
+
+    // ========== 清空所有 ==========
+    document.getElementById('clearAllBtn').onclick = async () => {
+        if (!confirm('⚠️ 确认清空所有订单数据？不可恢复！')) return;
+        const res = await fetch(`${API_BASE}?action=clear`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) { alert('清空成功'); loadOrders(); } else { alert('清空失败'); }
+    };
+
+    // ========== 批量删除 ==========
+    document.getElementById('batchDeleteBtn').onclick = async () => {
+        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+        if (checkboxes.length === 0) { alert('请至少选择一条记录'); return; }
+        if (!confirm(`确认删除 ${checkboxes.length} 条记录？`)) return;
+        const ids = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
+        const res = await fetch(`${API_BASE}?action=deleteByIds`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids })
+        });
+        const result = await res.json();
+        if (result.success) { loadOrders(); } else { alert('删除失败'); }
+    };
+
+    // ========== 全选 ==========
+    document.getElementById('selectAll').onclick = (e) => {
+        const checked = e.target.checked;
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checked);
+    };
+
+    document.getElementById('searchBtn').onclick = () => loadOrders(1);
+    document.getElementById('refreshBtn').onclick = () => loadOrders(1);
+
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+
+    // 初始化
+    loadOrders();
+</script>
+</body>
+</html>
