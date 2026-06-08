@@ -1,9 +1,10 @@
 {
   "version": 1,
   "include": [
-    "/tool*",
+     "/tool*",
     "/api-pages",
-    "/api/tools"
+    "/api/tools",
+    "/api/sync*"
   ],
   "exclude": []
 }
