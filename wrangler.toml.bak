@@ -11,4 +11,4 @@ preview_id = "b4e04b3f55904a018aec459dd412cd05"
 [[d1_databases]]
 binding = "DB"               # 代码中使用的变量名
 database_name = "erp_db"     # 您的 D1 数据库名称
-database_id = "08aac4a5-00c6-4d0d-b972-ead1a53877c3"  # 需要填写实际的数据库 ID
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # 需要填写实际的数据库 ID
