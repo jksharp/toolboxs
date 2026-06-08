@@ -8,7 +8,9 @@ export async function onRequest(context) {
         'Access-Control-Allow-Headers': 'Content-Type'
     };
 
-    if (request.method === 'OPTIONS') return new Response(null, { headers });
+    if (request.method === 'OPTIONS') {
+        return new Response(null, { headers });
+    }
 
     function sendError(message, status = 400) {
         return new Response(JSON.stringify({ success: false, error: message }), { status, headers });
@@ -19,26 +21,18 @@ export async function onRequest(context) {
         const url = new URL(request.url);
         const action = url.searchParams.get('action');
 
-        if (!DB) return sendError('D1 数据库未绑定', 500);
+        if (!DB) return sendError('D1 数据库未绑定，请检查绑定名称是否为 DB', 500);
 
         // 测试接口
         if (request.method === 'GET' && action === 'test') {
-            return new Response(JSON.stringify({ success: true, message: 'OK' }), { headers });
+            return new Response(JSON.stringify({ success: true, message: 'API OK' }), { headers });
         }
 
-        // 上传订单（批量优化）
+        // 上传订单（支持全量和增量）
         if (request.method === 'POST' && action === 'uploadOrders') {
-            let rawBody;
-            try {
-                rawBody = await request.text();
-                if (!rawBody) throw new Error('请求体为空');
-            } catch (err) {
-                return sendError(`读取请求体失败: ${err.message}`);
-            }
-
             let parsed;
             try {
-                parsed = JSON.parse(rawBody);
+                parsed = await request.json();
             } catch (err) {
                 return sendError(`JSON解析失败: ${err.message}`);
             }
@@ -48,13 +42,19 @@ export async function onRequest(context) {
                 return sendError('数据格式错误或无有效数据');
             }
 
-            const BATCH_SIZE = 500; // 每批500条
-            let totalInserted = 0;
-
             try {
                 if (mode === 'full') {
-                    // 全量：清空 + 批量插入
+                    // 1. 清空表
                     await DB.prepare('DELETE FROM orders').run();
+                }
+
+                // 2. 批量插入（无论全量还是增量，都使用 INSERT OR REPLACE 或者普通 INSERT）
+                // 注意：全量模式下已经 DELETE，所以可以用普通 INSERT；增量模式用 INSERT OR REPLACE 确保唯一约束。
+                const BATCH_SIZE = 500; // 每批500条，D1 batch 性能较好
+                let inserted = 0;
+
+                if (mode === 'full') {
+                    // 全量模式：使用普通 INSERT
                     for (let i = 0; i < data.length; i += BATCH_SIZE) {
                         const batch = data.slice(i, i + BATCH_SIZE);
                         const stmts = batch.map(item => {
@@ -69,10 +69,10 @@ export async function onRequest(context) {
                             );
                         });
                         await DB.batch(stmts);
-                        totalInserted += batch.length;
+                        inserted += batch.length;
                     }
                 } else {
-                    // 增量：INSERT OR REPLACE（需要表有 UNIQUE(isbn, consignment_name) 约束）
+                    // 增量模式：使用 INSERT OR REPLACE，依赖唯一索引 UNIQUE(isbn, consignment_name)
                     for (let i = 0; i < data.length; i += BATCH_SIZE) {
                         const batch = data.slice(i, i + BATCH_SIZE);
                         const stmts = batch.map(item => {
@@ -87,17 +87,18 @@ export async function onRequest(context) {
                             );
                         });
                         await DB.batch(stmts);
-                        totalInserted += batch.length;
+                        inserted += batch.length;
                     }
                 }
-                return new Response(JSON.stringify({ success: true, inserted: totalInserted, mode, total: data.length }), { headers });
+
+                return new Response(JSON.stringify({ success: true, inserted, mode, total: data.length }), { headers });
             } catch (err) {
                 console.error('数据库操作失败:', err);
                 return sendError(`数据库操作失败: ${err.message}`, 500);
             }
         }
 
-        // ---------- 列表查询（分页+搜索） ----------
+        // 获取订单列表（分页+搜索）
         if (request.method === 'GET' && action === 'list') {
             const page = parseInt(url.searchParams.get('page') || '1');
             const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
@@ -133,7 +134,7 @@ export async function onRequest(context) {
             }
         }
 
-        // ---------- 清空所有 ----------
+        // 清空所有订单
         if (request.method === 'DELETE' && action === 'clear') {
             try {
                 await DB.prepare('DELETE FROM orders').run();
@@ -143,7 +144,7 @@ export async function onRequest(context) {
             }
         }
 
-        // ---------- 批量删除 ----------
+        // 批量删除
         if (request.method === 'POST' && action === 'deleteByIds') {
             const { ids } = await request.json();
             if (!ids || !ids.length) return sendError('ids 为空');

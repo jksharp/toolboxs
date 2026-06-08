@@ -21,14 +21,14 @@ export async function onRequest(context) {
         const url = new URL(request.url);
         const action = url.searchParams.get('action');
 
-        if (!DB) return sendError('D1 数据库未绑定，请检查绑定名称是否为 DB', 500);
+        if (!DB) return sendError('D1 数据库未绑定', 500);
 
         // 测试接口
         if (request.method === 'GET' && action === 'test') {
-            return new Response(JSON.stringify({ success: true, message: 'API OK' }), { headers });
+            return new Response(JSON.stringify({ success: true, message: 'OK' }), { headers });
         }
 
-        // 上传订单（支持全量和增量）
+        // 上传订单（增量/全量 都支持批量）
         if (request.method === 'POST' && action === 'uploadOrders') {
             let parsed;
             try {
@@ -42,63 +42,55 @@ export async function onRequest(context) {
                 return sendError('数据格式错误或无有效数据');
             }
 
+            // 限制单次请求数据量，避免过大（前端已经分批，此处加个保险）
+            if (data.length > 2000) {
+                return sendError('单次请求不能超过2000条，请分批上传');
+            }
+
             try {
                 if (mode === 'full') {
-                    // 1. 清空表
+                    // 全量模式：删除所有数据并重置自增序列
                     await DB.prepare('DELETE FROM orders').run();
+                    await DB.prepare("DELETE FROM sqlite_sequence WHERE name='orders'").run();
                 }
 
-                // 2. 批量插入（无论全量还是增量，都使用 INSERT OR REPLACE 或者普通 INSERT）
-                // 注意：全量模式下已经 DELETE，所以可以用普通 INSERT；增量模式用 INSERT OR REPLACE 确保唯一约束。
-                const BATCH_SIZE = 500; // 每批500条，D1 batch 性能较好
-                let inserted = 0;
-
+                // 准备批量插入语句（增量模式使用 INSERT OR REPLACE，全量模式直接 INSERT）
+                let stmts;
                 if (mode === 'full') {
-                    // 全量模式：使用普通 INSERT
-                    for (let i = 0; i < data.length; i += BATCH_SIZE) {
-                        const batch = data.slice(i, i + BATCH_SIZE);
-                        const stmts = batch.map(item => {
-                            return DB.prepare(`
-                                INSERT INTO orders (isbn, title, price, order_qty, sent_qty, arrived_qty, received_qty, customer_name, consignment_name, discount, batch_no, report_date)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            `).bind(
-                                item.isbn, item.title, item.price, item.order_qty,
-                                item.sent_qty, item.arrived_qty, item.received_qty,
-                                item.customer_name, item.consignment_name,
-                                item.discount, item.batch_no, item.report_date
-                            );
-                        });
-                        await DB.batch(stmts);
-                        inserted += batch.length;
-                    }
+                    stmts = data.map(item => {
+                        return DB.prepare(`
+                            INSERT INTO orders (isbn, title, price, order_qty, sent_qty, arrived_qty, received_qty, customer_name, consignment_name, discount, batch_no, report_date)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `).bind(
+                            item.isbn, item.title, item.price, item.order_qty,
+                            item.sent_qty, item.arrived_qty, item.received_qty,
+                            item.customer_name, item.consignment_name,
+                            item.discount, item.batch_no, item.report_date
+                        );
+                    });
                 } else {
-                    // 增量模式：使用 INSERT OR REPLACE，依赖唯一索引 UNIQUE(isbn, consignment_name)
-                    for (let i = 0; i < data.length; i += BATCH_SIZE) {
-                        const batch = data.slice(i, i + BATCH_SIZE);
-                        const stmts = batch.map(item => {
-                            return DB.prepare(`
-                                INSERT OR REPLACE INTO orders (isbn, title, price, order_qty, sent_qty, arrived_qty, received_qty, customer_name, consignment_name, discount, batch_no, report_date, updated_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                            `).bind(
-                                item.isbn, item.title, item.price, item.order_qty,
-                                item.sent_qty, item.arrived_qty, item.received_qty,
-                                item.customer_name, item.consignment_name,
-                                item.discount, item.batch_no, item.report_date
-                            );
-                        });
-                        await DB.batch(stmts);
-                        inserted += batch.length;
-                    }
+                    // 增量模式：使用 INSERT OR REPLACE（依赖唯一约束）
+                    stmts = data.map(item => {
+                        return DB.prepare(`
+                            INSERT OR REPLACE INTO orders (isbn, title, price, order_qty, sent_qty, arrived_qty, received_qty, customer_name, consignment_name, discount, batch_no, report_date, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        `).bind(
+                            item.isbn, item.title, item.price, item.order_qty,
+                            item.sent_qty, item.arrived_qty, item.received_qty,
+                            item.customer_name, item.consignment_name,
+                            item.discount, item.batch_no, item.report_date
+                        );
+                    });
                 }
-
-                return new Response(JSON.stringify({ success: true, inserted, mode, total: data.length }), { headers });
+                await DB.batch(stmts);
+                return new Response(JSON.stringify({ success: true, inserted: data.length, mode }), { headers });
             } catch (err) {
                 console.error('数据库操作失败:', err);
                 return sendError(`数据库操作失败: ${err.message}`, 500);
             }
         }
 
-        // 获取订单列表（分页+搜索）
+        // ---------- 获取订单列表（分页 + 搜索） ----------
         if (request.method === 'GET' && action === 'list') {
             const page = parseInt(url.searchParams.get('page') || '1');
             const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
@@ -120,7 +112,7 @@ export async function onRequest(context) {
                     params = [kw, kw, kw, kw];
                 }
                 listSql += ' ORDER BY id DESC LIMIT ? OFFSET ?';
-                const countResult = await DB.prepare(countSql).bind(...params.slice(0, 4)).first();
+                const countResult = await DB.prepare(countSql).bind(...params.slice(0,4)).first();
                 const listResult = await DB.prepare(listSql).bind(...params, pageSize, offset).all();
                 return new Response(JSON.stringify({
                     success: true,
@@ -134,17 +126,18 @@ export async function onRequest(context) {
             }
         }
 
-        // 清空所有订单
+        // ---------- 清空所有订单（保留表结构，重置自增） ----------
         if (request.method === 'DELETE' && action === 'clear') {
             try {
                 await DB.prepare('DELETE FROM orders').run();
+                await DB.prepare("DELETE FROM sqlite_sequence WHERE name='orders'").run();
                 return new Response(JSON.stringify({ success: true }), { headers });
             } catch (err) {
                 return sendError(`清空失败: ${err.message}`, 500);
             }
         }
 
-        // 批量删除
+        // ---------- 批量删除 ----------
         if (request.method === 'POST' && action === 'deleteByIds') {
             const { ids } = await request.json();
             if (!ids || !ids.length) return sendError('ids 为空');
