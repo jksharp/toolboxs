@@ -178,7 +178,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="footer-tip">💡 点击馆配单号查看明细 | 红色数字表示批销册数与订单册数不一致 | 顶部异常卡片查看全局异常 | 鼠标悬停在订单册数上可查看详细分布</div>
+        <div class="footer-tip">💡 点击馆配单号查看明细 | 红色数字表示批销册数与订单册数不一致 | 鼠标悬停在订单册数上可查看详细分布</div>
     </div>
 </div>
 
@@ -198,10 +198,7 @@
         <div class="modal-search" style="flex-direction:column; align-items:stretch;">
             <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
                 <span>🏷️ 按客户筛选</span>
-                <div class="filter-btns">
-                    <button id="errorSelectAllBtn">全选</button>
-                    <button id="errorDeselectAllBtn">全取消</button>
-                </div>
+                <div class="filter-btns"><button id="errorSelectAllBtn">全选</button><button id="errorDeselectAllBtn">全取消</button></div>
             </div>
             <div id="errorCustomerList" class="customer-box" style="max-height:150px;"></div>
             <div style="display:flex; gap:12px; margin-top:12px; align-items:center;">
@@ -251,9 +248,9 @@
 
     let state = {
         orderFiles: [], shipFiles: [],
-        rawOrders: [],
-        rawShipments: [],
-        orderGroups: [],
+        rawOrders: [],            // 原始订单对象
+        rawShipments: [],         // 原始批销对象
+        orderGroups: [],          // 主界面列表
         orderDetailsMap: new Map(),
         globalErrors: []
     };
@@ -262,14 +259,14 @@
     let errorSelectedCustomers = new Set();
     let currentSort = { field: 'reportDate', order: 'desc' };
 
-    // 工具函数
+    // ======================= 工具函数 =======================
     function escapeHtml(str) { return (str+'').replace(/[&<>]/g, m => m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
     function findColumn(row, possible) { if(!row) return null; const keys=Object.keys(row); for(let p of possible){ let low=p.toLowerCase(); let m=keys.find(k=>k.toLowerCase()===low||k.toLowerCase().includes(low)); if(m) return m; } return null; }
     function parseDate(v){ if(!v) return null; let d=new Date(v); if(!isNaN(d)) return d; let s=String(v).trim().replace(/[年月]/g,'-').replace(/日/g,'').split(/[-\/ :]+/); if(s.length>=3){ let y=parseInt(s[0]),m=parseInt(s[1])-1,day=parseInt(s[2]); if(!isNaN(y)&&!isNaN(m)&&!isNaN(day)) return new Date(y,m,day); } return null; }
     function formatDateShort(date) { if(!date) return '—'; try{ let d=new Date(date); return `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`; }catch(e){ return '—'; } }
     function readFile(file){ return new Promise((resolve,reject)=>{ let fr=new FileReader(); fr.onload=e=>resolve(e.target.result); fr.onerror=reject; fr.readAsArrayBuffer(file); }); }
     
-    // 订单解析
+    // ======================= 订单解析 =======================
     function parseOrderExcel(buf){
         const wb=XLSX.read(buf,{type:'array'}); const sheet=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(sheet,{defval:""}); if(!rows.length) throw new Error('无数据');
         const sample=rows[0];
@@ -304,7 +301,7 @@
         return res;
     }
     
-    // 批销解析
+    // ======================= 批销解析（增加单据编号） =======================
     function parseShipmentExcel(buf){
         const wb=XLSX.read(buf,{type:'array'}); const sheet=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(sheet,{defval:""}); if(!rows.length) throw new Error('无数据'); 
         const sample=rows[0]; 
@@ -317,6 +314,7 @@
         const colDate=findColumn(sample,['批销日期','批销时间','发货时间','最后发货时间','物流下达时间']);
         const colPrice=findColumn(sample,['定价','批销价','单价','实际价格']);
         const colAmount=findColumn(sample,['批销码洋','码洋','金额']);
+        const colBillNo=findColumn(sample,['单据编号','发货单号','批销单号','单号','凭证号','业务单号','出库单号']);
         if(!colCust||!colQty) throw new Error('缺少购货单位或批销册数列');
         let res=[]; 
         for(let r of rows){ 
@@ -331,29 +329,53 @@
             let shipDate=colDate?parseDate(r[colDate]):null;
             let unitPrice=colPrice?parseFloat(r[colPrice]):null;
             let amount=colAmount?parseFloat(r[colAmount]):null;
+            let billNo=colBillNo?(r[colBillNo]||'').toString().trim():'';
             if(unitPrice!==null && isNaN(unitPrice)) unitPrice=null;
             if(amount!==null && isNaN(amount)) amount=null;
             if(amount===null && unitPrice!==null) amount = qty * unitPrice;
             res.push({
                 customer, reqNumber, isbn, title, shippedQty:qty, 
                 shipPerson: person, shipDate: shipDate, shipUnitPrice: unitPrice, shipAmount: amount,
+                shipBillNo: billNo,
                 _raw: r
             }); 
         } 
         return res;
     }
     
-    function buildPriceDistribution(items){ let group=new Map(); for(let it of items){ let qty=it.qty,price=it.price; if(!price) continue; if(!group.has(qty)) group.set(qty,{min:price,max:price}); else{ let cur=group.get(qty); if(price<cur.min) cur.min=price; if(price>cur.max) cur.max=price; } } return Array.from(group.keys()).sort((a,b)=>a-b).map(q=>`${q}册(${group.get(q).min.toFixed(2)}-${group.get(q).max.toFixed(2)})`).join('；'); }
+    // 修正后的册数价格分布函数：显示每种订数的总册数，不展示虚假订数
+    function buildPriceDistribution(items) {
+        // items 结构: [{ qty: 订数, price: 单价 }]
+        let group = new Map(); // key: 订数, value: { totalQty: 该订数的总册数, minPrice, maxPrice }
+        for (let it of items) {
+            let qty = it.qty;
+            let price = it.price;
+            if (!price) continue;
+            if (!group.has(qty)) {
+                group.set(qty, { totalQty: qty, min: price, max: price });
+            } else {
+                let cur = group.get(qty);
+                cur.totalQty += qty;
+                if (price < cur.min) cur.min = price;
+                if (price > cur.max) cur.max = price;
+            }
+        }
+        // 排序并生成字符串，格式： "1册: 50本；2册: 100本"
+        return Array.from(group.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([qty, info]) => `${qty}册: ${info.totalQty}本`)
+            .join('；');
+    }
 
-    // 核心聚合
+    // ======================= 核心聚合（同一书号只取第一次，不累加） =======================
     async function aggregateData(orderFiles, shipFiles){
         let allOrders=[], allShips=[];
         for(let f of orderFiles){ let buf=await readFile(f); allOrders.push(...parseOrderExcel(buf)); }
         for(let f of shipFiles){ let buf=await readFile(f); allShips.push(...parseShipmentExcel(buf)); }
         state.rawOrders=allOrders; state.rawShipments=allShips;
         
-        // 1. 构建订单分组
-        let orderMap = new Map();
+        // 1. 构建订单分组，注意：同一订单下相同书号只保留第一次出现（用于明细），但总册数累加所有行
+        let orderMap = new Map(); // key: "客户|单号"
         for(let o of allOrders){
             let key = `${o.customer}|${o.reqNumber||''}`;
             if(!orderMap.has(key)){
@@ -361,28 +383,34 @@
                     customer: o.customer, reqNumber: o.reqNumber,
                     totalOrderQty: 0, totalReceivedQty: 0,
                     totalOrderAmount: 0, totalReceivedAmount: 0,
-                    details: new Map(),
+                    details: new Map(), // isbn -> { orderQty, orderAmount, reportDate, shippedRecords: [], rawOrder }
                     reportDate: o.reportDate,
                     errorList: []
                 });
             }
             let item = orderMap.get(key);
+            // 总册数、总码洋累加所有行
             item.totalOrderQty += o.orderQty;
             item.totalReceivedQty += o.receivedQty;
             if(o.price){
                 item.totalOrderAmount += o.orderQty * o.price;
                 item.totalReceivedAmount += o.receivedQty * o.price;
             }
-            let det = item.details.get(o.isbn) || { orderQty:0, orderAmount:0, reportDate: o.reportDate, shippedRecords: [], rawOrder: null };
-            det.orderQty += o.orderQty;
-            if(o.price) det.orderAmount += o.orderQty * o.price;
-            if(!det.reportDate || (o.reportDate && o.reportDate > det.reportDate)) det.reportDate = o.reportDate;
-            if(!det.rawOrder) det.rawOrder = o._raw;
-            item.details.set(o.isbn, det);
+            // 明细：同一书号只取第一次出现（不累加）
+            if(!item.details.has(o.isbn)){
+                let det = {
+                    orderQty: o.orderQty,
+                    orderAmount: o.orderQty * (o.price || 0),
+                    reportDate: o.reportDate,
+                    shippedRecords: [],
+                    rawOrder: o._raw
+                };
+                item.details.set(o.isbn, det);
+            }
             if(!item.reportDate || (o.reportDate && o.reportDate < item.reportDate)) item.reportDate = o.reportDate;
         }
         
-        // 普通客户订单列表
+        // 普通客户订单列表（按日期倒序）
         let normalOrdersByCustomer = new Map();
         for(let [key, item] of orderMap.entries()){
             if(SPECIAL.has(item.customer)) continue;
@@ -409,16 +437,10 @@
             let detail = orderItem.details.get(ship.isbn);
             if(!detail) {
                 let err = { 
-                    customer: ship.customer, 
-                    reqNumber: ship.reqNumber||'', 
-                    isbn: ship.isbn, 
-                    title: ship.title, 
-                    shippedQty: ship.shippedQty, 
-                    orderTotalQty: 0, 
-                    reason: `书号 ${ship.isbn} 不在该订单中`, 
-                    type: 'special',
-                    shipPerson: ship.shipPerson,
-                    shipDate: ship.shipDate
+                    customer: ship.customer, reqNumber: ship.reqNumber||'', isbn: ship.isbn, title: ship.title, 
+                    shippedQty: ship.shippedQty, orderTotalQty: 0, 
+                    reason: `书号 ${ship.isbn} 不在该订单中`, type: 'special',
+                    shipPerson: ship.shipPerson, shipDate: ship.shipDate, shipBillNo: ship.shipBillNo
                 };
                 globalErrors.push(err);
                 orderItem.errorList.push(err);
@@ -429,21 +451,16 @@
                 shipPerson: ship.shipPerson,
                 shipDate: ship.shipDate,
                 shipUnitPrice: ship.shipUnitPrice,
-                shipAmount: ship.shipAmount
+                shipAmount: ship.shipAmount,
+                shipBillNo: ship.shipBillNo
             });
             let totalShipped = detail.shippedRecords.reduce((s,r)=>s+r.shippedQty,0);
             if(totalShipped !== detail.orderQty){
                 let err = { 
-                    customer: ship.customer, 
-                    reqNumber: ship.reqNumber||'', 
-                    isbn: ship.isbn, 
-                    title: ship.title, 
-                    shippedQty: totalShipped, 
-                    orderTotalQty: detail.orderQty, 
-                    reason: `批销总数量(${totalShipped})与订单数量(${detail.orderQty})不一致`, 
-                    type: 'special',
-                    shipPerson: ship.shipPerson,
-                    shipDate: ship.shipDate
+                    customer: ship.customer, reqNumber: ship.reqNumber||'', isbn: ship.isbn, title: ship.title, 
+                    shippedQty: totalShipped, orderTotalQty: detail.orderQty, 
+                    reason: `批销总数量(${totalShipped})与订单数量(${detail.orderQty})不一致`, type: 'special',
+                    shipPerson: ship.shipPerson, shipDate: ship.shipDate, shipBillNo: ship.shipBillNo
                 };
                 if(!orderItem.errorList.some(e=>e.isbn===ship.isbn && e.reason.includes('不一致'))){
                     globalErrors.push(err);
@@ -452,14 +469,14 @@
             }
         }
         
-        // 普通客户匹配（此处简化，只保留错误记录需附带批销人时间，但普通客户错误暂不处理增强）
+        // 普通客户匹配（按客户+书号，按订单日期倒序分配）
         let normalShipByBook = new Map();
         for(let ship of normalShips){
             let key = `${ship.customer}|${ship.isbn}`;
             if(!normalShipByBook.has(key)) normalShipByBook.set(key, { totalShippedQty:0, samples:[] });
             let entry = normalShipByBook.get(key);
             entry.totalShippedQty += ship.shippedQty;
-            entry.samples.push({ title: ship.title, shipPerson: ship.shipPerson, shipDate: ship.shipDate, shipUnitPrice: ship.shipUnitPrice, shipAmount: ship.shipAmount });
+            entry.samples.push({ title: ship.title, shipPerson: ship.shipPerson, shipDate: ship.shipDate, shipUnitPrice: ship.shipUnitPrice, shipAmount: ship.shipAmount, shipBillNo: ship.shipBillNo });
         }
         
         for(let [cust, orders] of normalOrdersByCustomer.entries()){
@@ -487,7 +504,8 @@
                         shipPerson: sample.shipPerson,
                         shipDate: sample.shipDate,
                         shipUnitPrice: sample.shipUnitPrice,
-                        shipAmount: sample.shipAmount ? (assign / shipInfo.totalShippedQty) * sample.shipAmount : (sample.shipUnitPrice ? assign * sample.shipUnitPrice : null)
+                        shipAmount: sample.shipAmount ? (assign / shipInfo.totalShippedQty) * sample.shipAmount : (sample.shipUnitPrice ? assign * sample.shipUnitPrice : null),
+                        shipBillNo: sample.shipBillNo
                     });
                     remaining -= assign;
                     if(remaining === 0) break;
@@ -495,7 +513,12 @@
                 if(remaining > 0){
                     let totalOrderQty = 0;
                     for(let {key} of orders) totalOrderQty += (orderMap.get(key).details.get(isbn)?.orderQty || 0);
-                    let err = { customer: cust, reqNumber: '', isbn, title: shipInfo.samples[0].title, shippedQty: shipInfo.totalShippedQty, orderTotalQty: totalOrderQty, reason: `批销数量(${shipInfo.totalShippedQty})超出该客户订单总数量(${totalOrderQty})`, type: 'normal', shipPerson: shipInfo.samples[0].shipPerson, shipDate: shipInfo.samples[0].shipDate };
+                    let err = { 
+                        customer: cust, reqNumber: '', isbn, title: shipInfo.samples[0].title, 
+                        shippedQty: shipInfo.totalShippedQty, orderTotalQty: totalOrderQty, 
+                        reason: `批销数量(${shipInfo.totalShippedQty})超出该客户订单总数量(${totalOrderQty})`, type: 'normal', 
+                        shipPerson: shipInfo.samples[0].shipPerson, shipDate: shipInfo.samples[0].shipDate, shipBillNo: shipInfo.samples[0].shipBillNo
+                    };
                     globalErrors.push(err);
                     let firstKey = orders[0]?.key;
                     if(firstKey && orderMap.has(firstKey)) orderMap.get(firstKey).errorList.push(err);
@@ -512,7 +535,12 @@
                 if(orderMap.get(key).details.has(isbn)){ found = true; break; }
             }
             if(!found){
-                let err = { customer: cust, reqNumber: '', isbn, title: shipInfo.samples[0].title, shippedQty: shipInfo.totalShippedQty, orderTotalQty: 0, reason: `书号 ${isbn} 不在该客户的任何订单中`, type: 'normal', shipPerson: shipInfo.samples[0].shipPerson, shipDate: shipInfo.samples[0].shipDate };
+                let err = { 
+                    customer: cust, reqNumber: '', isbn, title: shipInfo.samples[0].title, 
+                    shippedQty: shipInfo.totalShippedQty, orderTotalQty: 0, 
+                    reason: `书号 ${isbn} 不在该客户的任何订单中`, type: 'normal', 
+                    shipPerson: shipInfo.samples[0].shipPerson, shipDate: shipInfo.samples[0].shipDate, shipBillNo: shipInfo.samples[0].shipBillNo
+                };
                 globalErrors.push(err);
                 let firstKey = orders[0]?.key;
                 if(firstKey && orderMap.has(firstKey)) orderMap.get(firstKey).errorList.push(err);
@@ -530,6 +558,7 @@
                 totalShippedQty += shippedSum;
                 totalShippedAmount += det.shippedRecords.reduce((s,r)=>s+(r.shipAmount||0),0);
             }
+            // 价格分布：基于明细中的 orderQty 和 price（每个书号只贡献一次）
             let priceItems = Array.from(item.details.entries()).map(([isbn, det]) => ({ qty: det.orderQty, price: det.orderAmount/det.orderQty }));
             let priceDist = buildPriceDistribution(priceItems);
             let errorCount = 0;
@@ -550,15 +579,7 @@
                 price_distribution: priceDist || '—',
                 error_count: errorCount
             });
-            let qtyMap = new Map();
-            for(let det of item.details.values()){
-                let orderQty = det.orderQty;
-                qtyMap.set(orderQty, (qtyMap.get(orderQty)||0) + orderQty);
-            }
-            let distributionText = Array.from(qtyMap.entries())
-                .sort((a,b)=>a[0]-b[0])
-                .map(([qty, total]) => `${qty}册: ${total}册 (${((total/item.totalOrderQty)*100).toFixed(1)}%)`)
-                .join('；');
+            // 构建明细（用于弹窗和导出）
             let details = [];
             for(let [isbn, orderDetail] of item.details.entries()){
                 let shippedTotal = orderDetail.shippedRecords.reduce((s,r)=>s+r.shippedQty,0);
@@ -569,7 +590,8 @@
                     shipPerson: r.shipPerson || '',
                     shipDate: r.shipDate ? formatDateShort(r.shipDate) : '',
                     shipUnitPrice: r.shipUnitPrice !== null ? r.shipUnitPrice.toFixed(2) : '',
-                    shipAmount: r.shipAmount !== null ? r.shipAmount.toFixed(2) : ''
+                    shipAmount: r.shipAmount !== null ? r.shipAmount.toFixed(2) : '',
+                    shipBillNo: r.shipBillNo || ''
                 }));
                 details.push({
                     isbn, title, price,
@@ -580,13 +602,23 @@
                     status: shippedTotal > orderDetail.orderQty ? '批销超出' : (shippedTotal>0 ? (shippedTotal===orderDetail.orderQty ? '已批销' : '部分批销') : '未批销')
                 });
             }
+            // 生成鼠标悬停的订数分布文本（基于明细，不累加重复书号）
+            let qtyMap = new Map();
+            for(let det of item.details.values()){
+                let orderQty = det.orderQty;
+                qtyMap.set(orderQty, (qtyMap.get(orderQty)||0) + orderQty);
+            }
+            let distributionText = Array.from(qtyMap.entries())
+                .sort((a,b)=>a[0]-b[0])
+                .map(([qty, total]) => `${qty}册: ${total}册 (${((total/item.totalOrderQty)*100).toFixed(1)}%)`)
+                .join('；');
             orderDetailsMap.set(key, { details, errors: item.errorList, errorCount: item.errorList.length, distributionText });
         }
         state.globalErrors = globalErrors;
         return { result, orderDetailsMap, globalErrors };
     }
     
-    // 渲染客户复选框
+    // ======================= 渲染客户复选框 =======================
     function renderCustomerCheckboxes() {
         let customers = [...new Set(state.orderGroups.map(i=>i.customer))].sort((a,b)=>a.localeCompare(b));
         if(!customers.length){ dom.customerCheckboxes.innerHTML='<span>暂无客户</span>'; return; }
@@ -614,7 +646,7 @@
         return filtered;
     }
     
-    // 主表格渲染
+    // ======================= 主表格渲染 =======================
     function renderTable() {
         if (!dom.tableBody) return;
         let filtered = getFilteredData();
@@ -715,7 +747,7 @@
                 <td class="${diffClass}">${diffText}</td>
                 <td><div class="progress"><div class="progress-fill" style="width:${barWidth}%"></div></div>${barWidth.toFixed(0)}%</td>
                 <td class="price-dist">${escapeHtml(row.price_distribution)}</td>
-            </table>`;
+            </tr>`;
         }
         dom.tableBody.innerHTML = html;
         document.querySelectorAll('.req-link').forEach(el => {
@@ -746,7 +778,7 @@
                     <td>${statusCls ? `<span class="badge-error">${d.status}</span>` : d.status}</td>
                 </tr>`;
             }
-            html += `</tbody></table>`;
+            html += `</tbody><tr>`;
             if(data.errors.length){
                 html += `<div style="color:#ffaa66;margin:10px 0 8px;">⚠️ 该订单的异常批销记录</div><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#1e2a47;"><th>书号</th><th>书名</th><th>批销册数</th><th>订单数量</th><th>批销人</th><th>批销时间</th><th>原因</th> </tr></thead><tbody>`;
                 for(let e of data.errors){
@@ -772,7 +804,7 @@
         dom.orderModalSearch.oninput = renderModal;
     }
     
-    // 全局异常弹窗
+    // ======================= 全局异常弹窗 =======================
     function renderErrorCustomerList() {
         let customers = [...new Set(state.globalErrors.map(e=>e.customer))].sort((a,b)=>a.localeCompare(b));
         if(!customers.length){ dom.errorCustomerList.innerHTML='<span>暂无客户</span>'; return; }
@@ -799,7 +831,6 @@
             dom.globalErrorContent.innerHTML = '<div style="padding:20px;text-align:center;">✅ 暂无异常记录</div>';
             return;
         }
-        // 建立isbn->订单映射用于智能提示
         let isbnOrderMap = new Map();
         for(let order of state.rawOrders){
             if(!order.isbn) continue;
@@ -811,7 +842,10 @@
                 title: order.title || ''
             });
         }
-        let html = `<table class="error-summary-table"><thead><tr><th>客户名称</th><th>馆配单号</th><th>书号</th><th>书名</th><th>批销册数</th><th>订单数量</th><th>批销人</th><th>批销时间</th><th>异常原因</th><th>操作</th> </tr></thead><tbody>`;
+        let html = `<table class="error-summary-table"><thead><tr>
+            <th>单据编号</th><th>客户名称</th><th>馆配单号</th><th>书号</th><th>书名</th>
+            <th>批销册数</th><th>订单数量</th><th>批销人</th><th>批销时间</th><th>异常原因</th><th>操作</th>
+        </tr></thead><tbody>`;
         for(let e of filtered){
             let enhancedReason = e.reason;
             if(e.reason.includes('不在该订单中') && e.isbn){
@@ -823,6 +857,7 @@
             }
             let btn = e.reqNumber ? `<button class="view-order" data-customer="${escapeHtml(e.customer)}" data-req="${escapeHtml(e.reqNumber)}" style="background:#1e2a47;border:none;color:#0cf;cursor:pointer;">查看订单</button>` : '—';
             html += `<tr>
+                <td>${escapeHtml(e.shipBillNo||'')}</td>
                 <td>${escapeHtml(e.customer)}</td>
                 <td>${escapeHtml(e.reqNumber||'—')}</td>
                 <td>${escapeHtml(e.isbn||'—')}</td>
@@ -852,7 +887,7 @@
         dom.globalErrorModal.classList.add('active');
     }
     
-    // 文件管理
+    // ======================= 文件管理 =======================
     function renderFileLists(){
         dom.orderFilesList.innerHTML = state.orderFiles.map((f,i)=>`<span class="file-tag">📄 ${escapeHtml(f.name)} <button data-idx="${i}" class="del-order">✖</button></span>`).join('');
         dom.shipFilesList.innerHTML = state.shipFiles.map((f,i)=>`<span class="file-tag">📦 ${escapeHtml(f.name)} <button data-idx="${i}" class="del-ship">✖</button></span>`).join('');
@@ -866,7 +901,7 @@
     function loadState(){ let data=localStorage.getItem('orderRateData'); if(data) try{ state.orderGroups=JSON.parse(data); }catch(e){} let sel=localStorage.getItem('selectedCustomers'); if(sel) try{ selectedCustomers=new Set(JSON.parse(sel)); }catch(e){} let sort=localStorage.getItem('currentSort'); if(sort) try{ currentSort=JSON.parse(sort); }catch(e){} let orderNames=localStorage.getItem('orderFileNames'); if(orderNames) try{ state.orderFiles=JSON.parse(orderNames).map(n=>({name:n,fileObj:null})); }catch(e){} let shipNames=localStorage.getItem('shipFileNames'); if(shipNames) try{ state.shipFiles=JSON.parse(shipNames).map(n=>({name:n,fileObj:null})); }catch(e){} renderFileLists(); renderCustomerCheckboxes(); if(state.orderGroups.length) renderTable(); }
     function resetAll(){ if(confirm('清空所有数据？')){ state.orderFiles=[]; state.shipFiles=[]; state.orderGroups=[]; state.orderDetailsMap.clear(); state.globalErrors=[]; state.rawOrders=[]; state.rawShipments=[]; localStorage.clear(); renderFileLists(); selectedCustomers.clear(); currentReqSuffix=''; errorSelectedCustomers.clear(); currentSort = { field: 'reportDate', order: 'desc' }; renderCustomerCheckboxes(); renderTable(); } }
     
-    // 导出未批销
+    // ======================= 导出功能 =======================
     async function exportUnshipped(){
         if(state.orderGroups.length===0){ alert('无数据'); return; }
         let merge = dom.mergeCheckbox.checked;
@@ -903,7 +938,6 @@
         alert(`导出完成，共${allRows.length}条未批销记录`);
     }
     
-    // 导出订单匹配结果
     function exportResult(){
         let filtered = getFilteredData();
         if(filtered.length === 0){ alert('当前筛选条件下无数据'); return; }
@@ -988,14 +1022,12 @@
         alert('导出成功');
     }
     
-    // 导出批销错误信息（仅特殊客户）
     function exportShipErrors(){
         let specialErrors = state.globalErrors.filter(e => e.type === 'special');
         if(specialErrors.length === 0){
             alert('没有需要导出的特殊客户批销错误记录');
             return;
         }
-        // 构建 isbn -> 订单列表映射
         let isbnOrderMap = new Map();
         for(let order of state.rawOrders){
             if(!order.isbn) continue;
@@ -1018,6 +1050,7 @@
                 }
             }
             rows.push({
+                '单据编号': err.shipBillNo || '',
                 '批销客户': err.customer,
                 '批销馆配单号': err.reqNumber || '',
                 '书号': err.isbn || '',
@@ -1061,6 +1094,7 @@
         });
     }
     
+    // ======================= 事件绑定 =======================
     function bindEvents(){
         document.getElementById('orderFileBtn').onclick=()=>dom.orderFileInput.click();
         document.getElementById('shipFileBtn').onclick=()=>dom.shipFileInput.click();
