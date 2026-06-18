@@ -1,0 +1,6 @@
+@echo off
+chcp 65001 >nul
+echo 正在启动 Cloudflare Pages 本地开发服务...
+wrangler pages dev ./
+echo 服务已停止，按任意键退出...
+pause >nul

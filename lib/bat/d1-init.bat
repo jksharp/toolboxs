@@ -1,0 +1,6 @@
+@echo off
+chcp 65001 >nul
+echo 正在初始化本地 D1 数据库...
+wrangler d1 execute erp_db --local --file=./lib/sql/init-db.sql
+echo 数据库初始化完成，按任意键退出...
+pause >nul
